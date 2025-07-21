@@ -121,7 +121,7 @@ header {
 .item {
     background-color: var(--primary-color);
     border-radius: var(--border-radius);
-    padding: 12px;
+    padding: 0.25rem;
     transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     cursor: pointer;
     overflow: hidden;

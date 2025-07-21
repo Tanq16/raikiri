@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderFolderItems(folders) {
         return folders.map(folder => `
             <div class="item" data-path="${folder.path}" data-type="folder">
-                <i class="fas fa-folder"></i>
+                <div class="item-icon"><i class="fas fa-folder"></i></div>
                 <p class="item-name">${folder.name}</p>
             </div>
         `).join('');
