@@ -103,7 +103,7 @@ func main() {
 
 // --- Thumbnail Generation ---
 
-func createThumbnail(filePath string) {
+func createThumbnail(filePath string) error {
 	dir := filepath.Dir(filePath)
 	filename := filepath.Base(filePath)
 	thumbFilename := fmt.Sprintf(".%s.raithumb.jpg", filename)
@@ -112,8 +112,7 @@ func createThumbnail(filePath string) {
 
 	// Skip if thumbnail already exists
 	if _, err := os.Stat(thumbPath); err == nil {
-		// log.Printf(" -> Thumbnail already exists for %s", filename)
-		return
+		return nil
 	}
 
 	var cmd *exec.Cmd
@@ -142,18 +141,17 @@ func createThumbnail(filePath string) {
 	} else if isVideo {
 		cmd = exec.Command("ffmpeg", "-i", filePath, "-ss", "00:00:30", "-vframes", "1", "-vf", fmt.Sprintf("scale=%s:-1", strings.Split(size, "x")[0]), "-q:v", "3", "-y", thumbPath)
 	} else {
-		return // Not a supported file type
+		return nil // Not a supported file type
 	}
 
-	// Hide console window on Window
+	// Hide console window on Windows
 	hideWindow(cmd)
 
 	err := cmd.Run()
 	if err != nil {
-		log.Printf(" -> FAILED to create thumbnail for %s. Error: %v", filename, err)
-	} else {
-		log.Printf(" -> Thumbnail created for %s", filename)
+		return fmt.Errorf("failed to create thumbnail for %s: %w", filename, err)
 	}
+	return nil
 }
 
 func processDirectoryForThumbnails(rootDir string) {
@@ -188,9 +186,15 @@ func processDirectoryForThumbnails(rootDir string) {
 	log.Printf("Found %d media files to process in '%s'.", totalFiles, rootDir)
 
 	for i, filePath := range filesToProcess {
-		log.Printf("\n[%d/%d] Processing: %s", i+1, totalFiles, filePath)
-		createThumbnail(filePath)
+		err := createThumbnail(filePath)
+		if err != nil {
+			// On error, print a new line with the error message, then continue
+			fmt.Printf("\nERROR: %s\n", filePath)
+		}
+		// In every iteration, print the progress to the same line
+		fmt.Printf("\r%d / %d files done", i+1, totalFiles)
 	}
+	fmt.Println() // Add a final newline after the loop is done
 }
 
 // --- Background File Scanner ---
