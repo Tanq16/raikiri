@@ -132,7 +132,14 @@ func handleBrowse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content := DirectoryContent{CurrentPath: filepath.ToSlash(relativePath)}
+	content := DirectoryContent{
+		CurrentPath: filepath.ToSlash(relativePath),
+		Folders:     []FileInfo{},
+		Images:      []FileInfo{},
+		Videos:      []FileInfo{},
+		Others:      []FileInfo{},
+		Breadcrumbs: []FileInfo{},
+	}
 
 	// Build breadcrumbs
 	content.Breadcrumbs = append(content.Breadcrumbs, FileInfo{Name: "Home", Path: ""})
