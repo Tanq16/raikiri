@@ -110,94 +110,64 @@ header {
 .grid {
     display: grid;
     gap: var(--spacing);
+    /* Unified grid layout for wider items */
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 
-.grid.folders, .grid.others {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-}
-
-.grid.images {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-}
-
-.grid.videos {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-}
-
-/* --- Item Styles --- */
+/* --- Item Styles (New Flexbox Layout) --- */
 .item {
     background-color: var(--primary-color);
     border-radius: var(--border-radius);
-    padding: var(--spacing);
-    text-align: center;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    padding: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     cursor: pointer;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    text-align: left;
+    color: var(--font-color); /* Ensure text color for <a> tags is consistent */
 }
 
 .item:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    background-color: var(--secondary-color);
 }
 
 .item i {
-    font-size: 2.5rem;
+    font-size: 1.75rem; /* Smaller icon */
     color: var(--accent-color);
-    margin-bottom: calc(var(--spacing) / 2);
+    margin-right: 12px;
+    width: 28px; /* Fixed width for alignment */
+    text-align: center;
+    flex-shrink: 0;
 }
 
 .item-name {
-    font-size: 0.8rem;
-    color: var(--font-color-dark);
-    word-break: break-word;
-}
-
-.media-item {
-    position: relative;
-    border-radius: var(--border-radius);
+    font-size: 0.9rem;
+    color: var(--font-color); /* Brighter text */
+    white-space: nowrap;
     overflow: hidden;
-    background-color: var(--primary-color);
+    text-overflow: ellipsis;
+    flex-grow: 1;
 }
 
-.media-item img {
+/* Image item with thumbnail */
+.image-thumbnail {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    margin-right: 12px;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: var(--secondary-color);
+}
+
+.image-thumbnail img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s ease;
 }
-
-.media-item:hover img {
-    transform: scale(1.05);
-}
-
-.media-item .overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.media-item:hover .overlay {
-    opacity: 1;
-}
-
-.overlay i {
-    color: white;
-    font-size: 3rem;
-}
-
-.image-item {
-    aspect-ratio: 1 / 1;
-}
-
-.video-item {
-    aspect-ratio: 16 / 9;
-}
-
 
 /* --- Modal --- */
 .modal {
@@ -211,6 +181,8 @@ header {
     background-color: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(5px);
     animation: fadeIn 0.3s ease;
+    padding: 2.5vh 5vw; /* Added padding to ensure content never touches edges */
+    box-sizing: border-box;
 }
 
 .modal-content {
@@ -222,17 +194,25 @@ header {
     justify-content: center;
 }
 
+/* Container for the media, ensures it fits within the viewport */
 #modal-content-container {
-    max-width: 90vw;
-    max-height: 90vh;
-}
-
-#modal-content-container img,
-#modal-content-container .plyr {
     width: 100%;
     height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* The actual image or video player, constrained within its container */
+#modal-content-container img,
+#modal-content-container .plyr {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
     object-fit: contain;
     border-radius: var(--border-radius);
+    display: block;
 }
 
 .modal-close-btn {
@@ -245,6 +225,7 @@ header {
     font-size: 1.5rem;
     cursor: pointer;
     transition: color 0.2s ease;
+    z-index: 10;
 }
 
 .modal-close-btn:hover {
@@ -263,6 +244,7 @@ header {
     padding: 10px 15px;
     border-radius: 50%;
     transition: background-color 0.2s;
+    z-index: 10;
 }
 
 .modal-nav-btn:hover {
@@ -294,7 +276,8 @@ header {
         align-items: flex-start;
     }
 
-    .grid.folders, .grid.others {
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    .grid {
+        /* Adjust grid for smaller screens if needed, though auto-fill works well */
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     }
 }

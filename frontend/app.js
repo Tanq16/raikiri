@@ -85,18 +85,32 @@ document.addEventListener('DOMContentLoaded', () => {
         `).join('');
     }
 
+    /**
+     * Renders media items.
+     * - Images are rendered with a thumbnail and name.
+     * - Videos are rendered with an icon and name (no thumbnail).
+     */
     function renderMediaItems(items, type) {
         return items.map((item, index) => {
             const mediaIndex = type === 'image' ? index : currentDirectoryContent.images.length + index;
-            const itemClass = type === 'image' ? 'image-item' : 'video-item';
-            const icon = type === 'video' ? '<div class="overlay"><i class="fas fa-play"></i></div>' : '';
-
-            return `
-                <div class="item media-item ${itemClass}" data-media-index="${mediaIndex}">
-                    <img src="/media/${item.path}" alt="${item.name}" loading="lazy">
-                    ${icon}
-                </div>
-            `;
+            
+            if (type === 'image') {
+                return `
+                    <div class="item media-item image-item" data-media-index="${mediaIndex}">
+                        <div class="image-thumbnail">
+                            <img src="/media/${item.path}" alt="${item.name}" loading="lazy">
+                        </div>
+                        <p class="item-name">${item.name}</p>
+                    </div>
+                `;
+            } else { // type === 'video'
+                return `
+                    <div class="item media-item video-item" data-media-index="${mediaIndex}">
+                        <i class="fas fa-file-video"></i>
+                        <p class="item-name">${item.name}</p>
+                    </div>
+                `;
+            }
         }).join('');
     }
     
@@ -115,15 +129,20 @@ document.addEventListener('DOMContentLoaded', () => {
             mainContent.innerHTML = `<p>No results found.</p>`;
             return;
         }
-        const resultItems = results.map(item => `
-            <div class="item" data-path="${item.path.substring(0, item.path.lastIndexOf('/'))}" data-type="folder">
-                 <i class="fas fa-file"></i>
-                <p class="item-name">${item.path}</p>
-            </div>
-        `).join('');
+        // Use a folder icon for the parent directory and file icon for the result itself
+        const resultItems = results.map(item => {
+            const parentPath = item.path.substring(0, item.path.lastIndexOf('/'));
+            return `
+                <div class="item search-result-item" data-path="${parentPath}" data-type="folder">
+                    <i class="fas fa-file"></i>
+                    <p class="item-name">${item.path}</p>
+                </div>
+            `;
+        }).join('');
         mainContent.innerHTML = `
             <section class="section">
-                <div class="grid folders">${resultItems}</div>
+                <h2 class="section-title">Results</h2>
+                <div class="grid">${resultItems}</div>
             </section>
         `;
     }
