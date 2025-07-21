@@ -1,0 +1,103 @@
+/* frontend/styles.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #111827; /* bg-gray-900 */
+    color: #d1d5db; /* text-gray-300 */
+}
+
+/* Custom scrollbar for a more integrated look */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #1f2937; /* bg-gray-800 */
+}
+::-webkit-scrollbar-thumb {
+    background: #4b5563; /* bg-gray-600 */
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #6b7280; /* bg-gray-500 */
+}
+
+/* --- Section Styling --- */
+.section-title {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+.section-arrow {
+    transition: transform 0.3s ease-in-out;
+}
+.section-content {
+    transition: max-height 0.5s ease-in-out, opacity 0.5s ease-in-out, margin-top 0.5s ease-in-out;
+    overflow: hidden;
+    max-height: 2000px; /* Default large value */
+    opacity: 1;
+}
+.section-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0 !important;
+}
+.section-title.collapsed .section-arrow {
+    transform: rotate(-90deg);
+}
+
+
+/* --- Modal Styling --- */
+.modal {
+    display: none;
+    animation: fadeIn 0.3s ease-out;
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.modal-content-container {
+    animation: scaleIn 0.3s ease-out;
+}
+@keyframes scaleIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+#modal-image {
+    object-fit: contain;
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 0.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modal-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    color: white;
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 0.5rem;
+    border-radius: 9999px;
+    transition: background-color 0.2s ease-in-out;
+}
+.modal-nav-btn:hover {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+.modal-nav-btn:disabled {
+    display: none;
+}
+
+/* --- Plyr Video Player Customization --- */
+.plyr {
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+:root {
+  --plyr-color-main: #4f46e5; /* indigo-600 */
+}
