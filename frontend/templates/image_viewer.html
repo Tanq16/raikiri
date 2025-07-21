@@ -1,0 +1,20 @@
+{{define "image_viewer.html"}}
+<img id="modal-image" src="/media/{{.ImagePath}}" alt="{{.ImagePath}}">
+<div class="image-viewer-controls">
+    {{if .PrevPath}}
+    <button id="prev-image-btn" class="image-viewer-control-button"
+            hx-get="/prev-image?from={{.ImagePath}}"
+            hx-target="#modal-image-container" hx-swap="innerHTML">&larr;</button>
+    {{else}}
+    <span></span>
+    {{end}}
+    
+    {{if .NextPath}}
+    <button id="next-image-btn" class="image-viewer-control-button"
+            hx-get="/next-image?from={{.ImagePath}}"
+            hx-target="#modal-image-container" hx-swap="innerHTML">&rarr;</button>
+    {{else}}
+    <span></span>
+    {{end}}
+</div>
+{{end}}

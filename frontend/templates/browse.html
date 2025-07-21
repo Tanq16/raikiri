@@ -1,0 +1,75 @@
+{{define "browse.html"}}
+<div class="box mt-4">
+    <nav class="breadcrumb" aria-label="breadcrumbs">
+        <ul>
+            <li><a href="#" hx-get="/browse/" hx-target="#main-content"><span class="icon is-small"><i class="fas fa-home" aria-hidden="true"></i></span><span>Home</span></a></li>
+            {{$current := .CurrentPath}}
+            {{range $i, $part := split .CurrentPath "/"}}
+                {{if $part}}
+                    <li><a href="#" hx-get="/browse/{{join (slice (split $current "/") 0 (add $i 1)) "/"}}" hx-target="#main-content">{{$part}}</a></li>
+                {{end}}
+            {{end}}
+        </ul>
+    </nav>
+    <hr class="m-0 mb-4">
+
+    {{if .Folders}}
+    <h3 class="subtitle is-5 has-text-grey-light">Folders</h3>
+    <div class="list is-hoverable">
+        {{range .Folders}}
+        <a class="list-item" href="#" hx-get="/browse/{{.Path}}" hx-target="#main-content" hx-swap="innerHTML">
+            <span class="icon"><i class="fas fa-folder"></i></span>&nbsp;{{.Name}}
+        </a>
+        {{end}}
+    </div>
+    {{end}}
+
+    {{if .Images}}
+    <h3 class="subtitle is-5 has-text-grey-light mt-5">Images</h3>
+    <div class="columns is-multiline is-mobile">
+        {{range .Images}}
+        <div class="column is-one-quarter-desktop is-one-third-tablet is-half-mobile">
+            <div class="card is-clickable" 
+                 hx-get="/image-viewer/{{.Path}}" 
+                 hx-target="#modal-image-container" 
+                 hx-swap="innerHTML"
+                 hx-on::after-swap="document.getElementById('image-modal').classList.add('is-active')">
+                <div class="card-image">
+                    <figure class="image is-4by3"><img src="{{.ThumbURL}}" alt="{{.Name}}" style="object-fit: cover;"></figure>
+                </div>
+                <div class="card-content p-2 has-text-centered"><p class="is-size-7 is-clipped">{{.Name}}</p></div>
+            </div>
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+
+	{{if .Videos}}
+    <h3 class="subtitle is-5 has-text-grey-light mt-5">Videos</h3>
+    <div class="list">
+        {{range .Videos}}
+        <div class="list-item">
+            <div class="list-item-content">
+                <div class="list-item-title"><span class="icon"><i class="fas fa-film"></i></span>&nbsp;{{.Name}}</div>
+            </div>
+            <div class="list-item-controls"><a href="/media/{{.Path}}" target="_blank" class="button is-small is-light">Play</a></div>
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+
+	{{if .Others}}
+    <h3 class="subtitle is-5 has-text-grey-light mt-5">Other Files</h3>
+    <div class="list">
+        {{range .Others}}
+        <div class="list-item">
+            <div class="list-item-content">
+                <div class="list-item-title"><span class="icon"><i class="fas fa-file"></i></span>&nbsp;{{.Name}}</div>
+            </div>
+            <div class="list-item-controls"><a href="/media/{{.Path}}" target="_blank" class="button is-small is-light">Download</a></div>
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{end}}
