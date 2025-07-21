@@ -94,6 +94,10 @@ header {
     color: var(--font-color);
 }
 
+#breadcrumbs .separator {
+    margin: 0 8px;
+}
+
 /* --- Main Content & Sections --- */
 .section {
     margin-bottom: calc(var(--spacing) * 3);
@@ -110,11 +114,10 @@ header {
 .grid {
     display: grid;
     gap: var(--spacing);
-    /* Unified grid layout for wider items */
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 
-/* --- Item Styles (New Flexbox Layout) --- */
+/* --- Item Styles --- */
 .item {
     background-color: var(--primary-color);
     border-radius: var(--border-radius);
@@ -125,7 +128,7 @@ header {
     display: flex;
     align-items: center;
     text-align: left;
-    color: var(--font-color); /* Ensure text color for <a> tags is consistent */
+    color: var(--font-color);
 }
 
 .item:hover {
@@ -134,26 +137,32 @@ header {
     background-color: var(--secondary-color);
 }
 
-.item i {
-    font-size: 1.75rem; /* Smaller icon */
+.item-icon {
+    font-size: 1.75rem;
     color: var(--accent-color);
     margin-right: 12px;
-    width: 28px; /* Fixed width for alignment */
-    text-align: center;
+    width: 48px; /* Match thumbnail width */
+    height: 48px; /* Match thumbnail height */
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.item-icon i {
+    font-size: 1.75rem;
 }
 
 .item-name {
     font-size: 0.9rem;
-    color: var(--font-color); /* Brighter text */
+    color: var(--font-color);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     flex-grow: 1;
 }
 
-/* Image item with thumbnail */
-.image-thumbnail {
+.item-thumbnail {
     width: 48px;
     height: 48px;
     flex-shrink: 0;
@@ -163,7 +172,7 @@ header {
     background-color: var(--secondary-color);
 }
 
-.image-thumbnail img {
+.item-thumbnail img {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -181,7 +190,7 @@ header {
     background-color: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(5px);
     animation: fadeIn 0.3s ease;
-    padding: 2.5vh 5vw; /* Added padding to ensure content never touches edges */
+    padding: 2.5vh 5vw;
     box-sizing: border-box;
 }
 
@@ -194,7 +203,6 @@ header {
     justify-content: center;
 }
 
-/* Container for the media, ensures it fits within the viewport */
 #modal-content-container {
     width: 100%;
     height: 100%;
@@ -203,7 +211,6 @@ header {
     justify-content: center;
 }
 
-/* The actual image or video player, constrained within its container */
 #modal-content-container img,
 #modal-content-container .plyr {
     max-width: 100%;
@@ -277,7 +284,6 @@ header {
     }
 
     .grid {
-        /* Adjust grid for smaller screens if needed, though auto-fill works well */
         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     }
 }

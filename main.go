@@ -1,13 +1,15 @@
-// main.go
 package main
 
 import (
 	"embed"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -18,19 +20,13 @@ import (
 //go:embed frontend
 var embeddedFrontend embed.FS
 
-// --- Configuration ---
-const (
-	mediaRoot       = "Prox1" // Make sure you have a 'media' directory next to the executable
-	serverPort      = ":8080"
-	refreshInterval = 30 * time.Minute
-)
-
 // --- Data Structures ---
 
 type FileInfo struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-	Type string `json:"type"`
+	Name          string `json:"name"`
+	Path          string `json:"path"`
+	Type          string `json:"type"`
+	ThumbnailPath string `json:"thumbnailPath,omitempty"`
 }
 
 type DirectoryContent struct {
@@ -43,8 +39,9 @@ type DirectoryContent struct {
 }
 
 type AppState struct {
-	mu       sync.RWMutex
-	AllFiles []string
+	mu        sync.RWMutex
+	AllFiles  []string
+	MediaRoot string
 }
 
 var appState = AppState{}
@@ -52,47 +49,156 @@ var appState = AppState{}
 // --- Main Application Logic ---
 
 func main() {
+	// --- Command-line Flags ---
+	mediaDir := flag.String("media", "./media", "Path to the media directory")
+	port := flag.String("port", "8080", "Port to run the server on")
+	refreshMinutes := flag.Int("refresh", 30, "Interval in minutes to refresh the file listing")
+	prepare := flag.Bool("prepare", false, "Generate thumbnails for all media and exit")
+	flag.Parse()
+
+	appState.MediaRoot = *mediaDir
+
 	// Check if media directory exists
-	if _, err := os.Stat(mediaRoot); os.IsNotExist(err) {
-		log.Printf("Creating media directory at './%s'", mediaRoot)
-		os.Mkdir(mediaRoot, 0755)
+	if _, err := os.Stat(appState.MediaRoot); os.IsNotExist(err) {
+		log.Printf("Creating media directory at '%s'", appState.MediaRoot)
+		os.MkdirAll(appState.MediaRoot, 0755)
 	}
 
-	go scanMediaFilesPeriodically()
+	// --- Prepare Mode ---
+	if *prepare {
+		log.Println("Starting in prepare mode. Generating thumbnails...")
+		if _, err := exec.LookPath("ffmpeg"); err != nil {
+			log.Fatalf("Error: `ffmpeg` is not installed or not in your system's PATH. Please install ffmpeg to use the prepare feature.")
+		}
+		processDirectoryForThumbnails(appState.MediaRoot)
+		log.Println("Thumbnail generation complete.")
+		return
+	}
+
+	// --- Server Mode ---
+	go scanMediaFilesPeriodically(time.Duration(*refreshMinutes) * time.Minute)
 
 	mux := http.NewServeMux()
 
-	// Create a sub-filesystem for the 'frontend' directory
 	frontendFS, err := fs.Sub(embeddedFrontend, "frontend")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Serve static files (index.html, styles.css, app.js) from the root of the sub-filesystem
 	mux.Handle("/", http.FileServer(http.FS(frontendFS)))
-
-	// API handlers
 	mux.HandleFunc("/api/browse/", handleBrowse)
 	mux.HandleFunc("/api/search", handleSearch)
 
-	// Static file server for the actual media content
-	mediaFileServer := http.FileServer(http.Dir(mediaRoot))
+	mediaFileServer := http.FileServer(http.Dir(appState.MediaRoot))
 	mux.Handle("/media/", http.StripPrefix("/media/", mediaFileServer))
 
+	serverPort := ":" + *port
 	log.Printf("Starting server on http://localhost%s", serverPort)
-	log.Printf("Serving media from the '%s' directory.", mediaRoot)
+	log.Printf("Serving media from the '%s' directory.", appState.MediaRoot)
 
 	if err := http.ListenAndServe(serverPort, mux); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
 
+// --- Thumbnail Generation ---
+
+func createThumbnail(filePath string) {
+	dir := filepath.Dir(filePath)
+	filename := filepath.Base(filePath)
+	thumbFilename := fmt.Sprintf(".%s.raithumb.jpg", filename)
+	thumbPath := filepath.Join(dir, thumbFilename)
+	size := "320x180"
+
+	// Skip if thumbnail already exists
+	if _, err := os.Stat(thumbPath); err == nil {
+		// log.Printf(" -> Thumbnail already exists for %s", filename)
+		return
+	}
+
+	var cmd *exec.Cmd
+	ext := strings.ToLower(filepath.Ext(filePath))
+	imageExtensions := []string{".jpg", ".jpeg", ".png", ".webp", ".gif"}
+	videoExtensions := []string{".mp4", ".mkv", ".webm", ".mov", ".avi", ".flv"}
+
+	isImage := false
+	for _, e := range imageExtensions {
+		if ext == e {
+			isImage = true
+			break
+		}
+	}
+
+	isVideo := false
+	for _, e := range videoExtensions {
+		if ext == e {
+			isVideo = true
+			break
+		}
+	}
+
+	if isImage {
+		cmd = exec.Command("ffmpeg", "-i", filePath, "-vf", fmt.Sprintf("scale=%s:-1", strings.Split(size, "x")[0]), "-q:v", "3", "-y", thumbPath)
+	} else if isVideo {
+		cmd = exec.Command("ffmpeg", "-i", filePath, "-ss", "00:00:30", "-vframes", "1", "-vf", fmt.Sprintf("scale=%s:-1", strings.Split(size, "x")[0]), "-q:v", "3", "-y", thumbPath)
+	} else {
+		return // Not a supported file type
+	}
+
+	// Hide console window on Window
+	hideWindow(cmd)
+
+	err := cmd.Run()
+	if err != nil {
+		log.Printf(" -> FAILED to create thumbnail for %s. Error: %v", filename, err)
+	} else {
+		log.Printf(" -> Thumbnail created for %s", filename)
+	}
+}
+
+func processDirectoryForThumbnails(rootDir string) {
+	supportedExtensions := []string{
+		".jpg", ".jpeg", ".png", ".webp", ".gif",
+		".mp4", ".mkv", ".webm", ".mov", ".avi", ".flv",
+	}
+
+	var filesToProcess []string
+	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && !strings.HasPrefix(info.Name(), ".") {
+			ext := strings.ToLower(filepath.Ext(info.Name()))
+			for _, supportedExt := range supportedExtensions {
+				if ext == supportedExt {
+					filesToProcess = append(filesToProcess, path)
+					break
+				}
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		log.Printf("Error walking directory: %v", err)
+		return
+	}
+
+	totalFiles := len(filesToProcess)
+	log.Printf("Found %d media files to process in '%s'.", totalFiles, rootDir)
+
+	for i, filePath := range filesToProcess {
+		log.Printf("\n[%d/%d] Processing: %s", i+1, totalFiles, filePath)
+		createThumbnail(filePath)
+	}
+}
+
 // --- Background File Scanner ---
 
-func scanMediaFilesPeriodically() {
+func scanMediaFilesPeriodically(interval time.Duration) {
 	log.Println("Performing initial media scan...")
 	scanAndCacheFiles()
-	ticker := time.NewTicker(refreshInterval)
+	ticker := time.NewTicker(interval)
 	for range ticker.C {
 		log.Println("Refreshing media file list...")
 		scanAndCacheFiles()
@@ -101,12 +207,13 @@ func scanMediaFilesPeriodically() {
 
 func scanAndCacheFiles() {
 	var fileList []string
-	filepath.Walk(mediaRoot, func(path string, info os.FileInfo, err error) error {
+	filepath.Walk(appState.MediaRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() {
-			relativePath, err := filepath.Rel(mediaRoot, path)
+		// Exclude directories and hidden files from the search index
+		if !info.IsDir() && !strings.HasPrefix(info.Name(), ".") {
+			relativePath, err := filepath.Rel(appState.MediaRoot, path)
 			if err == nil {
 				fileList = append(fileList, filepath.ToSlash(relativePath))
 			}
@@ -124,7 +231,7 @@ func scanAndCacheFiles() {
 
 func handleBrowse(w http.ResponseWriter, r *http.Request) {
 	relativePath := strings.TrimPrefix(r.URL.Path, "/api/browse/")
-	fullPath := filepath.Join(mediaRoot, relativePath)
+	fullPath := filepath.Join(appState.MediaRoot, relativePath)
 
 	entries, err := os.ReadDir(fullPath)
 	if err != nil {
@@ -154,6 +261,11 @@ func handleBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, entry := range entries {
+		// Skip hidden files and folders
+		if strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+
 		info := FileInfo{
 			Name: entry.Name(),
 			Path: filepath.ToSlash(filepath.Join(relativePath, entry.Name())),
@@ -164,11 +276,18 @@ func handleBrowse(w http.ResponseWriter, r *http.Request) {
 			info.Type = "folder"
 			content.Folders = append(content.Folders, info)
 		} else {
+			// Check for thumbnail
+			thumbFilename := fmt.Sprintf(".%s.raithumb.jpg", entry.Name())
+			thumbPhysicalPath := filepath.Join(fullPath, thumbFilename)
+			if _, err := os.Stat(thumbPhysicalPath); err == nil {
+				info.ThumbnailPath = filepath.ToSlash(filepath.Join(relativePath, thumbFilename))
+			}
+
 			switch ext {
 			case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp":
 				info.Type = "image"
 				content.Images = append(content.Images, info)
-			case ".mp4", ".webm", ".mkv", ".mov", ".avi":
+			case ".mp4", ".webm", ".mkv", ".mov", ".avi", ".flv":
 				info.Type = "video"
 				content.Videos = append(content.Videos, info)
 			default:
@@ -202,11 +321,24 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	var results []FileInfo
 	for _, file := range allFiles {
 		if strings.Contains(strings.ToLower(file), query) {
-			results = append(results, FileInfo{
+			fileInfo := FileInfo{
 				Name: filepath.Base(file),
 				Path: file,
-				Type: "file", // Generic type for search results
-			})
+				Type: "file",
+			}
+
+			// Check for thumbnail
+			dir := filepath.Dir(filepath.Join(appState.MediaRoot, file))
+			filename := filepath.Base(file)
+			thumbFilename := fmt.Sprintf(".%s.raithumb.jpg", filename)
+			thumbPhysicalPath := filepath.Join(dir, thumbFilename)
+
+			if _, err := os.Stat(thumbPhysicalPath); err == nil {
+				thumbRelativePath := filepath.Join(filepath.Dir(file), thumbFilename)
+				fileInfo.ThumbnailPath = filepath.ToSlash(thumbRelativePath)
+			}
+
+			results = append(results, fileInfo)
 			if len(results) >= 50 { // Limit results
 				break
 			}

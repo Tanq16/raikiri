@@ -85,39 +85,32 @@ document.addEventListener('DOMContentLoaded', () => {
         `).join('');
     }
 
-    /**
-     * Renders media items.
-     * - Images are rendered with a thumbnail and name.
-     * - Videos are rendered with an icon and name (no thumbnail).
-     */
     function renderMediaItems(items, type) {
         return items.map((item, index) => {
             const mediaIndex = type === 'image' ? index : currentDirectoryContent.images.length + index;
-            
-            if (type === 'image') {
-                return `
-                    <div class="item media-item image-item" data-media-index="${mediaIndex}">
-                        <div class="image-thumbnail">
-                            <img src="/media/${item.path}" alt="${item.name}" loading="lazy">
-                        </div>
-                        <p class="item-name">${item.name}</p>
-                    </div>
-                `;
-            } else { // type === 'video'
-                return `
-                    <div class="item media-item video-item" data-media-index="${mediaIndex}">
-                        <i class="fas fa-file-video"></i>
-                        <p class="item-name">${item.name}</p>
-                    </div>
-                `;
+            const thumbnailSrc = item.thumbnailPath ? `/media/${item.thumbnailPath}` : (type === 'image' ? `/media/${item.path}` : null);
+
+            let thumbnailHtml;
+            if (thumbnailSrc) {
+                thumbnailHtml = `<div class="item-thumbnail"><img src="${thumbnailSrc}" alt="${item.name}" loading="lazy"></div>`;
+            } else {
+                // Fallback for videos without thumbnails
+                thumbnailHtml = `<div class="item-icon"><i class="fas fa-file-video"></i></div>`;
             }
+
+            return `
+                <div class="item media-item" data-full-path="${item.path}" data-media-index="${mediaIndex}" data-type="${type}">
+                    ${thumbnailHtml}
+                    <p class="item-name">${item.name}</p>
+                </div>
+            `;
         }).join('');
     }
     
     function renderOtherItems(items) {
         return items.map(item => `
             <a href="/media/${item.path}" target="_blank" class="item">
-                <i class="fas fa-file-alt"></i>
+                <div class="item-icon"><i class="fas fa-file-alt"></i></div>
                 <p class="item-name">${item.name}</p>
             </a>
         `).join('');
@@ -129,16 +122,26 @@ document.addEventListener('DOMContentLoaded', () => {
             mainContent.innerHTML = `<p>No results found.</p>`;
             return;
         }
-        // Use a folder icon for the parent directory and file icon for the result itself
+       
         const resultItems = results.map(item => {
-            const parentPath = item.path.substring(0, item.path.lastIndexOf('/'));
+            const parentPath = item.path.substring(0, item.path.lastIndexOf('/') || 0);
+            const thumbnailSrc = item.thumbnailPath ? `/media/${item.thumbnailPath}` : null;
+
+            let thumbnailHtml;
+            if (thumbnailSrc) {
+                thumbnailHtml = `<div class="item-thumbnail"><img src="${thumbnailSrc}" alt="${item.name}" loading="lazy"></div>`;
+            } else {
+                thumbnailHtml = `<div class="item-icon"><i class="fas fa-file"></i></div>`;
+            }
+
             return `
                 <div class="item search-result-item" data-path="${parentPath}" data-type="folder">
-                    <i class="fas fa-file"></i>
+                    ${thumbnailHtml}
                     <p class="item-name">${item.path}</p>
                 </div>
             `;
         }).join('');
+
         mainContent.innerHTML = `
             <section class="section">
                 <h2 class="section-title">Results</h2>
@@ -211,6 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const { path, type, mediaIndex } = item.dataset;
 
         if (type === 'folder') {
+            // For search results, path is the parent. For regular folders, it's the folder itself.
             fetchData(path);
         } else if (mediaIndex) {
             openModal(mediaIndex);
