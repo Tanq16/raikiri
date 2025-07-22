@@ -63,7 +63,7 @@ jobs:
 
       - name: Upload Release Asset
         run: |
-          gh release upload "${{ needs.check-commit.outputs.version }}" "raikiri-${{ matrix.os == 'windows' && '.exe' || '' }}"
+          gh release upload "${{ needs.check-commit.outputs.version }}" "raikiri${{ matrix.os == 'windows' && '.exe' || '' }}"
         env:
           GH_TOKEN: ${{ github.token }}
 
