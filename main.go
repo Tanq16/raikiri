@@ -21,6 +21,11 @@ import (
 //go:embed frontend
 var embeddedFrontend embed.FS
 
+var imageExtensions []string = []string{".jpg", ".jpeg", ".png", ".gif", ".webp"}
+var videoExtensions []string = []string{".mp4", ".webm", ".mov", ".avi"}
+var audioExtensions []string = []string{".mp3", ".wav", ".m4a"} //, ".ogg", ".flac"}
+var textExtensions []string = []string{".txt", ".md", ".log"}
+
 type FileInfo struct {
 	Name          string `json:"name"`
 	Path          string `json:"path"`
@@ -34,6 +39,7 @@ type DirectoryContent struct {
 	Folders     []FileInfo `json:"folders"`
 	Images      []FileInfo `json:"images"`
 	Videos      []FileInfo `json:"videos"`
+	Audios      []FileInfo `json:"audios"`
 	Others      []FileInfo `json:"others"`
 }
 
@@ -105,8 +111,6 @@ func createThumbnail(filePath string, forced bool) error {
 	}
 	var cmd *exec.Cmd
 	ext := strings.ToLower(filepath.Ext(filePath))
-	imageExtensions := []string{".jpg", ".jpeg", ".png", ".webp", ".gif"}
-	videoExtensions := []string{".mp4", ".mkv", ".webm", ".mov", ".avi"} // include mkv for thumbnail
 	isImage := slices.Contains(imageExtensions, ext)
 	isVideo := slices.Contains(videoExtensions, ext)
 	if isImage {
@@ -124,10 +128,9 @@ func createThumbnail(filePath string, forced bool) error {
 }
 
 func processDirectoryForThumbnails(rootDir string, forced bool) {
-	supportedExtensions := []string{
-		".jpg", ".jpeg", ".png", ".webp", ".gif",
-		".mp4", ".mkv", ".webm", ".mov", ".avi", // include mkv for thumbnail
-	}
+	supportedExtensions := []string{}
+	supportedExtensions = append(supportedExtensions, imageExtensions...)
+	supportedExtensions = append(supportedExtensions, videoExtensions...)
 	var filesToProcess []string
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -217,6 +220,7 @@ func handleBrowse(w http.ResponseWriter, r *http.Request) {
 		Folders:     []FileInfo{},
 		Images:      []FileInfo{},
 		Videos:      []FileInfo{},
+		Audios:      []FileInfo{},
 		Others:      []FileInfo{},
 		Breadcrumbs: []FileInfo{},
 	}
@@ -250,15 +254,24 @@ func handleBrowse(w http.ResponseWriter, r *http.Request) {
 			if _, err := os.Stat(thumbPhysicalPath); err == nil {
 				info.ThumbnailPath = filepath.ToSlash(filepath.Join(relativePath, thumbFilename))
 			}
-			switch ext {
-			case ".jpg", ".jpeg", ".png", ".gif", ".webp":
+
+			if slices.Contains(imageExtensions, ext) {
 				info.Type = "image"
 				content.Images = append(content.Images, info)
-			case ".mp4", ".webm", ".mov", ".avi":
+			} else if slices.Contains(videoExtensions, ext) {
 				info.Type = "video"
 				content.Videos = append(content.Videos, info)
-			default:
-				info.Type = "other"
+			} else if slices.Contains(audioExtensions, ext) {
+				info.Type = "audio"
+				content.Audios = append(content.Audios, info)
+			} else {
+				if ext == ".pdf" {
+					info.Type = "pdf"
+				} else if slices.Contains(textExtensions, ext) {
+					info.Type = "text"
+				} else {
+					info.Type = "other"
+				}
 				content.Others = append(content.Others, info)
 			}
 		}
@@ -266,6 +279,7 @@ func handleBrowse(w http.ResponseWriter, r *http.Request) {
 	sort.Slice(content.Folders, func(i, j int) bool { return content.Folders[i].Name < content.Folders[j].Name })
 	sort.Slice(content.Images, func(i, j int) bool { return content.Images[i].Name < content.Images[j].Name })
 	sort.Slice(content.Videos, func(i, j int) bool { return content.Videos[i].Name < content.Videos[j].Name })
+	sort.Slice(content.Audios, func(i, j int) bool { return content.Audios[i].Name < content.Audios[j].Name })
 	sort.Slice(content.Others, func(i, j int) bool { return content.Others[i].Name < content.Others[j].Name })
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(content)

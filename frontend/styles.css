@@ -52,6 +52,12 @@ header {
 .logo {
     width: 100px;
     height: 100px;
+    cursor: pointer;
+    transition: transform 0.5s ease-in-out;
+}
+
+.logo.syncing {
+    transform: rotate(360deg);
 }
 
 
@@ -193,7 +199,6 @@ header {
     background-color: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(5px);
     animation: fadeIn 0.3s ease;
-    padding: 2.5vh 5vw;
     box-sizing: border-box;
 }
 
@@ -202,13 +207,14 @@ header {
     width: 100%;
     height: 100%;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
 }
 
 #modal-content-container {
     width: 100%;
-    height: 100%;
+    height: calc(100% - 4rem); /* space for raw/download */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -227,12 +233,12 @@ header {
 
 .modal-close-btn {
     position: absolute;
-    top: 20px;
-    right: 20px;
+    top: 0.25rem;
+    right: 0.25rem;
     background: none;
     border: none;
     color: white;
-    font-size: 1.5rem;
+    font-size: 1.25rem;
     cursor: pointer;
     transition: color 0.2s ease;
     z-index: 10;
@@ -244,7 +250,7 @@ header {
 
 .modal-nav-btn {
     position: absolute;
-    top: 50%;
+    top: calc(50% - 1.5rem); /* space for raw/download */
     transform: translateY(-50%);
     background: rgba(0, 0, 0, 0.3);
     border: none;
@@ -272,6 +278,58 @@ header {
 .modal-nav-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
+}
+
+.modal-actions {
+    position: absolute;
+    top: 0.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    border-radius: var(--border-radius);
+    z-index: 15;
+}
+
+.modal-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.modal-action-btn:hover {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+.modal-action-btn i {
+    font-size: 1rem;
+}
+
+.audio-player-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    gap: 20px;
+}
+
+.audio-backdrop-icon {
+    font-size: 8rem;
+    opacity: 0.1;
+}
+
+.audio-title {
+    font-size: 1.2rem;
+    font-weight: 500;
 }
 
 @keyframes fadeIn {

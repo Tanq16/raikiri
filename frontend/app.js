@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // STATE
     let currentPath = '';
-    let currentDirectoryContent = { images: [], videos: [] };
+    let currentDirectoryContent = { images: [], videos: [], audios: [], others: [] };
     let currentModalIndex = -1;
     let currentMediaList = [];
     let player;
@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalCloseBtn = document.getElementById('modal-close-btn');
     const modalPrevBtn = document.getElementById('modal-prev-btn');
     const modalNextBtn = document.getElementById('modal-next-btn');
+    const modalDownloadBtn = document.getElementById('modal-download-btn');
+    const modalRawBtn = document.getElementById('modal-raw-btn');
     const logoEl = document.querySelector('.logo');
 
     // API FUNCTIONS
@@ -67,13 +69,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // RENDER FUNCTIONS
+    function getFileIcon(item) {
+        switch (item.type) {
+            case 'image': return 'fa-file-image';
+            case 'video': return 'fa-file-video';
+            case 'audio': return 'fa-file-audio';
+            case 'pdf': return 'fa-file-pdf';
+            case 'text': return 'fa-file-alt';
+            default:
+                const extension = item.name.split('.').pop().toLowerCase();
+                if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)) {
+                    return 'fa-file-archive';
+                }
+                return 'fa-file';
+        }
+    }
+
     function renderContent(data) {
         breadcrumbsEl.innerHTML = renderBreadcrumbs(data.breadcrumbs);
         mainContent.innerHTML = `
-            ${data.folders.length > 0 ? renderSection('Folders', renderFolderItems(data.folders), 'folders') : ''}
-            ${data.images.length > 0 ? renderSection('Images', renderMediaItems(data.images, 'image'), 'images') : ''}
-            ${data.videos.length > 0 ? renderSection('Videos', renderMediaItems(data.videos, 'video'), 'videos') : ''}
-            ${data.others.length > 0 ? renderSection('Other Files', renderOtherItems(data.others), 'others') : ''}
+            ${(data.folders || []).length > 0 ? renderSection('Folders', renderFolderItems(data.folders), 'folders') : ''}
+            ${(data.images || []).length > 0 ? renderSection('Images', renderMediaItems(data.images, 'image'), 'images') : ''}
+            ${(data.videos || []).length > 0 ? renderSection('Videos', renderMediaItems(data.videos, 'video'), 'videos') : ''}
+            ${(data.audios || []).length > 0 ? renderSection('Audio', renderMediaItems(data.audios, 'audio'), 'audios') : ''}
+            ${(data.others || []).length > 0 ? renderSection('Other Files', renderOtherItems(data.others), 'others') : ''}
         `;
     }
 
@@ -107,20 +126,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderMediaItems(items, type) {
         return items.map((item, index) => {
-            const mediaIndex = type === 'image' ? index : currentDirectoryContent.images.length + index;
+            const images = currentDirectoryContent.images || [];
+            const videos = currentDirectoryContent.videos || [];
+            let mediaIndex = 0;
+
+            if (type === 'image') {
+                mediaIndex = index;
+            } else if (type === 'video') {
+                mediaIndex = images.length + index;
+            } else if (type === 'audio') {
+                mediaIndex = images.length + videos.length + index;
+            }
+
             const thumbnailSrc = item.thumbnailPath ? `/media/${item.thumbnailPath}` : (type === 'image' ? `/media/${item.path}` : null);
 
-            let thumbnailHtml;
+            let contentHtml;
             if (thumbnailSrc) {
-                thumbnailHtml = `<div class="item-thumbnail"><img src="${thumbnailSrc}" alt="${item.name}" loading="lazy"></div>`;
+                contentHtml = `<div class="item-thumbnail"><img src="${thumbnailSrc}" alt="${item.name}" loading="lazy"></div>`;
             } else {
-                // Fallback for videos without thumbnails
-                thumbnailHtml = `<div class="item-icon"><i class="fas fa-file-video"></i></div>`;
+                const iconClass = getFileIcon(item);
+                contentHtml = `<div class="item-icon"><i class="fas ${iconClass}"></i></div>`;
             }
 
             return `
                 <div class="item media-item" data-full-path="${item.path}" data-media-index="${mediaIndex}" data-type="${type}">
-                    ${thumbnailHtml}
+                    ${contentHtml}
                     <p class="item-name">${item.name}</p>
                 </div>
             `;
@@ -128,12 +158,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function renderOtherItems(items) {
-        return items.map(item => `
-            <a href="/media/${item.path}" target="_blank" class="item">
-                <div class="item-icon"><i class="fas fa-file-alt"></i></div>
-                <p class="item-name">${item.name}</p>
-            </a>
-        `).join('');
+        return items.map(item => {
+            const iconClass = getFileIcon(item);
+            return `
+                <a href="/media/${item.path}" target="_blank" class="item">
+                    <div class="item-icon"><i class="fas ${iconClass}"></i></div>
+                    <p class="item-name">${item.name}</p>
+                </a>
+            `;
+        }).join('');
     }
 
     function renderSearchResults(results) {
@@ -146,12 +179,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const resultItems = results.map(item => {
             const parentPath = item.path.substring(0, item.path.lastIndexOf('/') || 0);
             const thumbnailSrc = item.thumbnailPath ? `/media/${item.thumbnailPath}` : null;
+            const iconClass = getFileIcon(item);
 
             let thumbnailHtml;
             if (thumbnailSrc) {
                 thumbnailHtml = `<div class="item-thumbnail"><img src="${thumbnailSrc}" alt="${item.name}" loading="lazy"></div>`;
             } else {
-                thumbnailHtml = `<div class="item-icon"><i class="fas fa-file"></i></div>`;
+                thumbnailHtml = `<div class="item-icon"><i class="fas ${iconClass}"></i></div>`;
             }
 
             return `
@@ -173,12 +207,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // MODAL LOGIC
     function openModal(mediaIndex) {
-        currentMediaList = [...currentDirectoryContent.images, ...currentDirectoryContent.videos];
+        currentMediaList = [
+            ...(currentDirectoryContent.images || []),
+            ...(currentDirectoryContent.videos || []),
+            ...(currentDirectoryContent.audios || [])
+        ];
         currentModalIndex = parseInt(mediaIndex, 10);
         if (currentModalIndex < 0 || currentModalIndex >= currentMediaList.length) return;
 
         const item = currentMediaList[currentModalIndex];
         const mediaType = item.type;
+        const mediaUrl = `/media/${item.path}`;
         
         modalContentContainer.innerHTML = '';
 
@@ -188,11 +227,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (mediaType === 'image') {
-            modalContentContainer.innerHTML = `<img src="/media/${item.path}" alt="${item.name}">`;
+            modalContentContainer.innerHTML = `<img src="${mediaUrl}" alt="${item.name}">`;
         } else if (mediaType === 'video') {
-            modalContentContainer.innerHTML = `<video id="modal-video-player" playsinline controls><source src="/media/${item.path}" type="video/mp4" /></video>`;
+            modalContentContainer.innerHTML = `<video id="modal-video-player" playsinline controls><source src="${mediaUrl}" /></video>`;
             player = new Plyr('#modal-video-player', { autoplay: true });
+        } else if (mediaType === 'audio') {
+            modalContentContainer.innerHTML = `
+                <div class="audio-player-container">
+                    <i class="fas fa-music audio-backdrop-icon"></i>
+                    <p class="audio-title">${item.name}</p>
+                    <audio id="modal-audio-player" controls>
+                        <source src="${mediaUrl}" />
+                    </audio>
+                </div>
+            `;
+            player = new Plyr('#modal-audio-player', { autoplay: true });
         }
+
+        modalDownloadBtn.href = mediaUrl;
+        modalDownloadBtn.setAttribute('download', item.name);
+        modalRawBtn.href = mediaUrl;
 
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -234,7 +288,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const { path, type, mediaIndex } = item.dataset;
 
         if (type === 'folder') {
-            // For search results, path is the parent. For regular folders, it's the folder itself.
             fetchData(path);
         } else if (mediaIndex) {
             openModal(mediaIndex);
