@@ -1,13 +1,12 @@
-// frontend/app.js
 document.addEventListener('DOMContentLoaded', () => {
-    // --- STATE ---
+    // STATE
     let currentPath = '';
     let currentDirectoryContent = { images: [], videos: [] };
     let currentModalIndex = -1;
     let currentMediaList = [];
     let player;
 
-    // --- DOM ELEMENTS ---
+    // DOM ELEMENTS
     const mainContent = document.getElementById('main-content');
     const breadcrumbsEl = document.getElementById('breadcrumbs');
     const searchInput = document.getElementById('search-input');
@@ -16,8 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalCloseBtn = document.getElementById('modal-close-btn');
     const modalPrevBtn = document.getElementById('modal-prev-btn');
     const modalNextBtn = document.getElementById('modal-next-btn');
+    const logoEl = document.querySelector('.logo');
 
-    // --- API FUNCTIONS ---
+    // API FUNCTIONS
     async function fetchData(path) {
         try {
             const response = await fetch(`/api/browse/${path}`);
@@ -46,7 +46,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- RENDER FUNCTIONS ---
+    async function triggerSync() {
+        logoEl.classList.add('syncing');
+        try {
+            const response = await fetch('/api/sync', {
+                method: 'POST'
+            });
+            if (!response.ok) {
+                throw new Error('Sync failed');
+            }
+            await fetchData(currentPath);
+        } catch (error) {
+            console.error('Error triggering sync:', error);
+        } finally {
+            setTimeout(() => {
+                logoEl.classList.remove('syncing');
+            }, 1000);
+        }
+    }
+
+
+    // RENDER FUNCTIONS
     function renderContent(data) {
         breadcrumbsEl.innerHTML = renderBreadcrumbs(data.breadcrumbs);
         mainContent.innerHTML = `
@@ -151,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // --- MODAL LOGIC ---
+    // MODAL LOGIC
     function openModal(mediaIndex) {
         currentMediaList = [...currentDirectoryContent.images, ...currentDirectoryContent.videos];
         currentModalIndex = parseInt(mediaIndex, 10);
@@ -206,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- EVENT LISTENERS ---
+    // EVENT LISTENERS
     mainContent.addEventListener('click', (e) => {
         const item = e.target.closest('.item');
         if (!item || item.tagName === 'A') return;
@@ -249,7 +269,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'ArrowLeft') showPrevMedia();
         if (e.key === 'ArrowRight') showNextMedia();
     });
+    
+    logoEl.addEventListener('click', () => {
+        triggerSync();
+    });
 
-    // --- INITIAL LOAD ---
+    // INITIAL LOAD
     fetchData('');
 });
