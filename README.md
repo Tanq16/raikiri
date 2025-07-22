@@ -17,7 +17,8 @@ Ideally, you can just run the service and it will be fine. But large images can 
 
 | Desktop View | Mobile View |
 | --- | --- |
-| <img src=".github/assets/d.png" alt="Light"> | <img src=".github/assets/m.png" alt="Light"> |
+| <img src=".github/assets/df.png" alt="Light"> | <img src=".github/assets/mf.png" alt="Light"> |
+| <img src=".github/assets/di.png" alt="Light"> | <img src=".github/assets/mi.png" alt="Light"> |
 
 ## Usage
 
