@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
             if (!response.ok) throw new Error('Network response was not ok');
             const results = await response.json();
-            renderSearchResults(results);
+            renderSearchResults(results || []);
         } catch (error) {
             mainContent.innerHTML = `<p class="text-red text-center">Error searching: ${error.message}</p>`;
         }

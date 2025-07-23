@@ -291,12 +291,26 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]FileInfo{})
 		return
 	}
+	searchWords := strings.Fields(query)
+	if len(searchWords) == 0 {
+		json.NewEncoder(w).Encode([]FileInfo{})
+		return
+	}
 	appState.mu.RLock()
 	allFiles := appState.AllFiles
 	appState.mu.RUnlock()
 	var results []FileInfo
 	for _, file := range allFiles {
-		if strings.Contains(strings.ToLower(file), query) {
+		lowerFile := strings.ToLower(file)
+		matchesAll := true
+		// fuzzy search all words as substrings of path
+		for _, word := range searchWords {
+			if !strings.Contains(lowerFile, word) {
+				matchesAll = false
+				break
+			}
+		}
+		if matchesAll {
 			fileInfo := FileInfo{
 				Name: filepath.Base(file),
 				Path: file,
