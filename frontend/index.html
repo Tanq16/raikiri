@@ -1,53 +1,129 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Raikiri</title>
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/png" href="logo.png">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0a0a0a">
+    <meta name="theme-color" content="#1e1e2e">
+    <meta name="description" content="A fast, simple, self-hosted, no-nonsense app for running a media server.">
     <link rel="stylesheet" href="/static/css/all.min.css">
-    <link rel="stylesheet" href="/static/css/inter.css">
     <link rel="stylesheet" href="/static/css/plyr.css" />
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
+    <script src="/static/js/tailwindcss.js"></script>
 
-    <div class="container">
-        <header>
-            <div class="title-container">
-                <img src="logo.png" alt="Raikiri Logo" class="logo">
-                <h1 class="title">Raikiri</h1>
+    <!-- Tailwind CSS Configuration -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        // Catppuccin Mocha Palette
+                        rosewater: '#f5e0dc',
+                        flamingo: '#f2cdcd',
+                        pink: '#f5c2e7',
+                        mauve: '#cba6f7',
+                        red: '#f38ba8',
+                        maroon: '#eba0ac',
+                        peach: '#fab387',
+                        yellow: '#f9e2af',
+                        green: '#a6e3a1',
+                        teal: '#94e2d5',
+                        sky: '#89dceb',
+                        sapphire: '#74c7ec',
+                        blue: '#89b4fa',
+                        lavender: '#b4befe',
+                        text: '#cdd6f4',
+                        subtext1: '#bac2de',
+                        subtext0: '#a6adc8',
+                        overlay2: '#9399b2',
+                        overlay1: '#7f849c',
+                        overlay0: '#6c7086',
+                        surface2: '#585b70',
+                        surface1: '#45475a',
+                        surface0: '#313244',
+                        base: '#1e1e2e',
+                        mantle: '#181825',
+                        crust: '#11111b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for a consistent theme */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #11111b; }
+        ::-webkit-scrollbar-thumb { background: #313244; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #45475a; }
+
+        /* Logo sync animation */
+        @keyframes spin-once {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .syncing {
+            animation: spin-once 0.5s ease-in-out;
+        }
+
+        :root {
+            --plyr-color-main: #cba6f7;
+        }
+    </style>
+</head>
+<body class="bg-mantle text-text font-sans antialiased">
+
+    <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="flex items-center justify-between gap-4 mb-8">
+            <!-- Logo and Title -->
+            <div class="flex items-center gap-4">
+                <img src="logo.png" alt="Raikiri Logo" class="logo w-12 h-12 sm:w-16 sm:h-16 cursor-pointer">
+                <h1 class="text-3xl font-bold tracking-tight text-text hidden sm:block">Raikiri</h1>
             </div>
-            <div class="search-wrapper">
-                <i class="fas fa-search search-icon"></i>
-                <input type="search" id="search-input" placeholder="Search...">
+
+            <!-- Search Bar -->
+            <div class="relative flex-grow sm:flex-grow-0 sm:w-80">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-subtext0"></i>
+                <input type="search" id="search-input" placeholder="Search..." class="w-full bg-crust border border-surface0 rounded-lg py-2 pl-12 pr-4 text-text placeholder:text-subtext0 focus:outline-none focus:ring-2 focus:ring-mauve transition-all">
             </div>
         </header>
 
-        <nav id="breadcrumbs"></nav>
-
+        <nav id="breadcrumbs" class="flex items-center justify-center gap-2 text-sm text-subtext0 mb-8"></nav>
         <main id="main-content"></main>
     </div>
 
-    <div id="media-modal" class="modal">
-        <div class="modal-content">
-            <div id="modal-content-container"></div>
-            <div class="modal-actions">
-                <a id="modal-download-btn" class="modal-action-btn" download>
+    <!-- Media Preview Modal -->
+    <div id="media-modal" class="fixed inset-0 bg-crust z-50 hidden">
+        <div id="modal-header" class="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-2 bg-gradient-to-b from-black/50 to-transparent transition-opacity duration-300 opacity-0">
+            <div id="modal-actions" class="flex items-center gap-2">
+                 <a id="modal-download-btn" title="Download" class="w-10 h-10 flex items-center justify-center bg-base/70 text-text rounded-full hover:bg-surface0 transition-colors text-lg" download>
                     <i class="fas fa-download"></i>
-                    <span>Download</span>
                 </a>
-                <a id="modal-raw-btn" class="modal-action-btn" target="_blank">
+                <a id="modal-raw-btn" title="View Raw" class="w-10 h-10 flex items-center justify-center bg-base/70 text-text rounded-full hover:bg-surface0 transition-colors text-lg" target="_blank">
                     <i class="fas fa-external-link-alt"></i>
-                    <span>View Raw</span>
                 </a>
             </div>
-            <button id="modal-close-btn" class="modal-close-btn"><i class="fas fa-times"></i></button>
-            <button id="modal-prev-btn" class="modal-nav-btn prev"><i class="fas fa-chevron-left"></i></button>
-            <button id="modal-next-btn" class="modal-nav-btn next"><i class="fas fa-chevron-right"></i></button>
+            <button id="modal-close-btn" title="Close" class="w-10 h-10 flex items-center justify-center rounded-full text-subtext1 bg-base/70 hover:bg-surface0 hover:text-text transition-colors">
+                <i class="fas fa-times text-xl"></i>
+            </button>
         </div>
+        
+        <!-- Media Content -->
+        <div id="modal-content-container" class="w-full h-full flex items-center justify-center">
+            <!-- Media injected by app.js -->
+        </div>
+
+        <!-- Navigation Buttons -->
+        <button id="modal-prev-btn" class="modal-nav-btn absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-base/70 text-white rounded-full hover:bg-surface0 transition-opacity duration-300 opacity-0 disabled:opacity-20 disabled:cursor-not-allowed">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <button id="modal-next-btn" class="modal-nav-btn absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-base/70 text-white rounded-full hover:bg-surface0 transition-opacity duration-300 opacity-0 disabled:opacity-20 disabled:cursor-not-allowed">
+            <i class="fas fa-chevron-right"></i>
+        </button>
     </div>
 
     <script src="/static/js/plyr.js"></script>

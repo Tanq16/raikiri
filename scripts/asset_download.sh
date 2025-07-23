@@ -1,13 +1,14 @@
 #!/bin/bash
 
-# Create necessary directories in the frontend folder
 mkdir -p frontend/static/css
 mkdir -p frontend/static/js
 mkdir -p frontend/static/webfonts
 mkdir -p frontend/static/fonts
 
+# Download Tailwind CSS
+curl -sL "https://cdn.tailwindcss.com" -o "frontend/static/js/tailwindcss.js"
+
 # Download Font Awesome 6.7.2 CSS
-echo "Downloading Font Awesome..."
 curl -sL https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css -o frontend/static/css/all.min.css
 curl -sL https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-brands-400.woff2 -o frontend/static/webfonts/fa-brands-400.woff2
 curl -sL https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-regular-400.woff2 -o frontend/static/webfonts/fa-regular-400.woff2
@@ -18,7 +19,7 @@ curl -sL https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-v
 sed 's|https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/|/static/webfonts/|g' frontend/static/css/all.min.css > frontend/static/css/all.min.css.tmp && mv frontend/static/css/all.min.css.tmp frontend/static/css/all.min.css
 
 # Download Inter font from Google Fonts
-curl -sL "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" -o frontend/static/css/inter.css
+curl -sL "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" -A "Mozilla/5.0" -o frontend/static/css/inter.css
 
 # Download font files referenced in the CSS
 grep -o "https://fonts.gstatic.com/s/inter/[^)]*" frontend/static/css/inter.css | while read -r url; do
@@ -27,7 +28,7 @@ grep -o "https://fonts.gstatic.com/s/inter/[^)]*" frontend/static/css/inter.css 
 done
 
 # Update font CSS to use local files
-sed -i.bak 's|https://fonts.gstatic.com/s/inter/v../|/static/fonts/|g' frontend/static/css/inter.css
+sed -i.bak 's|https://fonts.gstatic.com/s/inter/v[0-9]*/|/static/fonts/|g' frontend/static/css/inter.css
 rm frontend/static/css/inter.css.bak
 
 # Download Plyr JS and CSS
