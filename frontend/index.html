@@ -79,16 +79,16 @@
 
     <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <header class="flex items-center justify-between gap-4 mb-8">
-            <!-- Logo and Title -->
-            <div class="flex items-center gap-4">
+            <!-- Logo and Title (hidden on mobile) -->
+            <div class="hidden sm:flex items-center gap-4">
                 <img src="logo.png" alt="Raikiri Logo" class="logo w-12 h-12 sm:w-16 sm:h-16 cursor-pointer">
-                <h1 class="text-3xl font-bold tracking-tight text-text hidden sm:block">Raikiri</h1>
+                <h1 class="text-3xl font-bold tracking-tight text-text">Raikiri</h1>
             </div>
 
             <!-- Search Bar -->
             <div class="relative flex-grow sm:flex-grow-0 sm:w-80">
                 <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-subtext0"></i>
-                <input type="search" id="search-input" placeholder="Search..." class="w-full bg-crust border border-surface0 rounded-lg py-2 pl-12 pr-4 text-text placeholder:text-subtext0 focus:outline-none focus:ring-2 focus:ring-mauve transition-all">
+                <input type="search" id="search-input" placeholder="Search..." class="w-full bg-crust border border-surface0 rounded-full py-2 pl-12 pr-4 text-text placeholder:text-subtext0 focus:outline-none focus:ring-2 focus:ring-mauve transition-all">
             </div>
         </header>
 
