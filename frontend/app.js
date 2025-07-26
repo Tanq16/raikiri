@@ -68,15 +68,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // RENDER FUNCTIONS
     function getFileIcon(item) {
         switch (item.type) {
-            case 'image': return 'fa-file-image';
-            case 'video': return 'fa-file-video';
-            case 'audio': return 'fa-file-audio';
-            case 'pdf': return 'fa-file-pdf';
-            case 'text': return 'fa-file-alt';
+            case 'image': return 'fas fa-file-image';
+            case 'video': return 'fas fa-file-video';
+            case 'audio': return 'fas fa-file-audio';
+            case 'pdf': return 'fas fa-file-pdf';
+            case 'markdown': return 'fab fa-markdown';
+            case 'text': return 'fas fa-file-lines';
             default:
                 const extension = item.name.split('.').pop().toLowerCase();
-                if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)) return 'fa-file-archive';
-                return 'fa-file';
+                if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)) return 'fas fa-file-archive';
+                return 'fas fa-file';
         }
     }
 
@@ -135,11 +136,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let mediaIndex = type === 'image' ? index : (type === 'video' ? images.length + index : images.length + videos.length + index);
 
             const thumbnailSrc = item.thumbnailPath ? `/media/${item.thumbnailPath}` : (type === 'image' ? `/media/${item.path}` : null);
-            const iconClass = getFileIcon(item);
+            const iconClass = getFileIcon({ type });
 
             let contentHtml = thumbnailSrc
                 ? `<img src="${thumbnailSrc}" alt="${item.name}" loading="lazy" class="w-full h-full object-cover">`
-                : `<div class="w-full h-full flex items-center justify-center text-mauve"><i class="fas ${iconClass} fa-lg"></i></div>`;
+                : `<div class="w-full h-full flex items-center justify-center text-mauve"><i class="${iconClass} fa-lg"></i></div>`;
 
             return `
                 <div class="item media-item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors cursor-pointer" data-media-index="${mediaIndex}" data-type="${type}">
@@ -152,11 +153,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function renderOtherItems(items) {
         return items.map(item => {
-            const iconClass = getFileIcon(item);
+            const iconClasses = getFileIcon(item);
+            const isMarkdown = item.type === 'markdown';
+            // link to the markdown renderer if md otherwise link to the file
+            const targetUrl = isMarkdown 
+                ? `/render.html?path=${encodeURIComponent(item.path)}` 
+                : `/media/${encodeURIComponent(item.path)}`;
+
             return `
-                <a href="/media/${item.path}" target="_blank" class="item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors">
+                <a href="${targetUrl}" target="_blank" class="item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors">
                     <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-surface1 rounded-md text-mauve">
-                        <i class="fas ${iconClass} fa-lg"></i>
+                        <i class="${iconClasses} fa-lg"></i>
                     </div>
                     <p class="flex-grow font-medium truncate" title="${item.name}">${item.name}</p>
                 </a>
@@ -178,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let thumbnailHtml = thumbnailSrc
                 ? `<img src="${thumbnailSrc}" alt="${item.name}" loading="lazy" class="w-full h-full object-cover">`
-                : `<div class="w-full h-full flex items-center justify-center text-mauve"><i class="fas ${iconClass} fa-lg"></i></div>`;
+                : `<div class="w-full h-full flex items-center justify-center text-mauve"><i class="${iconClass} fa-lg"></i></div>`;
 
             return `
                 <div class="item search-result-item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors cursor-pointer" data-path="${parentPath}" data-type="folder">

@@ -23,8 +23,9 @@ var embeddedFrontend embed.FS
 
 var imageExtensions []string = []string{".jpg", ".jpeg", ".png", ".gif", ".webp"}
 var videoExtensions []string = []string{".mp4", ".webm", ".mov", ".avi"}
-var audioExtensions []string = []string{".mp3", ".wav", ".m4a"} //, ".ogg", ".flac"}
-var textExtensions []string = []string{".txt", ".md", ".log"}
+var audioExtensions []string = []string{".mp3", ".wav", ".m4a"}
+var markdownExtensions []string = []string{".md", ".markdown"}
+var textExtensions []string = []string{".txt", ".log"}
 
 type FileInfo struct {
 	Name          string `json:"name"`
@@ -264,6 +265,9 @@ func handleBrowse(w http.ResponseWriter, r *http.Request) {
 			} else if slices.Contains(audioExtensions, ext) {
 				info.Type = "audio"
 				content.Audios = append(content.Audios, info)
+			} else if slices.Contains(markdownExtensions, ext) {
+				info.Type = "markdown"
+				content.Others = append(content.Others, info)
 			} else {
 				if ext == ".pdf" {
 					info.Type = "pdf"

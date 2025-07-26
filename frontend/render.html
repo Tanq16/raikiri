@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Preview</title>
+    <!-- 1. Use a standard dark theme for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/atom-one-dark.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #21252b;
+            color: #c8ccd4;
+            padding: 2rem;
+        }
+        pre {
+            border-radius: 5px;
+        }
+        code {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+        }
+        a {
+            color: #61afef;
+        }
+    </style>
+</head>
+<body>
+    <div id="content">
+        <h1>Loading...</h1>
+    </div>
+
+    <!-- Load the required libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <!-- Fetch, parse, and render the content -->
+    <script>
+        (async function() {
+            const contentEl = document.getElementById('content');
+            const params = new URLSearchParams(window.location.search);
+            const path = params.get('path');
+
+            if (!path) {
+                contentEl.innerHTML = '<h1>Error: No file path provided in URL.</h1>';
+                return;
+            }
+
+            const decodedPath = decodeURIComponent(path);
+            const filename = decodedPath.split('/').pop();
+            document.title = filename;
+
+            try {
+                const response = await fetch(`/media/${decodedPath}`);
+                if (!response.ok) throw new Error(`Server returned status: ${response.status}`);
+                const markdownText = await response.text();
+
+                if (typeof marked === 'undefined' || typeof hljs === 'undefined') {
+                    throw new Error('Required libraries (marked.js or highlight.js) failed to load.');
+                }
+
+                // Use the library to parse the text to HTML
+                contentEl.innerHTML = marked.parse(markdownText);
+
+                // After parsing, find all code blocks and apply highlighting
+                document.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+
+            } catch (error) {
+                contentEl.innerHTML = `<h1>Error loading file: ${error.message}</h1>`;
+                console.error(error);
+            }
+        })();
+    </script>
+</body>
+</html>
