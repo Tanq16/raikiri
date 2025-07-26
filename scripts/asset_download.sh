@@ -42,7 +42,11 @@ curl -sL "https://cdn.plyr.io/static/plyr/3.7.8/plyr.svg" -o "frontend/static/cs
 sed -i.bak 's|https://cdn.plyr.io/static/plyr/3.7.8/plyr.svg|plyr.svg|g' frontend/static/css/plyr.css
 rm frontend/static/css/plyr.css.bak
 
-# Download GitHub markdown equiv CSS
+# Download assets for markdown rendering
 curl -sL https://raw.githubusercontent.com/sindresorhus/github-markdown-css/refs/heads/main/github-markdown-dark.css -o frontend/static/css/gh-md.css
+curl -sL https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css -o frontend/static/css/highlight-github-dark.min.css
+curl -sL https://cdn.jsdelivr.net/npm/marked/marked.min.js -o frontend/static/js/marked.min.js
+curl -sL https://cdn.jsdelivr.net/npm/mermaid@11.9.0/dist/mermaid.min.js -o frontend/static/js/mermaid.min.js
+curl -sL https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js -o frontend/static/js/highlight.min.js
 
 echo "All assets downloaded!"
