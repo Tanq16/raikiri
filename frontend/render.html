@@ -3,70 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Markdown Preview</title>
-    <!-- 1. Use a standard dark theme for syntax highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/atom-one-dark.min.css">
+    <title>Raikiri MD Render</title>
+    <link rel="stylesheet" href="/static/css/gh-md.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css">
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-            background-color: #21252b;
-            color: #c8ccd4;
-            padding: 2rem;
+            box-sizing: border-box;
+            min-width: 200px;
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 45px;
         }
-        pre {
-            border-radius: 5px;
+        @media (max-width: 767px) {
+            body {
+                padding: 15px;
+            }
         }
-        code {
-            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-        }
-        a {
-            color: #61afef;
+        .mermaid-svg-container {
+            display: flex;
+            justify-content: center;
+            margin: 1em 0;
         }
     </style>
 </head>
-<body>
+<body class="markdown-body">
     <div id="content">
         <h1>Loading...</h1>
     </div>
-
-    <!-- Load the required libraries -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-
-    <!-- Fetch, parse, and render the content -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.9.0/dist/mermaid.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <script>
         (async function() {
             const contentEl = document.getElementById('content');
             const params = new URLSearchParams(window.location.search);
             const path = params.get('path');
-
             if (!path) {
                 contentEl.innerHTML = '<h1>Error: No file path provided in URL.</h1>';
                 return;
             }
-
             const decodedPath = decodeURIComponent(path);
             const filename = decodedPath.split('/').pop();
             document.title = filename;
 
             try {
+                // Fetch the markdown file
                 const response = await fetch(`/media/${decodedPath}`);
                 if (!response.ok) throw new Error(`Server returned status: ${response.status}`);
                 const markdownText = await response.text();
-
-                if (typeof marked === 'undefined' || typeof hljs === 'undefined') {
-                    throw new Error('Required libraries (marked.js or highlight.js) failed to load.');
+                if (typeof marked === 'undefined' || typeof hljs === 'undefined' || typeof mermaid === 'undefined') {
+                    throw new Error('A required library failed to load.');
                 }
 
-                // Use the library to parse the text to HTML
-                contentEl.innerHTML = marked.parse(markdownText);
-
-                // After parsing, find all code blocks and apply highlighting
-                document.querySelectorAll('pre code').forEach((block) => {
-                    hljs.highlightElement(block);
+                // Initialize Mermaid.js with a dark theme
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: 'dark',
+                    securityLevel: 'loose',
                 });
 
+                // Parse content with marked.js and render mermaid blocks
+                contentEl.innerHTML = marked.parse(markdownText);
+                const mermaidBlocks = contentEl.querySelectorAll('pre code.language-mermaid');
+                for (const block of mermaidBlocks) {
+                    const mermaidCode = block.textContent;
+                    const id = `mermaid-svg-${Date.now()}-${Math.random().toString(36).substring(2)}`;
+                    try {
+                        // Get the SVG code and replace the code block
+                        const { svg } = await mermaid.render(id, mermaidCode);
+                        const container = document.createElement('div');
+                        container.classList.add('mermaid-svg-container');
+                        container.innerHTML = svg;
+                        block.parentElement.replaceWith(container);
+                    } catch(e) {
+                        console.error("Error rendering mermaid diagram:", e);
+                    }
+                }
+
+                // Apply syntax highlighting to remaining
+                contentEl.querySelectorAll('pre code:not(.language-mermaid)').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
             } catch (error) {
                 contentEl.innerHTML = `<h1>Error loading file: ${error.message}</h1>`;
                 console.error(error);

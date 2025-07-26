@@ -42,4 +42,7 @@ curl -sL "https://cdn.plyr.io/static/plyr/3.7.8/plyr.svg" -o "frontend/static/cs
 sed -i.bak 's|https://cdn.plyr.io/static/plyr/3.7.8/plyr.svg|plyr.svg|g' frontend/static/css/plyr.css
 rm frontend/static/css/plyr.css.bak
 
+# Download GitHub markdown equiv CSS
+curl -sL https://raw.githubusercontent.com/sindresorhus/github-markdown-css/refs/heads/main/github-markdown-dark.css -o frontend/static/css/gh-md.css
+
 echo "All assets downloaded!"
