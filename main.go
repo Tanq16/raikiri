@@ -117,7 +117,7 @@ func createThumbnail(filePath string, forced bool) error {
 	if isImage {
 		cmd = exec.Command("ffmpeg", "-i", filePath, "-vf", fmt.Sprintf("scale=%s:-1", strings.Split(size, "x")[0]), "-q:v", "3", "-y", thumbPath)
 	} else if isVideo {
-		cmd = exec.Command("ffmpeg", "-i", filePath, "-ss", "00:00:30", "-vframes", "1", "-vf", fmt.Sprintf("scale=%s:-1", strings.Split(size, "x")[0]), "-q:v", "3", "-y", thumbPath)
+		cmd = exec.Command("ffmpeg", "-i", filePath, "-ss", "00:00:40", "-vframes", "1", "-vf", fmt.Sprintf("scale=%s:-1", strings.Split(size, "x")[0]), "-q:v", "3", "-y", thumbPath)
 	} else {
 		return nil // file not supported
 	}
