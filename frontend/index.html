@@ -76,6 +76,17 @@
         :root {
             --plyr-color-main: #cba6f7;
         }
+
+        /* Highlight animation for search results */
+        @keyframes glow-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(203, 166, 247, 0.7); }
+            70% { box-shadow: 0 0 10px 8px rgba(203, 166, 247, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(203, 166, 247, 0); }
+        }
+        .highlight-glow {
+            animation: glow-pulse 2s ease-out;
+            border-radius: 0.5rem;
+        }
     </style>
 </head>
 <body class="bg-mantle text-text font-sans antialiased">

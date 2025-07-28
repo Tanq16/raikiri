@@ -24,14 +24,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // API FUNCTIONS
-    async function fetchData(path) {
+    async function fetchData(path, itemToHighlight = null) {
         try {
             const response = await fetch(`/api/browse/${path}`);
             if (!response.ok) throw new Error('Network response was not ok');
             const data = await response.json();
             currentPath = path;
             currentDirectoryContent = data;
-            renderContent(data);
+            renderContent(data, itemToHighlight);
         } catch (error) {
             mainContent.innerHTML = `<p class="text-red text-center">Error loading content: ${error.message}</p>`;
         }
@@ -81,7 +81,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderContent(data) {
+    function highlightItem(itemName) {
+        const escapedItemName = itemName.replace(/"/g, '\\"');
+        const itemElement = mainContent.querySelector(`.item[data-name="${escapedItemName}"]`);
+        if (itemElement) {
+            itemElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            itemElement.classList.add('highlight-glow');
+            setTimeout(() => {
+                itemElement.classList.remove('highlight-glow');
+            }, 2000);
+        }
+    }
+
+    function renderContent(data, itemToHighlight = null) {
         breadcrumbsEl.innerHTML = renderBreadcrumbs(data.breadcrumbs);
         mainContent.innerHTML = `
             ${(data.folders || []).length > 0 ? renderSection('Folders', renderFolderItems(data.folders)) : ''}
@@ -90,6 +102,10 @@ document.addEventListener('DOMContentLoaded', () => {
             ${(data.audios || []).length > 0 ? renderSection('Audio', renderMediaItems(data.audios, 'audio')) : ''}
             ${(data.others || []).length > 0 ? renderSection('Other Files', renderOtherItems(data.others)) : ''}
         `;
+        if (itemToHighlight) {
+            // short timeout so DOM is fully updated
+            setTimeout(() => highlightItem(itemToHighlight), 100);
+        }
     }
 
     function renderBreadcrumbs(breadcrumbs) {
@@ -120,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderFolderItems(folders) {
         return folders.map(folder => `
-            <div class="item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors cursor-pointer" data-path="${folder.path}" data-type="folder">
+            <div class="item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors cursor-pointer" data-path="${folder.path}" data-name="${folder.name}" data-type="folder">
                 <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-surface1 rounded-md text-mauve">
                     <i class="fas fa-folder fa-lg"></i>
                 </div>
@@ -143,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : `<div class="w-full h-full flex items-center justify-center text-mauve"><i class="${iconClass} fa-lg"></i></div>`;
 
             return `
-                <div class="item media-item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors cursor-pointer" data-media-index="${mediaIndex}" data-type="${type}">
+                <div class="item media-item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors cursor-pointer" data-media-index="${mediaIndex}" data-name="${item.name}" data-type="${type}">
                     <div class="flex-shrink-0 w-16 h-16 bg-surface1 rounded-md overflow-hidden">${contentHtml}</div>
                     <p class="flex-grow font-medium truncate" title="${item.name}">${item.name}</p>
                 </div>
@@ -161,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : `/media/${encodeURIComponent(item.path)}`;
 
             return `
-                <a href="${targetUrl}" target="_blank" class="item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors">
+                <a href="${targetUrl}" target="_blank" class="item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors" data-name="${item.name}">
                     <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-surface1 rounded-md text-mauve">
                         <i class="${iconClasses} fa-lg"></i>
                     </div>
@@ -188,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : `<div class="w-full h-full flex items-center justify-center text-mauve"><i class="${iconClass} fa-lg"></i></div>`;
 
             return `
-                <div class="item search-result-item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors cursor-pointer" data-path="${parentPath}" data-type="folder">
+                <div class="item search-result-item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors cursor-pointer" data-path="${parentPath}" data-filename="${item.name}" data-type="folder">
                     <div class="flex-shrink-0 w-16 h-16 bg-surface1 rounded-md overflow-hidden">${thumbnailHtml}</div>
                     <p class="flex-grow font-medium text-sm text-subtext1 truncate" title="${item.path}">${item.path}</p>
                 </div>
@@ -290,9 +306,12 @@ document.addEventListener('DOMContentLoaded', () => {
     mainContent.addEventListener('click', (e) => {
         const item = e.target.closest('.item');
         if (!item || item.tagName === 'A') return;
-        const { path, type, mediaIndex } = item.dataset;
-        if (type === 'folder') fetchData(path);
-        else if (mediaIndex) openModal(mediaIndex);
+        const { path, type, mediaIndex, filename } = item.dataset;
+        if (type === 'folder') {
+            fetchData(path, filename);
+        } else if (mediaIndex) {
+            openModal(mediaIndex);
+        }
     });
 
     breadcrumbsEl.addEventListener('click', (e) => {
