@@ -11,10 +11,10 @@ The aim of the application is to provide directory listing in an elegant interfa
 
 ## Features
 
-- Elegant and beautiful application for modern web-based directory listing
+- Elegant and beautiful application for modern web-based directory listing using Catppuccin theme
 - Uses Plyr.js to play media files, and also showcases image files
 - Raw download option for all file types
-- GitHub-flavored rendering of markdown files (including mermaid support)
+- GitHub-flavored (but styled in Catppuccin) rendering of markdown files (including mermaid support)
 - Functionality in the binary to prepare media for thumbnails
 - Fully self-hosted with local assets and self-contained binary and container
 - Efficient sizefor both binary and container - under 14 MB
