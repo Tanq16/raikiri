@@ -7,6 +7,181 @@
     <link rel="stylesheet" href="/static/css/gh-md.css">
     <link rel="stylesheet" href="/static/css/highlight-github-dark.min.css">
     <style>
+        :root {
+            --rosewater: #f5e0dc;
+            --flamingo: #f2cdcd;
+            --pink: #f5c2e7;
+            --mauve: #cba6f7;
+            --red: #f38ba8;
+            --maroon: #eba0ac;
+            --peach: #fab387;
+            --yellow: #f9e2af;
+            --green: #a6e3a1;
+            --teal: #94e2d5;
+            --sky: #89dceb;
+            --sapphire: #74c7ec;
+            --blue: #89b4fa;
+            --lavender: #b4befe;
+            --text: #cdd6f4;
+            --subtext1: #bac2de;
+            --subtext0: #a6adc8;
+            --overlay2: #9399b2;
+            --overlay1: #7f849c;
+            --overlay0: #6c7086;
+            --surface2: #585b70;
+            --surface1: #45475a;
+            --surface0: #313244;
+            --base: #1e1e2e;
+            --mantle: #181825;
+            --crust: #11111b;
+        }
+        /* Catppuccin override for markdown render */
+        /* (had to do this way because directly using styles disables highlightjs colors) */
+        .markdown-body {
+            color-scheme: dark;
+            color: var(--text);
+            background-color: var(--base);
+        }
+        .markdown-body a {
+            color: var(--blue);
+        }
+        .markdown-body a:visited {
+            color: var(--mauve);
+        }
+        .markdown-body h1, .markdown-body h2 {
+            border-bottom-color: var(--surface1);
+        }
+        .markdown-body h6 {
+            color: var(--subtext0);
+        }
+        .markdown-body hr {
+            background-color: var(--surface1);
+        }
+        .markdown-body blockquote {
+            color: var(--subtext0);
+            border-left-color: var(--surface2);
+        }
+        .markdown-body mark {
+            background-color: var(--yellow);
+            color: var(--base);
+        }
+        /* Code and Preformatted Text */
+        .markdown-body code, .markdown-body tt {
+            background-color: var(--surface0);
+            border-radius: 6px;
+        }
+        .markdown-body kbd {
+            color: var(--text);
+            background-color: var(--surface0);
+            border: 1px solid var(--surface1);
+            border-bottom-color: var(--surface1);
+            box-shadow: inset 0 -1px 0 var(--surface1);
+        }
+        .markdown-body .highlight pre, .markdown-body pre {
+            background-color: var(--crust);
+            color: var(--text);
+        }
+        /* Tables */
+        .markdown-body table th, .markdown-body table td {
+            border-color: var(--surface1);
+        }
+        .markdown-body table tr {
+            background-color: var(--base);
+            border-top-color: var(--surface2);
+        }
+        .markdown-body table tr:nth-child(2n) {
+            background-color: var(--surface0);
+        }
+        .markdown-body .csv-data th {
+            background: var(--surface0);
+        }
+        /* Alerts */
+        .markdown-body .markdown-alert {
+            border-left-color: var(--overlay0);
+        }
+        .markdown-body .markdown-alert.markdown-alert-note {
+            border-left-color: var(--blue);
+        }
+        .markdown-body .markdown-alert.markdown-alert-note .markdown-alert-title {
+            color: var(--blue);
+        }
+        .markdown-body .markdown-alert.markdown-alert-important {
+            border-left-color: var(--mauve);
+        }
+        .markdown-body .markdown-alert.markdown-alert-important .markdown-alert-title {
+            color: var(--mauve);
+        }
+        .markdown-body .markdown-alert.markdown-alert-warning {
+            border-left-color: var(--yellow);
+        }
+        .markdown-body .markdown-alert.markdown-alert-warning .markdown-alert-title {
+            color: var(--yellow);
+        }
+        .markdown-body .markdown-alert.markdown-alert-tip {
+            border-left-color: var(--green);
+        }
+        .markdown-body .markdown-alert.markdown-alert-tip .markdown-alert-title {
+            color: var(--green);
+        }
+        .markdown-body .markdown-alert.markdown-alert-caution {
+            border-left-color: var(--red);
+        }
+        .markdown-body .markdown-alert.markdown-alert-caution .markdown-alert-title {
+            color: var(--red);
+        }
+        /* Syntax Highlighting (highlight.js) */
+        .hljs {
+            color: var(--text);
+            background: var(--crust);
+        }
+        .hljs-doctag, .hljs-keyword, .hljs-meta .hljs-keyword, .hljs-template-tag, .hljs-template-variable, .hljs-type, .hljs-variable.language_ {
+            color: var(--red);
+        }
+        .hljs-title, .hljs-title.class_, .hljs-title.class_.inherited__, .hljs-title.function_ {
+            color: var(--mauve);
+        }
+        .hljs-attr, .hljs-attribute, .hljs-literal, .hljs-meta, .hljs-number, .hljs-operator, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id, .hljs-variable {
+            color: var(--sky);
+        }
+        .hljs-meta .hljs-string, .hljs-regexp, .hljs-string {
+            color: var(--green);
+        }
+        .hljs-built_in, .hljs-symbol {
+            color: var(--peach);
+        }
+        .hljs-code, .hljs-comment, .hljs-formula {
+            color: var(--overlay1);
+        }
+        .hljs-name, .hljs-quote, .hljs-selector-pseudo, .hljs-selector-tag {
+            color: var(--pink);
+        }
+        .hljs-subst {
+            color: var(--text);
+        }
+        .hljs-section {
+            color: var(--blue);
+            font-weight: bold;
+        }
+        .hljs-bullet {
+            color: var(--yellow);
+        }
+        .hljs-emphasis {
+            color: var(--text);
+            font-style: italic;
+        }
+        .hljs-strong {
+            color: var(--text);
+            font-weight: bold;
+        }
+        .hljs-addition {
+            color: var(--green);
+            background-color: rgba(166, 227, 161, 0.1);
+        }
+        .hljs-deletion {
+            color: var(--red);
+            background-color: rgba(243, 139, 168, 0.1);
+        }
+        /* Page Layout */
         body {
             box-sizing: border-box;
             min-width: 200px;
@@ -22,9 +197,6 @@
             display: flex;
             justify-content: center;
             margin: 1em 0;
-        }
-        .markdown-body a:visited {
-            color: #8e6fbd;
         }
     </style>
 </head>
@@ -48,6 +220,12 @@
             const filename = decodedPath.split('/').pop();
             document.title = filename;
 
+            // Set the base URL for images relative paths
+            const baseTag = document.createElement('base');
+            const basePath = `/media/${decodedPath.substring(0, decodedPath.lastIndexOf('/') + 1)}`;
+            baseTag.href = basePath;
+            document.head.appendChild(baseTag);
+
             try {
                 // Fetch the markdown file
                 const response = await fetch(`/media/${decodedPath}`);
@@ -57,11 +235,31 @@
                     throw new Error('A required library failed to load.');
                 }
 
-                // Initialize Mermaid.js with a dark theme
+                // Initialize Mermaid.js with catppuccin colors
+                const computedStyles = getComputedStyle(document.documentElement);
+                const getColor = (variable) => computedStyles.getPropertyValue(variable).trim();
                 mermaid.initialize({
                     startOnLoad: false,
-                    theme: 'dark',
                     securityLevel: 'loose',
+                    theme: 'base',
+                    themeVariables: {
+                        background: getColor('--base'),
+                        primaryColor: getColor('--surface0'),
+                        primaryTextColor: getColor('--text'),
+                        primaryBorderColor: getColor('--mauve'),
+                        lineColor: getColor('--overlay2'),
+                        secondaryColor: getColor('--surface1'),
+                        secondaryTextColor: getColor('--text'),
+                        secondaryBorderColor: getColor('--green'),
+                        tertiaryColor: getColor('--surface2'),
+                        tertiaryTextColor: getColor('--text'),
+                        tertiaryBorderColor: getColor('--pink'),
+                        textColor: getColor('--text'),
+                        nodeTextColor: getColor('--text'),
+                        actorBorder: getColor('--mauve'),
+                        actorTextColor: getColor('--text'),
+                        actorBkg: getColor('--crust'),
+                    }
                 });
 
                 // Parse content with marked.js and render mermaid blocks
@@ -71,7 +269,6 @@
                     const mermaidCode = block.textContent;
                     const id = `mermaid-svg-${Date.now()}-${Math.random().toString(36).substring(2)}`;
                     try {
-                        // Get the SVG code and replace the code block
                         const { svg } = await mermaid.render(id, mermaidCode);
                         const container = document.createElement('div');
                         container.classList.add('mermaid-svg-container');
