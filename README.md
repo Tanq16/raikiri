@@ -11,7 +11,7 @@ The aim of the application is to provide directory listing in an elegant interfa
 
 ## Features
 
-- Elegant and beautiful application for modern web-based directory listing using Catppuccin theme
+- Beautiful Catppuccin Mocha themed application for modern web-based directory listing
 - Uses Plyr.js to play media files, and also showcases image files
 - Raw download option for all file types
 - GitHub-flavored (but styled in Catppuccin) rendering of markdown files (including mermaid support)
