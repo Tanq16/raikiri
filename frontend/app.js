@@ -22,6 +22,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalHeader = document.getElementById('modal-header');
     const modalNavControls = [modalPrevBtn, modalNextBtn, modalHeader];
 
+    // Upload Modal Elements
+    const uploadBtn = document.getElementById('upload-btn');
+    const uploadModal = document.getElementById('upload-modal');
+    const uploadModalCloseBtn = document.getElementById('upload-modal-close-btn');
+    const uploadForm = document.getElementById('upload-form');
+    const fileInput = document.getElementById('file-input');
+    const pathInput = document.getElementById('path-input');
+    const filenameInput = document.getElementById('filename-input');
+    const uploadSubmitBtn = document.getElementById('upload-submit-btn');
+    const uploadSpinner = document.getElementById('upload-spinner');
+    const uploadSubmitBtnText = uploadSubmitBtn.querySelector('span');
+
 
     // API FUNCTIONS
     async function fetchData(path, itemToHighlight = null) {
@@ -302,6 +314,67 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!modalPrevBtn.disabled) openModal(currentModalIndex - 1);
     }
 
+    // UPLOAD MODAL LOGIC
+    function openUploadModal() {
+        pathInput.value = currentPath; // Pre-fill with current path
+        uploadModal.classList.remove('hidden');
+        uploadModal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeUploadModal() {
+        uploadForm.reset();
+        uploadModal.classList.add('hidden');
+        uploadModal.classList.remove('flex');
+        document.body.style.overflow = 'auto';
+        uploadSubmitBtn.disabled = false;
+        uploadSpinner.classList.add('hidden');
+        uploadSubmitBtnText.classList.remove('hidden');
+    }
+
+    async function handleUpload(e) {
+        e.preventDefault();
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('Please select a file to upload.');
+            return;
+        }
+
+        uploadSubmitBtn.disabled = true;
+        uploadSpinner.classList.remove('hidden');
+        uploadSubmitBtnText.classList.add('hidden');
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('path', pathInput.value.trim());
+        formData.append('filename', filenameInput.value.trim());
+
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Upload failed with no details.' }));
+                throw new Error(errorData.error || 'Upload failed');
+            }
+
+            const result = await response.json();
+            console.log(result.message);
+            
+            closeUploadModal();
+            // Refresh file list and current view
+            await triggerSync();
+
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        } finally {
+            uploadSubmitBtn.disabled = false;
+            uploadSpinner.classList.add('hidden');
+            uploadSubmitBtnText.classList.remove('hidden');
+        }
+    }
+
     // EVENT LISTENERS
     mainContent.addEventListener('click', (e) => {
         const item = e.target.closest('.item');
@@ -335,14 +408,22 @@ document.addEventListener('DOMContentLoaded', () => {
     modalPrevBtn.addEventListener('click', showPrevMedia);
     modalNextBtn.addEventListener('click', showNextMedia);
 
+    // Upload Modal Listeners
+    uploadBtn.addEventListener('click', openUploadModal);
+    uploadModalCloseBtn.addEventListener('click', closeUploadModal);
+    uploadForm.addEventListener('submit', handleUpload);
+
     document.addEventListener('keydown', (e) => {
-        if (modal.classList.contains('hidden')) return;
-        if (e.key === 'Escape') closeModal();
-        if (e.key === 'ArrowLeft') {
-             if (!modalPrevBtn.disabled) openModal(currentModalIndex - 1);
-        }
-        if (e.key === 'ArrowRight') {
-            if (!modalNextBtn.disabled) openModal(currentModalIndex + 1);
+        if (!modal.classList.contains('hidden')) {
+            if (e.key === 'Escape') closeModal();
+            if (e.key === 'ArrowLeft') {
+                 if (!modalPrevBtn.disabled) openModal(currentModalIndex - 1);
+            }
+            if (e.key === 'ArrowRight') {
+                if (!modalNextBtn.disabled) openModal(currentModalIndex + 1);
+            }
+        } else if (!uploadModal.classList.contains('hidden') && e.key === 'Escape') {
+            closeUploadModal();
         }
     });
     logoEl.addEventListener('click', triggerSync);

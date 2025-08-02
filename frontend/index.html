@@ -99,10 +99,18 @@
                 <h1 class="text-3xl font-bold tracking-tight text-text">Raikiri</h1>
             </div>
 
-            <!-- Search Bar -->
-            <div class="relative flex-grow sm:flex-grow-0 sm:w-80">
-                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-subtext0"></i>
-                <input type="search" id="search-input" placeholder="Search..." class="w-full bg-crust border border-surface0 rounded-full py-2 pl-12 pr-4 text-text placeholder:text-subtext0 focus:outline-none focus:ring-2 focus:ring-mauve transition-all">
+            <!-- Actions: Upload and Search -->
+            <div class="flex-grow flex items-center justify-end gap-2">
+                <!-- Upload Button -->
+                <button id="upload-btn" title="Upload File" class="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-crust rounded-full text-subtext0 hover:text-mauve hover:border-mauve focus:outline-none focus:ring-2 focus:ring-mauve transition-all">
+                    <i class="fas fa-upload"></i>
+                </button>
+
+                <!-- Search Bar -->
+                <div class="relative flex-grow sm:flex-grow-0 sm:w-80">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-subtext0"></i>
+                    <input type="search" id="search-input" placeholder="Search..." class="w-full bg-crust rounded-full py-2 pl-12 pr-4 text-text placeholder:text-subtext0 focus:outline-none focus:ring-2 focus:ring-mauve transition-all">
+                </div>
             </div>
         </header>
 
@@ -138,6 +146,42 @@
         <button id="modal-next-btn" class="modal-nav-btn absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-base/70 text-white rounded-full hover:bg-surface0 transition-opacity duration-300 opacity-0 disabled:opacity-20 disabled:cursor-not-allowed">
             <i class="fas fa-chevron-right"></i>
         </button>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="fixed inset-0 bg-crust/80 backdrop-blur-sm z-50 hidden items-center justify-center">
+        <div class="bg-base rounded-lg shadow-xl w-full max-w-md m-4">
+            <div class="flex items-center justify-between p-4 border-b border-surface0">
+                <h3 class="text-lg font-semibold text-text">Upload File</h3>
+                <button id="upload-modal-close-btn" title="Close" class="text-subtext1 hover:text-text transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="upload-form" class="p-6 space-y-4">
+                <div>
+                    <!-- <label for="file-input" class="block text-sm font-medium text-subtext1 mb-2">File</label> -->
+                    <input type="file" id="file-input" name="file" required class="block w-full text-sm text-subtext0 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-mauve file:text-crust hover:file:bg-pink transition">
+                </div>
+                <div>
+                    <label for="path-input" class="block text-sm font-medium text-subtext1 mb-2">Destination Path (optional)</label>
+                    <input type="text" id="path-input" name="path" placeholder="e.g., documents/work" class="w-full bg-crust rounded-lg p-2 text-text placeholder:text-subtext0 focus:outline-none focus:ring-2 focus:ring-mauve transition-all">
+                    <p class="text-xs text-overlay0 mt-1">Relative to the media root. Leave empty for root.</p>
+                </div>
+                <div>
+                    <label for="filename-input" class="block text-sm font-medium text-subtext1 mb-2">File Name (optional)</label>
+                    <input type="text" id="filename-input" name="filename" placeholder="Leave empty to use original name" class="w-full bg-crust rounded-lg p-2 text-text placeholder:text-subtext0 focus:outline-none focus:ring-2 focus:ring-mauve transition-all">
+                </div>
+                <div class="flex justify-end pt-4">
+                     <button type="submit" id="upload-submit-btn" class="bg-mauve text-crust font-bold py-2 px-6 rounded-lg hover:bg-pink transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
+                        <svg id="upload-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Upload</span>
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script src="/static/js/plyr.js"></script>

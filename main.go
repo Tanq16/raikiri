@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -86,6 +87,7 @@ func main() {
 	mux.HandleFunc("/api/sync", handleSync)
 	mux.HandleFunc("/api/browse/", handleBrowse)
 	mux.HandleFunc("/api/search", handleSearch)
+	mux.HandleFunc("/api/upload", handleUpload) // New upload route
 	mediaFileServer := http.FileServer(http.Dir(appState.MediaRoot))
 	mux.Handle("/media/", http.StripPrefix("/media/", mediaFileServer))
 	serverPort := ":" + *port
@@ -208,6 +210,56 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func handleUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error": "Invalid request method"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	// max upload 500 MB
+	if err := r.ParseMultipartForm(500 << 20); err != nil {
+		http.Error(w, `{"error": "File too large"}`, http.StatusBadRequest)
+		return
+	}
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, `{"error": "Error retrieving the file"}`, http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+	uploadPath := r.FormValue("path")
+	log.Printf("Upload path: %s", uploadPath)
+	fileName := r.FormValue("filename")
+	if fileName == "" {
+		fileName = handler.Filename
+	}
+	destPath := filepath.Join(appState.MediaRoot, uploadPath)
+	destPath = filepath.Clean(destPath)
+	log.Printf("Clean path: %s; media root: %s", destPath, appState.MediaRoot)
+	if !strings.HasPrefix(destPath, filepath.Clean(appState.MediaRoot)) {
+		http.Error(w, `{"error": "Invalid path: attempts to write outside of media root"}`, http.StatusBadRequest)
+		return
+	}
+	if err := os.MkdirAll(destPath, 0755); err != nil {
+		http.Error(w, `{"error": "Unable to create destination directory"}`, http.StatusInternalServerError)
+		return
+	}
+	fullFilePath := filepath.Join(destPath, fileName)
+	dst, err := os.Create(fullFilePath)
+	if err != nil {
+		http.Error(w, `{"error": "Unable to create the file"}`, http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close()
+	if _, err := io.Copy(dst, file); err != nil {
+		http.Error(w, `{"error": "Error saving the file"}`, http.StatusInternalServerError)
+		return
+	}
+	log.Printf("File uploaded successfully: %s", fullFilePath)
+	go scanAndCacheFiles()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "File uploaded successfully"})
+}
+
 func handleBrowse(w http.ResponseWriter, r *http.Request) {
 	relativePath := strings.TrimPrefix(r.URL.Path, "/api/browse/")
 	fullPath := filepath.Join(appState.MediaRoot, relativePath)
@@ -227,7 +279,7 @@ func handleBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 	// Build breadcrumbs
 	content.Breadcrumbs = append(content.Breadcrumbs, FileInfo{Name: "Home", Path: ""})
-	if relativePath != "" {
+	if relativePath != "" && relativePath != "." {
 		parts := strings.Split(relativePath, "/")
 		for i, part := range parts {
 			content.Breadcrumbs = append(content.Breadcrumbs, FileInfo{
