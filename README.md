@@ -15,6 +15,7 @@ The aim of the application is to provide directory listing in an elegant interfa
 - Uses Plyr.js to play media files, and also showcases image files
 - Raw download option for all file types
 - GitHub-flavored (but styled in Catppuccin) rendering of markdown files (including mermaid support)
+- Ability to upload individual files to the server at specific paths
 - Functionality in the binary to prepare media for thumbnails
 - Fully self-hosted with local assets and self-contained binary and container
 - Efficient sizefor both binary and container - under 14 MB
