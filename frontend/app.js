@@ -136,12 +136,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderSection(title, content) {
+        const isImageSection = title === 'Images';
+        const galleryToggleBtn = isImageSection
+            ? `<button class="gallery-toggle-btn text-subtext1 hover:text-mauve transition-colors ml-2" title="Toggle gallery view">
+                 <i class="fas fa-th-large"></i>
+               </button>`
+            : '';
+
+        const gridClasses = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4";
+        const containerClasses = isImageSection ? `media-grid ${gridClasses}` : gridClasses;
+
         return `
             <section class="mb-12">
-                <div class="text-center mb-6">
+                <div class="text-center mb-6 flex items-center justify-center">
                     <h2 class="text-sm font-bold uppercase tracking-widest text-subtext1">${title}</h2>
+                    ${galleryToggleBtn}
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">${content}</div>
+                <div class="${containerClasses}">${content}</div>
             </section>
         `;
     }
@@ -171,9 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 : `<div class="w-full h-full flex items-center justify-center text-mauve"><i class="${iconClass} fa-lg"></i></div>`;
 
             return `
-                <div class="item media-item flex items-center gap-4 bg-base p-2 rounded-lg hover:bg-surface0 transition-colors cursor-pointer" data-media-index="${mediaIndex}" data-name="${item.name}" data-type="${type}">
-                    <div class="flex-shrink-0 w-16 h-16 bg-surface1 rounded-md overflow-hidden">${contentHtml}</div>
-                    <p class="flex-grow font-medium truncate" title="${item.name}">${item.name}</p>
+                <div class="item media-item bg-base rounded-lg hover:bg-surface0 transition-colors cursor-pointer" data-media-index="${mediaIndex}" data-name="${item.name}" data-type="${type}">
+                    <div class="media-thumbnail bg-surface1 rounded-md overflow-hidden">${contentHtml}</div>
+                    <p class="media-name font-medium truncate" title="${item.name}">${item.name}</p>
                 </div>
             `;
         }).join('');
@@ -377,6 +388,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // EVENT LISTENERS
     mainContent.addEventListener('click', (e) => {
+        const galleryToggleBtn = e.target.closest('.gallery-toggle-btn');
+        if (galleryToggleBtn) {
+            const section = galleryToggleBtn.closest('section');
+            const mediaGrid = section.querySelector('.media-grid');
+            const icon = galleryToggleBtn.querySelector('i');
+            mediaGrid.classList.toggle('gallery-view');
+            if (mediaGrid.classList.contains('gallery-view')) {
+                icon.classList.remove('fa-th-large');
+                icon.classList.add('fa-list');
+                galleryToggleBtn.title = "Toggle list view";
+            } else {
+                icon.classList.remove('fa-list');
+                icon.classList.add('fa-th-large');
+                galleryToggleBtn.title = "Toggle gallery view";
+            }
+            return;
+        }
+
         const item = e.target.closest('.item');
         if (!item || item.tagName === 'A') return;
         const { path, type, mediaIndex, filename } = item.dataset;
