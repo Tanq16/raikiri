@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDirectoryContent = { images: [], videos: [], audios: [], others: [] };
     let currentModalIndex = -1;
     let currentMediaList = [];
+    let isGalleryView = false;
     let player;
     let navAutoHideTimer = null;
 
@@ -21,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoEl = document.querySelector('.logo');
     const modalHeader = document.getElementById('modal-header');
     const modalNavControls = [modalPrevBtn, modalNextBtn, modalHeader];
+    const galleryToggleBtn = document.getElementById('gallery-toggle-btn');
 
     // Upload Modal Elements
     const uploadBtn = document.getElementById('upload-btn');
@@ -137,20 +139,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderSection(title, content) {
         const isImageSection = title === 'Images';
-        const galleryToggleBtn = isImageSection
-            ? `<button class="gallery-toggle-btn text-subtext1 hover:text-mauve transition-colors ml-2" title="Toggle gallery view">
-                 <i class="fas fa-th-large"></i>
-               </button>`
-            : '';
-
         const gridClasses = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4";
-        const containerClasses = isImageSection ? `media-grid ${gridClasses}` : gridClasses;
+        let containerClasses = isImageSection ? `media-grid ${gridClasses}` : gridClasses;
+        if (isImageSection && isGalleryView) {
+            containerClasses += ' gallery-view';
+        }
 
         return `
             <section class="mb-12">
                 <div class="text-center mb-6 flex items-center justify-center">
                     <h2 class="text-sm font-bold uppercase tracking-widest text-subtext1">${title}</h2>
-                    ${galleryToggleBtn}
                 </div>
                 <div class="${containerClasses}">${content}</div>
             </section>
@@ -387,25 +385,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // EVENT LISTENERS
-    mainContent.addEventListener('click', (e) => {
-        const galleryToggleBtn = e.target.closest('.gallery-toggle-btn');
-        if (galleryToggleBtn) {
-            const section = galleryToggleBtn.closest('section');
-            const mediaGrid = section.querySelector('.media-grid');
-            const icon = galleryToggleBtn.querySelector('i');
-            mediaGrid.classList.toggle('gallery-view');
-            if (mediaGrid.classList.contains('gallery-view')) {
-                icon.classList.remove('fa-th-large');
-                icon.classList.add('fa-list');
-                galleryToggleBtn.title = "Toggle list view";
-            } else {
-                icon.classList.remove('fa-list');
-                icon.classList.add('fa-th-large');
-                galleryToggleBtn.title = "Toggle gallery view";
-            }
-            return;
+    galleryToggleBtn.addEventListener('click', () => {
+        isGalleryView = !isGalleryView;
+        const icon = galleryToggleBtn.querySelector('i');
+        if (isGalleryView) {
+            icon.classList.remove('fa-th-large');
+            icon.classList.add('fa-list');
+            galleryToggleBtn.title = "Toggle list view";
+        } else {
+            icon.classList.remove('fa-list');
+            icon.classList.add('fa-th-large');
+            galleryToggleBtn.title = "Toggle gallery view";
         }
+        renderContent(currentDirectoryContent);
+    });
 
+    mainContent.addEventListener('click', (e) => {
         const item = e.target.closest('.item');
         if (!item || item.tagName === 'A') return;
         const { path, type, mediaIndex, filename } = item.dataset;
