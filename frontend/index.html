@@ -87,6 +87,58 @@
             animation: glow-pulse 2s ease-out;
             border-radius: 0.5rem;
         }
+
+        .media-grid .media-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.5rem;
+        }
+        .media-grid .media-thumbnail {
+            flex-shrink: 0;
+            width: 4rem;
+            height: 4rem;
+        }
+        .media-grid .media-name {
+            flex-grow: 1;
+        }
+        .media-grid.gallery-view {
+            display: block;
+            column-count: 1;
+            column-gap: 1rem;
+        }
+        @media (min-width: 768px) {
+            .media-grid.gallery-view {
+                column-count: 2;
+            }
+        }
+        @media (min-width: 1024px) {
+            .media-grid.gallery-view {
+                column-count: 3;
+            }
+        }
+        @media (min-width: 1280px) {
+            .media-grid.gallery-view {
+                column-count: 4;
+            }
+        }
+        .media-grid.gallery-view .media-item {
+            break-inside: avoid;
+            margin-bottom: 1rem;
+            display: inline-block;
+            width: 100%;
+            padding: 0;
+        }
+        .media-grid.gallery-view .media-thumbnail {
+            width: 100%;
+            height: auto;
+        }
+        .media-grid.gallery-view .media-thumbnail img {
+            border-radius: 0.5rem;
+        }
+        .media-grid.gallery-view .media-name {
+            padding: 0.5rem;
+        }
     </style>
 </head>
 <body class="bg-mantle text-text font-sans antialiased">
@@ -102,9 +154,13 @@
             <!-- Actions: Upload and Search -->
             <div class="flex-grow flex items-center justify-end gap-2">
                 <!-- Upload Button -->
-                <button id="upload-btn" title="Upload File" class="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-crust rounded-full text-subtext0 hover:text-mauve hover:border-mauve focus:outline-none focus:ring-2 focus:ring-mauve transition-all">
+                <button id="gallery-toggle-btn" class="text-subtext1 hover:text-mauve transition-colors" title="Toggle gallery view">
+                    <i class="fas fa-th-large"></i>
+                </button>
+                <button id="upload-btn" class="text-subtext1 hover:text-mauve transition-colors" title="Upload file">
                     <i class="fas fa-upload"></i>
                 </button>
+
 
                 <!-- Search Bar -->
                 <div class="relative flex-grow sm:flex-grow-0 sm:w-80">
