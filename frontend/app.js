@@ -138,10 +138,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderSection(title, content) {
-        const isImageSection = title === 'Images';
+        const isMediaSection = title === 'Images' || title === 'Videos';
         const gridClasses = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4";
-        let containerClasses = isImageSection ? `media-grid ${gridClasses}` : gridClasses;
-        if (isImageSection && isGalleryView) {
+        let containerClasses = isMediaSection ? `media-grid ${gridClasses}` : gridClasses;
+        if (isMediaSection && isGalleryView) {
             containerClasses += ' gallery-view';
         }
 
