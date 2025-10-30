@@ -220,18 +220,14 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error": "File too large"}`, http.StatusBadRequest)
 		return
 	}
-	file, handler, err := r.FormFile("file")
-	if err != nil {
-		http.Error(w, `{"error": "Error retrieving the file"}`, http.StatusBadRequest)
+	files := r.MultipartForm.File["file"]
+	if len(files) == 0 {
+		http.Error(w, `{"error": "No files uploaded"}`, http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
 	uploadPath := r.FormValue("path")
 	log.Printf("Upload path: %s", uploadPath)
 	fileName := r.FormValue("filename")
-	if fileName == "" {
-		fileName = handler.Filename
-	}
 	destPath := filepath.Join(appState.MediaRoot, uploadPath)
 	destPath = filepath.Clean(destPath)
 	log.Printf("Clean path: %s; media root: %s", destPath, appState.MediaRoot)
@@ -243,21 +239,35 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error": "Unable to create destination directory"}`, http.StatusInternalServerError)
 		return
 	}
-	fullFilePath := filepath.Join(destPath, fileName)
-	dst, err := os.Create(fullFilePath)
-	if err != nil {
-		http.Error(w, `{"error": "Unable to create the file"}`, http.StatusInternalServerError)
-		return
+	for _, handler := range files {
+		file, err := handler.Open()
+		if err != nil {
+			http.Error(w, `{"error": "Error retrieving the file"}`, http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+		var fName string
+		if len(files) > 1 || fileName == "" {
+			fName = handler.Filename
+		} else {
+			fName = fileName
+		}
+		fullFilePath := filepath.Join(destPath, fName)
+		dst, err := os.Create(fullFilePath)
+		if err != nil {
+			http.Error(w, `{"error": "Unable to create the file"}`, http.StatusInternalServerError)
+			return
+		}
+		defer dst.Close()
+		if _, err := io.Copy(dst, file); err != nil {
+			http.Error(w, `{"error": "Error saving the file"}`, http.StatusInternalServerError)
+			return
+		}
+		log.Printf("File uploaded successfully: %s", fullFilePath)
 	}
-	defer dst.Close()
-	if _, err := io.Copy(dst, file); err != nil {
-		http.Error(w, `{"error": "Error saving the file"}`, http.StatusInternalServerError)
-		return
-	}
-	log.Printf("File uploaded successfully: %s", fullFilePath)
 	go scanAndCacheFiles()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "File uploaded successfully"})
+	json.NewEncoder(w).Encode(map[string]string{"message": "Files uploaded successfully"})
 }
 
 func handleBrowse(w http.ResponseWriter, r *http.Request) {

@@ -347,34 +347,30 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Please select a file to upload.');
             return;
         }
-
         uploadSubmitBtn.disabled = true;
         uploadSpinner.classList.remove('hidden');
         uploadSubmitBtnText.classList.add('hidden');
-
         const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
+        for (const file of fileInput.files) {
+            formData.append('file', file);
+        }
         formData.append('path', pathInput.value.trim());
-        formData.append('filename', filenameInput.value.trim());
-
+        if (fileInput.files.length === 1) {
+            formData.append('filename', filenameInput.value.trim());
+        }
         try {
             const response = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData,
             });
-
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: 'Upload failed with no details.' }));
                 throw new Error(errorData.error || 'Upload failed');
             }
-
             const result = await response.json();
             console.log(result.message);
-            
             closeUploadModal();
-            // Refresh file list and current view
             await triggerSync();
-
         } catch (error) {
             alert(`Error: ${error.message}`);
         } finally {
