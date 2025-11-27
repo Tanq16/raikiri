@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ${(data.folders || []).length > 0 ? renderSection('Folders', renderFolderItems(data.folders)) : ''}
             ${(data.images || []).length > 0 ? renderSection('Images', renderMediaItems(data.images, 'image')) : ''}
             ${(data.videos || []).length > 0 ? renderSection('Videos', renderMediaItems(data.videos, 'video')) : ''}
-            ${(data.audios || []).length > 0 ? renderSection('Audio', renderMediaItems(data.audios, 'audio')) : ''}
+            ${(data.audios || []).length > 0 ? renderSection('Audio', renderOtherItems(data.audios)) : ''}
             ${(data.others || []).length > 0 ? renderSection('Other Files', renderOtherItems(data.others)) : ''}
         `;
         if (itemToHighlight) {

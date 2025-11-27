@@ -311,18 +311,23 @@ func handleBrowse(w http.ResponseWriter, r *http.Request) {
 			info.Type = "folder"
 			content.Folders = append(content.Folders, info)
 		} else {
-			// Check for thumbnail
-			thumbFilename := fmt.Sprintf(".%s.raithumb.jpg", entry.Name())
-			thumbPhysicalPath := filepath.Join(fullPath, thumbFilename)
-			if _, err := os.Stat(thumbPhysicalPath); err == nil {
-				info.ThumbnailPath = filepath.ToSlash(filepath.Join(relativePath, thumbFilename))
-			}
-
 			if slices.Contains(imageExtensions, ext) {
 				info.Type = "image"
+				// Check for thumbnail
+				thumbFilename := fmt.Sprintf(".%s.raithumb.jpg", entry.Name())
+				thumbPhysicalPath := filepath.Join(fullPath, thumbFilename)
+				if _, err := os.Stat(thumbPhysicalPath); err == nil {
+					info.ThumbnailPath = filepath.ToSlash(filepath.Join(relativePath, thumbFilename))
+				}
 				content.Images = append(content.Images, info)
 			} else if slices.Contains(videoExtensions, ext) {
 				info.Type = "video"
+				// Check for thumbnail
+				thumbFilename := fmt.Sprintf(".%s.raithumb.jpg", entry.Name())
+				thumbPhysicalPath := filepath.Join(fullPath, thumbFilename)
+				if _, err := os.Stat(thumbPhysicalPath); err == nil {
+					info.ThumbnailPath = filepath.ToSlash(filepath.Join(relativePath, thumbFilename))
+				}
 				content.Videos = append(content.Videos, info)
 			} else if slices.Contains(audioExtensions, ext) {
 				info.Type = "audio"
@@ -377,19 +382,26 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if matchesAll {
+			ext := strings.ToLower(filepath.Ext(file))
+			isImage := slices.Contains(imageExtensions, ext)
+			isVideo := slices.Contains(videoExtensions, ext)
+
 			fileInfo := FileInfo{
 				Name: filepath.Base(file),
 				Path: file,
 				Type: "file",
 			}
-			// Check for thumbnail
-			dir := filepath.Dir(filepath.Join(appState.MediaRoot, file))
-			filename := filepath.Base(file)
-			thumbFilename := fmt.Sprintf(".%s.raithumb.jpg", filename)
-			thumbPhysicalPath := filepath.Join(dir, thumbFilename)
-			if _, err := os.Stat(thumbPhysicalPath); err == nil {
-				thumbRelativePath := filepath.Join(filepath.Dir(file), thumbFilename)
-				fileInfo.ThumbnailPath = filepath.ToSlash(thumbRelativePath)
+
+			// Check for thumbnail only for images and videos
+			if isImage || isVideo {
+				dir := filepath.Dir(filepath.Join(appState.MediaRoot, file))
+				filename := filepath.Base(file)
+				thumbFilename := fmt.Sprintf(".%s.raithumb.jpg", filename)
+				thumbPhysicalPath := filepath.Join(dir, thumbFilename)
+				if _, err := os.Stat(thumbPhysicalPath); err == nil {
+					thumbRelativePath := filepath.Join(filepath.Dir(file), thumbFilename)
+					fileInfo.ThumbnailPath = filepath.ToSlash(thumbRelativePath)
+				}
 			}
 			results = append(results, fileInfo)
 			if len(results) >= 50 { // Limit results
