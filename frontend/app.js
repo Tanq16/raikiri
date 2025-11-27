@@ -273,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     }
 
-    function openModal(mediaIndex) {
+    function openModal(mediaIndex, skipShowControls = false) {
         currentMediaList = [
             ...(currentDirectoryContent.images || []),
             ...(currentDirectoryContent.videos || []),
@@ -318,9 +318,11 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         updateModalNav();
-        modal.addEventListener('mousemove', showModalControls);
-        modal.addEventListener('click', showModalControls);
-        showModalControls();
+        if (!skipShowControls) {
+            modal.addEventListener('mousemove', showModalControls);
+            modal.addEventListener('click', showModalControls);
+            showModalControls();
+        }
     }
 
     function closeModal() {
@@ -407,10 +409,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     currentShuffleIndex++;
                 }
-                openModal(shuffleList[currentShuffleIndex]);
+                openModal(shuffleList[currentShuffleIndex], true);
             } else {
                 const nextIndex = (currentModalIndex + 1) % images.length;
-                openModal(nextIndex);
+                openModal(nextIndex, true);
             }
         }, 4000);
     }
