@@ -139,6 +139,27 @@
         .media-grid.gallery-view .media-name {
             padding: 0.5rem;
         }
+
+        /* Notification toast animation */
+        @keyframes slide-in-right {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        #notification-toast:not(.hidden) {
+            animation: slide-in-right 0.3s ease-out;
+        }
+
+        /* File drop zone styles */
+        #file-drop-zone.drag-over {
+            border-color: #cba6f7;
+            background-color: rgba(203, 166, 247, 0.1);
+        }
     </style>
 </head>
 <body class="bg-mantle text-text font-sans antialiased">
@@ -215,19 +236,38 @@
             </div>
             <form id="upload-form" class="p-6 space-y-4">
                 <div>
-                    <!-- <label for="file-input" class="block text-sm font-medium text-subtext1 mb-2">File</label> -->
-                    <input type="file" id="file-input" name="file" required class="block w-full text-sm text-subtext0 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-mauve file:text-crust hover:file:bg-pink transition" multiple>
+                    <label for="file-input" class="block text-sm font-medium text-subtext1 mb-2">File</label>
+                    <div id="file-drop-zone" class="border-2 border-dashed border-surface1 rounded-lg p-6 text-center hover:border-mauve transition-colors cursor-pointer" role="button" tabindex="0" aria-label="File upload drop zone" aria-describedby="file-drop-zone-description">
+                        <input type="file" id="file-input" name="file" required class="hidden" multiple aria-label="Select files to upload">
+                        <div id="file-drop-zone-content">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-subtext0 mb-2" aria-hidden="true"></i>
+                            <p class="text-sm text-subtext1 mb-1">Click to select or drag and drop files</p>
+                            <p id="file-drop-zone-description" class="text-xs text-overlay0">Maximum 500 MB per file</p>
+                        </div>
+                        <div id="file-list" class="mt-4 text-left space-y-2 hidden" role="list" aria-label="Selected files"></div>
+                    </div>
                 </div>
                 <div>
                     <label for="path-input" class="block text-sm font-medium text-subtext1 mb-2">Destination Path (optional)</label>
                     <input type="text" id="path-input" name="path" placeholder="e.g., documents/work" class="w-full bg-crust rounded-lg p-2 text-text placeholder:text-subtext0 focus:outline-none focus:ring-2 focus:ring-mauve transition-all">
                     <p class="text-xs text-overlay0 mt-1">Relative to the media root. Leave empty for root.</p>
+                    <p id="path-error" class="text-xs text-red mt-1 hidden"></p>
                 </div>
                 <div>
                     <label for="filename-input" class="block text-sm font-medium text-subtext1 mb-2">File Name (optional)</label>
                     <input type="text" id="filename-input" name="filename" placeholder="Leave empty to use original name" class="w-full bg-crust rounded-lg p-2 text-text placeholder:text-subtext0 focus:outline-none focus:ring-2 focus:ring-mauve transition-all">
                     <p class="text-xs text-overlay0 mt-1">Ignored when multiple files are selected.</p>
                 </div>
+                <div id="upload-progress-container" class="hidden">
+                    <div class="flex items-center justify-between text-xs text-subtext1 mb-1">
+                        <span>Uploading...</span>
+                        <span id="upload-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-surface1 rounded-full h-2">
+                        <div id="upload-progress-bar" class="bg-mauve h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div id="upload-error" class="hidden bg-red/20 border border-red rounded-lg p-3 text-sm text-red"></div>
                 <div class="flex justify-end pt-4">
                      <button type="submit" id="upload-submit-btn" class="bg-mauve text-crust font-bold py-2 px-6 rounded-lg hover:bg-pink transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
                         <svg id="upload-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -238,6 +278,19 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="notification-toast" class="fixed bottom-4 right-4 z-50 hidden">
+        <div id="notification-content" class="bg-base rounded-lg shadow-xl p-4 flex items-center gap-3 min-w-[300px] max-w-md border border-surface0">
+            <i id="notification-icon" class="text-xl"></i>
+            <div class="flex-grow">
+                <p id="notification-message" class="text-sm font-medium text-text"></p>
+            </div>
+            <button id="notification-close" class="text-subtext0 hover:text-text transition-colors">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
     </div>
 

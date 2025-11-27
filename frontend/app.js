@@ -35,6 +35,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadSubmitBtn = document.getElementById('upload-submit-btn');
     const uploadSpinner = document.getElementById('upload-spinner');
     const uploadSubmitBtnText = uploadSubmitBtn.querySelector('span');
+    const fileDropZone = document.getElementById('file-drop-zone');
+    const fileDropZoneContent = document.getElementById('file-drop-zone-content');
+    const fileList = document.getElementById('file-list');
+    const uploadProgressContainer = document.getElementById('upload-progress-container');
+    const uploadProgressBar = document.getElementById('upload-progress-bar');
+    const uploadProgressText = document.getElementById('upload-progress-text');
+    const uploadError = document.getElementById('upload-error');
+    const pathError = document.getElementById('path-error');
+    const notificationToast = document.getElementById('notification-toast');
+    const notificationContent = document.getElementById('notification-content');
+    const notificationIcon = document.getElementById('notification-icon');
+    const notificationMessage = document.getElementById('notification-message');
+    const notificationClose = document.getElementById('notification-close');
 
 
     // API FUNCTIONS
@@ -174,15 +187,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const thumbnailSrc = item.thumbnailPath ? `/media/${item.thumbnailPath}` : (type === 'image' ? `/media/${item.path}` : null);
             const iconClass = getFileIcon({ type });
+            const escapedName = item.name.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
             let contentHtml = thumbnailSrc
-                ? `<img src="${thumbnailSrc}" alt="${item.name}" loading="lazy" class="w-full h-full object-cover">`
+                ? `<img src="${thumbnailSrc}" alt="${escapedName}" loading="lazy" class="w-full h-full object-cover" onerror="this.onerror=null; const parent=this.parentElement; parent.innerHTML='<div class=\\'w-full h-full flex items-center justify-center text-mauve\\'><i class=\\'${iconClass} fa-lg\\'></i></div>';" onload="this.style.opacity='1';" style="opacity:0;transition:opacity 0.3s;">`
                 : `<div class="w-full h-full flex items-center justify-center text-mauve"><i class="${iconClass} fa-lg"></i></div>`;
 
             return `
-                <div class="item media-item bg-base rounded-lg hover:bg-surface0 transition-colors cursor-pointer" data-media-index="${mediaIndex}" data-name="${item.name}" data-type="${type}">
+                <div class="item media-item bg-base rounded-lg hover:bg-surface0 transition-colors cursor-pointer" data-media-index="${mediaIndex}" data-name="${escapedName}" data-type="${type}" role="button" tabindex="0" aria-label="View ${escapedName}">
                     <div class="media-thumbnail bg-surface1 rounded-md overflow-hidden">${contentHtml}</div>
-                    <p class="media-name font-medium truncate" title="${item.name}">${item.name}</p>
+                    <p class="media-name font-medium truncate" title="${escapedName}">${escapedName}</p>
                 </div>
             `;
         }).join('');
@@ -220,8 +234,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const thumbnailSrc = item.thumbnailPath ? `/media/${item.thumbnailPath}` : null;
             const iconClass = getFileIcon(item);
 
+            const escapedSearchName = item.name.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
             let thumbnailHtml = thumbnailSrc
-                ? `<img src="${thumbnailSrc}" alt="${item.name}" loading="lazy" class="w-full h-full object-cover">`
+                ? `<img src="${thumbnailSrc}" alt="${escapedSearchName}" loading="lazy" class="w-full h-full object-cover" onerror="this.onerror=null; const parent=this.parentElement; parent.innerHTML='<div class=\\'w-full h-full flex items-center justify-center text-mauve\\'><i class=\\'${iconClass} fa-lg\\'></i></div>';" onload="this.style.opacity='1';" style="opacity:0;transition:opacity 0.3s;">`
                 : `<div class="w-full h-full flex items-center justify-center text-mauve"><i class="${iconClass} fa-lg"></i></div>`;
 
             return `
@@ -323,12 +338,98 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!modalPrevBtn.disabled) openModal(currentModalIndex - 1);
     }
 
+    // NOTIFICATION SYSTEM
+    function showNotification(message, type = 'success') {
+        const icons = {
+            success: 'fas fa-check-circle text-green',
+            error: 'fas fa-exclamation-circle text-red',
+            info: 'fas fa-info-circle text-blue'
+        };
+        const colors = {
+            success: 'border-green',
+            error: 'border-red',
+            info: 'border-blue'
+        };
+        notificationIcon.className = `text-xl ${icons[type] || icons.info}`;
+        notificationMessage.textContent = message;
+        notificationContent.className = `bg-base rounded-lg shadow-xl p-4 flex items-center gap-3 min-w-[300px] max-w-md border ${colors[type] || colors.info}`;
+        notificationToast.classList.remove('hidden');
+        setTimeout(() => {
+            hideNotification();
+        }, 5000);
+    }
+
+    function hideNotification() {
+        notificationToast.classList.add('hidden');
+    }
+
+    // FILE VALIDATION
+    function validateFile(file) {
+        const maxSize = 500 * 1024 * 1024; // 500 MB
+        if (file.size > maxSize) {
+            return { valid: false, error: `File "${file.name}" exceeds maximum size of 500 MB` };
+        }
+        return { valid: true };
+    }
+
+    function validatePath(path) {
+        if (!path || path.trim() === '') return { valid: true };
+        // Check for invalid characters
+        const invalidChars = /[<>:"|?*\x00-\x1f]/;
+        if (invalidChars.test(path)) {
+            return { valid: false, error: 'Path contains invalid characters' };
+        }
+        // Check for path traversal attempts
+        if (path.includes('..')) {
+            return { valid: false, error: 'Path cannot contain ".."' };
+        }
+        return { valid: true };
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    function updateFileList() {
+        if (!fileInput.files || fileInput.files.length === 0) {
+            fileList.classList.add('hidden');
+            fileDropZoneContent.classList.remove('hidden');
+            return;
+        }
+        fileList.classList.remove('hidden');
+        fileDropZoneContent.classList.add('hidden');
+        fileList.innerHTML = Array.from(fileInput.files).map((file, index) => {
+            const validation = validateFile(file);
+            const escapedName = file.name.replace(/"/g, '&quot;');
+            const escapedError = validation.error ? validation.error.replace(/"/g, '&quot;') : '';
+            return `
+                <div class="flex items-center justify-between p-2 bg-surface0 rounded ${!validation.valid ? 'border border-red' : ''}" role="listitem">
+                    <div class="flex-grow min-w-0">
+                        <p class="text-sm text-text truncate" title="${escapedName}">${escapedName}</p>
+                        <p class="text-xs text-subtext0">${formatFileSize(file.size)}</p>
+                    </div>
+                    ${!validation.valid ? `<i class="fas fa-exclamation-triangle text-red ml-2" title="${escapedError}" aria-label="Error: ${escapedError}"></i>` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
     // UPLOAD MODAL LOGIC
     function openUploadModal() {
         pathInput.value = currentPath; // Pre-fill with current path
         uploadModal.classList.remove('hidden');
         uploadModal.classList.add('flex');
         document.body.style.overflow = 'hidden';
+        uploadError.classList.add('hidden');
+        pathError.classList.add('hidden');
+        uploadError.textContent = '';
+        pathError.textContent = '';
+        // Focus on file input for accessibility
+        setTimeout(() => fileDropZone.focus(), 100);
     }
 
     function closeUploadModal() {
@@ -339,17 +440,54 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadSubmitBtn.disabled = false;
         uploadSpinner.classList.add('hidden');
         uploadSubmitBtnText.classList.remove('hidden');
+        uploadProgressContainer.classList.add('hidden');
+        uploadProgressBar.style.width = '0%';
+        uploadProgressText.textContent = '0%';
+        uploadError.classList.add('hidden');
+        pathError.classList.add('hidden');
+        fileList.classList.add('hidden');
+        fileDropZoneContent.classList.remove('hidden');
     }
 
     async function handleUpload(e) {
         e.preventDefault();
         if (!fileInput.files || fileInput.files.length === 0) {
-            alert('Please select a file to upload.');
+            uploadError.textContent = 'Please select a file to upload.';
+            uploadError.classList.remove('hidden');
             return;
         }
+
+        // Validate all files
+        const invalidFiles = [];
+        for (const file of fileInput.files) {
+            const validation = validateFile(file);
+            if (!validation.valid) {
+                invalidFiles.push(validation.error);
+            }
+        }
+        if (invalidFiles.length > 0) {
+            uploadError.textContent = invalidFiles[0];
+            uploadError.classList.remove('hidden');
+            return;
+        }
+
+        // Validate path
+        const pathValidation = validatePath(pathInput.value.trim());
+        if (!pathValidation.valid) {
+            pathError.textContent = pathValidation.error;
+            pathError.classList.remove('hidden');
+            return;
+        }
+        pathError.classList.add('hidden');
+
         uploadSubmitBtn.disabled = true;
         uploadSpinner.classList.remove('hidden');
         uploadSubmitBtnText.classList.add('hidden');
+        uploadError.classList.add('hidden');
+        uploadProgressContainer.classList.remove('hidden');
+        uploadProgressBar.style.width = '0%';
+        uploadProgressText.textContent = '0%';
+
         const formData = new FormData();
         for (const file of fileInput.files) {
             formData.append('file', file);
@@ -358,21 +496,57 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fileInput.files.length === 1) {
             formData.append('filename', filenameInput.value.trim());
         }
+
         try {
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData,
+            const xhr = new XMLHttpRequest();
+
+            // Track upload progress
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    uploadProgressBar.style.width = `${percentComplete}%`;
+                    uploadProgressText.textContent = `${Math.round(percentComplete)}%`;
+                }
             });
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Upload failed with no details.' }));
-                throw new Error(errorData.error || 'Upload failed');
-            }
-            const result = await response.json();
-            console.log(result.message);
+
+            const response = await new Promise((resolve, reject) => {
+                xhr.addEventListener('load', () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            resolve(JSON.parse(xhr.responseText));
+                        } catch {
+                            resolve({ message: 'Upload successful' });
+                        }
+                    } else {
+                        try {
+                            const errorData = JSON.parse(xhr.responseText);
+                            reject(new Error(errorData.error || 'Upload failed'));
+                        } catch {
+                            reject(new Error(`Upload failed with status ${xhr.status}`));
+                        }
+                    }
+                });
+
+                xhr.addEventListener('error', () => {
+                    reject(new Error('Network error occurred'));
+                });
+
+                xhr.addEventListener('abort', () => {
+                    reject(new Error('Upload cancelled'));
+                });
+
+                xhr.open('POST', '/api/upload');
+                xhr.send(formData);
+            });
+
+            showNotification(`Successfully uploaded ${fileInput.files.length} file(s)`, 'success');
             closeUploadModal();
             await triggerSync();
         } catch (error) {
-            alert(`Error: ${error.message}`);
+            uploadError.textContent = error.message;
+            uploadError.classList.remove('hidden');
+            uploadProgressContainer.classList.add('hidden');
+            showNotification(`Upload failed: ${error.message}`, 'error');
         } finally {
             uploadSubmitBtn.disabled = false;
             uploadSpinner.classList.add('hidden');
@@ -407,6 +581,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    mainContent.addEventListener('keydown', (e) => {
+        const item = e.target.closest('.item');
+        if (!item || item.tagName === 'A') return;
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const { path, type, mediaIndex, filename } = item.dataset;
+            if (type === 'folder') {
+                fetchData(path, filename);
+            } else if (mediaIndex) {
+                openModal(mediaIndex);
+            }
+        }
+    });
+
     breadcrumbsEl.addEventListener('click', (e) => {
         const link = e.target.closest('a');
         if (link) {
@@ -433,17 +621,66 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadModalCloseBtn.addEventListener('click', closeUploadModal);
     uploadForm.addEventListener('submit', handleUpload);
 
+    // File input change handler
+    fileInput.addEventListener('change', updateFileList);
+
+    // Drag and drop handlers
+    fileDropZone.addEventListener('click', () => fileInput.click());
+    fileDropZone.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileInput.click();
+        }
+    });
+    fileDropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        fileDropZone.classList.add('drag-over');
+    });
+    fileDropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        fileDropZone.classList.remove('drag-over');
+    });
+    fileDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        fileDropZone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            updateFileList();
+        }
+    });
+
+    // Path input validation
+    pathInput.addEventListener('input', () => {
+        const validation = validatePath(pathInput.value.trim());
+        if (!validation.valid) {
+            pathError.textContent = validation.error;
+            pathError.classList.remove('hidden');
+        } else {
+            pathError.classList.add('hidden');
+        }
+    });
+
+    // Notification close handler
+    notificationClose.addEventListener('click', hideNotification);
+
     document.addEventListener('keydown', (e) => {
         if (!modal.classList.contains('hidden')) {
-            if (e.key === 'Escape') closeModal();
-            if (e.key === 'ArrowLeft') {
-                 if (!modalPrevBtn.disabled) openModal(currentModalIndex - 1);
+            if (e.key === 'Escape') {
+                closeModal();
+            } else if (e.key === 'ArrowLeft' && !modalPrevBtn.disabled) {
+                e.preventDefault();
+                openModal(currentModalIndex - 1);
+            } else if (e.key === 'ArrowRight' && !modalNextBtn.disabled) {
+                e.preventDefault();
+                openModal(currentModalIndex + 1);
             }
-            if (e.key === 'ArrowRight') {
-                if (!modalNextBtn.disabled) openModal(currentModalIndex + 1);
+        } else if (!uploadModal.classList.contains('hidden')) {
+            if (e.key === 'Escape') {
+                closeUploadModal();
             }
-        } else if (!uploadModal.classList.contains('hidden') && e.key === 'Escape') {
-            closeUploadModal();
         }
     });
     logoEl.addEventListener('click', triggerSync);
