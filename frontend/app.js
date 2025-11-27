@@ -7,6 +7,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let isGalleryView = false;
     let player;
     let navAutoHideTimer = null;
+    let slideshowTimer = null;
+    let isSlideshowPlaying = false;
+    let isSlideshowShuffle = false;
+    let shuffleList = [];
+    let currentShuffleIndex = -1;
 
     // DOM ELEMENTS
     const mainContent = document.getElementById('main-content');
@@ -19,6 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalNextBtn = document.getElementById('modal-next-btn');
     const modalDownloadBtn = document.getElementById('modal-download-btn');
     const modalRawBtn = document.getElementById('modal-raw-btn');
+    const modalPlayBtn = document.getElementById('modal-play-btn');
+    const modalShuffleBtn = document.getElementById('modal-shuffle-btn');
     const logoEl = document.querySelector('.logo');
     const modalHeader = document.getElementById('modal-header');
     const modalNavControls = [modalPrevBtn, modalNextBtn, modalHeader];
@@ -285,18 +292,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (mediaType === 'image') {
             modalContentContainer.innerHTML = `<img src="${mediaUrl}" alt="${item.name}" class="max-w-full max-h-full object-contain">`;
-        } else if (mediaType === 'video') {
-            modalContentContainer.innerHTML = `<video id="modal-video-player" playsinline controls class="w-full h-full"><source src="${mediaUrl}" /></video>`;
-            player = new Plyr('#modal-video-player', { autoplay: true });
-        } else if (mediaType === 'audio') {
-            modalContentContainer.innerHTML = `
-                <div class="flex flex-col items-center justify-center text-text w-full max-w-md mx-auto p-4">
-                    <i class="fas fa-music text-9xl text-overlay0 mb-6"></i>
-                    <p class="text-xl font-semibold mb-4 text-center">${item.name}</p>
-                    <audio id="modal-audio-player" controls class="w-full"><source src="${mediaUrl}" /></audio>
-                </div>
-            `;
-            player = new Plyr('#modal-audio-player', { autoplay: true });
+            modalPlayBtn.classList.remove('hidden');
+            modalShuffleBtn.classList.remove('hidden');
+        } else {
+            modalPlayBtn.classList.add('hidden');
+            modalShuffleBtn.classList.add('hidden');
+            if (mediaType === 'video') {
+                modalContentContainer.innerHTML = `<video id="modal-video-player" playsinline controls class="w-full h-full"><source src="${mediaUrl}" /></video>`;
+                player = new Plyr('#modal-video-player', { autoplay: true });
+            } else if (mediaType === 'audio') {
+                modalContentContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center text-text w-full max-w-md mx-auto p-4">
+                        <i class="fas fa-music text-9xl text-overlay0 mb-6"></i>
+                        <p class="text-xl font-semibold mb-4 text-center">${item.name}</p>
+                        <audio id="modal-audio-player" controls class="w-full"><source src="${mediaUrl}" /></audio>
+                    </div>
+                `;
+                player = new Plyr('#modal-audio-player', { autoplay: true });
+            }
         }
 
         modalDownloadBtn.href = mediaUrl;
@@ -311,6 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function closeModal() {
+        stopSlideshow();
         if (player) {
             player.destroy();
             player = null;
@@ -330,12 +344,91 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showNextMedia(e) {
         e.stopPropagation();
+        stopSlideshow();
         if (!modalNextBtn.disabled) openModal(currentModalIndex + 1);
     }
 
     function showPrevMedia(e) {
         e.stopPropagation();
+        stopSlideshow();
         if (!modalPrevBtn.disabled) openModal(currentModalIndex - 1);
+    }
+
+    function stopSlideshow() {
+        if (slideshowTimer) {
+            clearInterval(slideshowTimer);
+            slideshowTimer = null;
+        }
+        isSlideshowPlaying = false;
+        isSlideshowShuffle = false;
+        shuffleList = [];
+        currentShuffleIndex = -1;
+        const playIcon = modalPlayBtn.querySelector('i');
+        playIcon.classList.remove('fa-pause');
+        playIcon.classList.add('fa-play');
+        modalPlayBtn.title = 'Play Slideshow';
+        const shuffleIcon = modalShuffleBtn.querySelector('i');
+        shuffleIcon.classList.remove('fa-pause');
+        shuffleIcon.classList.add('fa-random');
+        modalShuffleBtn.title = 'Shuffle Slideshow';
+    }
+
+    function startSlideshow(shuffle = false) {
+        const images = currentDirectoryContent.images || [];
+        if (images.length === 0) return;
+
+        stopSlideshow();
+        isSlideshowPlaying = true;
+        isSlideshowShuffle = shuffle;
+
+        if (shuffle) {
+            shuffleList = images.map((_, index) => index);
+            for (let i = shuffleList.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffleList[i], shuffleList[j]] = [shuffleList[j], shuffleList[i]];
+            }
+            const currentIndexInShuffle = shuffleList.indexOf(currentModalIndex);
+            currentShuffleIndex = currentIndexInShuffle !== -1 ? currentIndexInShuffle : 0;
+            const shuffleIcon = modalShuffleBtn.querySelector('i');
+            shuffleIcon.classList.remove('fa-random');
+            shuffleIcon.classList.add('fa-pause');
+            modalShuffleBtn.title = 'Pause Slideshow';
+        } else {
+            const playIcon = modalPlayBtn.querySelector('i');
+            playIcon.classList.remove('fa-play');
+            playIcon.classList.add('fa-pause');
+            modalPlayBtn.title = 'Pause Slideshow';
+        }
+
+        slideshowTimer = setInterval(() => {
+            if (shuffle) {
+                if (currentShuffleIndex >= shuffleList.length - 1) {
+                    currentShuffleIndex = 0;
+                } else {
+                    currentShuffleIndex++;
+                }
+                openModal(shuffleList[currentShuffleIndex]);
+            } else {
+                const nextIndex = (currentModalIndex + 1) % images.length;
+                openModal(nextIndex);
+            }
+        }, 4000);
+    }
+
+    function toggleSlideshow() {
+        if (isSlideshowPlaying) {
+            stopSlideshow();
+        } else {
+            startSlideshow(false);
+        }
+    }
+
+    function startShuffleSlideshow() {
+        if (isSlideshowPlaying && isSlideshowShuffle) {
+            stopSlideshow();
+        } else {
+            startSlideshow(true);
+        }
     }
 
     // NOTIFICATION SYSTEM
@@ -615,6 +708,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     modalPrevBtn.addEventListener('click', showPrevMedia);
     modalNextBtn.addEventListener('click', showNextMedia);
+    modalPlayBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleSlideshow();
+    });
+    modalShuffleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startShuffleSlideshow();
+    });
 
     // Upload Modal Listeners
     uploadBtn.addEventListener('click', openUploadModal);
@@ -672,9 +773,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 closeModal();
             } else if (e.key === 'ArrowLeft' && !modalPrevBtn.disabled) {
                 e.preventDefault();
+                stopSlideshow();
                 openModal(currentModalIndex - 1);
             } else if (e.key === 'ArrowRight' && !modalNextBtn.disabled) {
                 e.preventDefault();
+                stopSlideshow();
                 openModal(currentModalIndex + 1);
             }
         } else if (!uploadModal.classList.contains('hidden')) {
