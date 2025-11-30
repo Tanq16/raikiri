@@ -233,14 +233,14 @@
 
     <!-- Upload Modal -->
     <div id="upload-modal" class="fixed inset-0 bg-crust/80 backdrop-blur-sm z-50 hidden items-center justify-center">
-        <div class="bg-base rounded-lg shadow-xl w-full max-w-md m-4">
-            <div class="flex items-center justify-between p-4 border-b border-surface0">
+        <div class="bg-base rounded-lg shadow-xl w-full max-w-md m-4 max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b border-surface0 flex-shrink-0">
                 <h3 class="text-lg font-semibold text-text">Upload File</h3>
                 <button id="upload-modal-close-btn" title="Close" class="text-subtext1 hover:text-text transition-colors">
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
-            <form id="upload-form" class="p-6 space-y-4">
+            <form id="upload-form" class="p-6 space-y-4 overflow-y-auto flex-1">
                 <div>
                     <label for="file-input" class="block text-sm font-medium text-subtext1 mb-2">File</label>
                     <div id="file-drop-zone" class="border-2 border-dashed border-surface1 rounded-lg p-6 text-center hover:border-mauve transition-colors cursor-pointer" role="button" tabindex="0" aria-label="File upload drop zone" aria-describedby="file-drop-zone-description">
@@ -250,7 +250,7 @@
                             <p class="text-sm text-subtext1 mb-1">Click to select or drag and drop files</p>
                             <p id="file-drop-zone-description" class="text-xs text-overlay0">Maximum 500 MB per file</p>
                         </div>
-                        <div id="file-list" class="mt-4 text-left space-y-2 hidden" role="list" aria-label="Selected files"></div>
+                        <div id="file-list" class="mt-4 text-left space-y-2 hidden max-h-64 overflow-y-auto" role="list" aria-label="Selected files"></div>
                     </div>
                 </div>
                 <div>
