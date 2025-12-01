@@ -13,19 +13,20 @@ The aim of the application is to provide directory listing in an elegant interfa
 
 - Beautiful Catppuccin Mocha themed application for modern web-based directory listing
 - Uses Plyr.js to play media files, and also showcases image files
+- Image slideshow with sequential and shuffle modes, automatically advancing every 4 seconds
+- Masonry Printerest-style media preview
 - Raw download option for all file types
 - GitHub-flavored (but styled in Catppuccin) rendering of markdown files (including mermaid support)
-- Ability to upload individual files to the server at specific paths
-- Functionality in the binary to prepare media for thumbnails
+- Ability to upload files to the server at specific paths
+- Functionality in the binary to prepare media for thumbnails (using `ffmpeg`)
 - Fully self-hosted with local assets and self-contained binary and container
-- Efficient sizefor both binary and container - under 14 MB
+- Efficient sizefor both binary and container - under 15 MB
 
 ## Screenshots
 
-| Desktop View | Mobile View |
-| --- | --- |
-| <img src=".github/assets/df.png" alt="Light"> | <img src=".github/assets/mf.png" alt="Light"> |
-| <img src=".github/assets/di.png" alt="Light"> | <img src=".github/assets/mi.png" alt="Light"> |
+<img src=".github/assets/list.png" alt="IMG" width="800">
+<img src=".github/assets/flist.png" alt="IMG" width="800">
+<img src=".github/assets/masonry.png" alt="IMG" width="800">
 
 ## Usage
 
