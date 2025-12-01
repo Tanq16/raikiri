@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentMediaList = [];
     let isGalleryView = false;
     let player;
+    let resyncInterval = null;
     let navAutoHideTimer = null;
     let slideshowTimer = null;
     let isSlideshowPlaying = false;
@@ -273,6 +274,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     }
 
+    function startAutoResync(videoElementId) {
+        if (resyncInterval) {
+            clearInterval(resyncInterval);
+            resyncInterval = null;
+        }
+        resyncInterval = setInterval(() => {
+            if (!player || !player.playing) return;
+            const videoElement = document.querySelector(videoElementId);
+            if (!videoElement) return;
+            const currentTime = videoElement.currentTime;
+            videoElement.currentTime = currentTime;
+            console.log('Auto-resync triggered at', currentTime);
+        }, 120000);
+    }
+
+    function stopAutoResync() {
+        if (resyncInterval) {
+            clearInterval(resyncInterval);
+            resyncInterval = null;
+        }
+    }
+
     function openModal(mediaIndex, skipShowControls = false) {
         currentMediaList = [
             ...(currentDirectoryContent.images || []),
@@ -289,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
             player.destroy();
             player = null;
         }
+        stopAutoResync();
 
         if (mediaType === 'image') {
             modalContentContainer.innerHTML = `<img src="${mediaUrl}" alt="${item.name}" class="max-w-full max-h-full object-contain">`;
@@ -300,6 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mediaType === 'video') {
                 modalContentContainer.innerHTML = `<video id="modal-video-player" playsinline controls class="w-full h-full"><source src="${mediaUrl}" /></video>`;
                 player = new Plyr('#modal-video-player', { autoplay: true });
+                startAutoResync('#modal-video-player');
             } else if (mediaType === 'audio') {
                 modalContentContainer.innerHTML = `
                     <div class="flex flex-col items-center justify-center text-text w-full max-w-md mx-auto p-4">
@@ -327,6 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeModal() {
         stopSlideshow();
+        stopAutoResync();
         if (player) {
             player.destroy();
             player = null;
