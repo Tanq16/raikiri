@@ -14,10 +14,20 @@ const Player = {
         this.videoEl = document.getElementById('ep-video');
         
         this.audioEl.addEventListener('ended', () => this.next());
-        this.audioEl.addEventListener('timeupdate', () => UI.updateProgress(this.audioEl.currentTime, this.audioEl.duration));
+        this.audioEl.addEventListener('timeupdate', () => {
+            UI.updateProgress(this.audioEl.currentTime, this.audioEl.duration);
+            this.updateMediaSessionPosition();
+        });
         
         this.videoEl.addEventListener('ended', () => this.next());
-        this.videoEl.addEventListener('timeupdate', () => UI.updateProgress(this.videoEl.currentTime, this.videoEl.duration));
+        this.videoEl.addEventListener('timeupdate', () => {
+            UI.updateProgress(this.videoEl.currentTime, this.videoEl.duration);
+            this.updateMediaSessionPosition();
+        });
+        
+        // Update position when duration becomes available
+        this.audioEl.addEventListener('loadedmetadata', () => this.updateMediaSessionPosition());
+        this.videoEl.addEventListener('loadedmetadata', () => this.updateMediaSessionPosition());
         
         if ('mediaSession' in navigator) {
             navigator.mediaSession.setActionHandler('play', () => this.play());
@@ -99,6 +109,8 @@ const Player = {
         
         this.isPlaying = true;
         UI.updatePlayButton(true);
+        this.updatePlaybackState('playing');
+        this.updateMediaSessionPosition();
     },
 
     pause() {
@@ -107,6 +119,9 @@ const Player = {
         clearTimeout(this.imageTimer);
         this.isPlaying = false;
         UI.updatePlayButton(false);
+        // Keep position accurate when pausing
+        this.updatePlaybackState('paused');
+        this.updateMediaSessionPosition();
     },
     
     seek(percent) {
@@ -115,8 +130,10 @@ const Player = {
         
         if (item.type === 'audio' && this.audioEl.duration) {
             this.audioEl.currentTime = (percent / 100) * this.audioEl.duration;
+            this.updateMediaSessionPosition();
         } else if (item.type === 'video' && this.videoEl.duration) {
             this.videoEl.currentTime = (percent / 100) * this.videoEl.duration;
+            this.updateMediaSessionPosition();
         }
     },
 
@@ -148,6 +165,16 @@ const Player = {
         this.queue = [];
         this.currentIndex = -1;
         UI.hidePlayerBar();
+        
+        // Clear Media Session position state
+        this.updatePlaybackState('none');
+        if ('mediaSession' in navigator && navigator.mediaSession.setPositionState) {
+            try {
+                navigator.mediaSession.setPositionState(null);
+            } catch (e) {
+                // Ignore errors when clearing position state
+            }
+        }
     },
     
     updateMediaSession(item, thumb) {
@@ -158,6 +185,52 @@ const Player = {
                 album: state.path,
                 artwork: thumb ? [{ src: thumb, sizes: '512x512', type: 'image/jpeg' }] : []
             });
+            // Update position state after metadata is set
+            this.updateMediaSessionPosition();
+        }
+    },
+    
+    updateMediaSessionPosition() {
+        if (!('mediaSession' in navigator) || !this.queue.length) return;
+        
+        const item = this.queue[this.currentIndex];
+        if (!item || item.type === 'image') return;
+        
+        let currentTime = 0;
+        let duration = 0;
+        let playbackRate = this.isPlaying ? 1.0 : 0;
+        
+        if (item.type === 'audio' && this.audioEl.duration) {
+            currentTime = this.audioEl.currentTime;
+            duration = this.audioEl.duration;
+            playbackRate = this.isPlaying ? (this.audioEl.playbackRate || 1.0) : 0;
+        } else if (item.type === 'video' && this.videoEl.duration) {
+            currentTime = this.videoEl.currentTime;
+            duration = this.videoEl.duration;
+            playbackRate = this.isPlaying ? (this.videoEl.playbackRate || 1.0) : 0;
+        }
+        
+        if (duration > 0) {
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: duration,
+                    playbackRate: playbackRate,
+                    position: currentTime
+                });
+            } catch (e) {
+                // setPositionState may not be supported in all browsers
+                console.debug('MediaSession setPositionState not supported:', e);
+            }
+        }
+    },
+    
+    updatePlaybackState(state) {
+        if (!('mediaSession' in navigator)) return;
+        const nextState = state || (this.isPlaying ? 'playing' : 'paused');
+        try {
+            navigator.mediaSession.playbackState = nextState;
+        } catch (e) {
+            // Ignore if not supported
         }
     }
 };
