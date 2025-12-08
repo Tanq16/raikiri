@@ -11,7 +11,10 @@ const Player = {
     resyncIntervalId: null,
     resyncEnabled: true,
     resyncIntervalMs: 30000, // how often to nudge video decoder
-    resyncNudgeSeconds: 0.02, // small forward seek to force a resync without noticeable jump
+    resyncRateBump: 0.01, // small playback rate bump to avoid overlay flash
+    resyncRateDurationMs: 800, // how long to keep the rate bump
+    resyncRateTimerId: null,
+    basePlaybackRate: 1.0,
     isPlaying: false,
 
     init() {
@@ -251,17 +254,8 @@ const Player = {
             if (!this.isPlaying) return;
             if (!this.videoEl || this.videoEl.paused || this.videoEl.readyState < 2) return;
             if (!this.videoEl.duration || Number.isNaN(this.videoEl.duration)) return;
-            const pos = this.videoEl.currentTime;
-            // Force a tiny seek to ask the decoder to realign A/V without skipping noticeable content
-            const target = Math.min(
-                pos + this.resyncNudgeSeconds,
-                Math.max(0, this.videoEl.duration - 0.05)
-            );
-            try {
-                this.videoEl.currentTime = target;
-            } catch (e) {
-                // Ignore seek errors; will try again on next tick
-            }
+            // Prefer rate bump everywhere to avoid overlay flash.
+            this.nudgePlaybackRate();
         }, this.resyncIntervalMs);
     },
 
@@ -269,6 +263,38 @@ const Player = {
         if (this.resyncIntervalId) {
             clearInterval(this.resyncIntervalId);
             this.resyncIntervalId = null;
+        }
+        this.clearResyncRate();
+    },
+
+    nudgePlaybackRate() {
+        if (this.resyncRateTimerId) return true; // already applied
+        const video = this.videoEl;
+        if (!video) return false;
+        this.basePlaybackRate = video.playbackRate || 1.0;
+        const bumped = this.basePlaybackRate + this.resyncRateBump;
+        try {
+            video.playbackRate = bumped;
+        } catch (e) {
+            return false; // if browser disallows, skip
+        }
+        this.resyncRateTimerId = setTimeout(() => {
+            this.clearResyncRate();
+        }, this.resyncRateDurationMs);
+        return true;
+    },
+
+    clearResyncRate() {
+        if (this.resyncRateTimerId) {
+            clearTimeout(this.resyncRateTimerId);
+            this.resyncRateTimerId = null;
+        }
+        if (this.videoEl) {
+            try {
+                this.videoEl.playbackRate = this.basePlaybackRate || 1.0;
+            } catch (e) {
+                // ignore
+            }
         }
     }
 };
