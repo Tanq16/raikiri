@@ -45,6 +45,31 @@ const UI = {
         document.addEventListener('webkitfullscreenchange', () => this.handleFullscreenChange());
         document.addEventListener('mozfullscreenchange', () => this.handleFullscreenChange());
         document.addEventListener('MSFullscreenChange', () => this.handleFullscreenChange());
+
+        // Copy stream URL
+        const copyBtn = document.getElementById('ep-copy-url');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', async () => {
+                const url = copyBtn.getAttribute('data-url');
+                if (!url) return;
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(url);
+                    } else {
+                        const ta = document.createElement('textarea');
+                        ta.value = url;
+                        ta.style.position = 'fixed';
+                        ta.style.opacity = '0';
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(ta);
+                    }
+                } catch (e) {
+                    console.error('Failed to copy URL', e);
+                }
+            });
+        }
     },
     
     handlePlayerBarSeek(event) {
@@ -163,6 +188,21 @@ const UI = {
         const icon = iconMap[item.type] || 'file';
         document.getElementById('pb-fallback-icon').setAttribute('data-lucide', icon);
         document.getElementById('ep-fallback-icon').setAttribute('data-lucide', icon);
+        
+        // Update VLC deep link for mobile playback
+        const copyBtn = document.getElementById('ep-copy-url');
+        if (copyBtn) {
+            if (item.type === 'audio' || item.type === 'video') {
+                const contentUrl = API.getContentUrl(item.path, state.mode);
+                const origin = `${window.location.protocol}//${window.location.host}`;
+                const absoluteUrl = `${origin}${contentUrl}`;
+                copyBtn.setAttribute('data-url', absoluteUrl);
+                copyBtn.classList.remove('hidden');
+            } else {
+                copyBtn.removeAttribute('data-url');
+                copyBtn.classList.add('hidden');
+            }
+        }
         
         // Show/hide seek bar elements for images (keep controls visible)
         const seekBarContainer = document.getElementById('ep-seek-container');

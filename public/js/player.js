@@ -8,6 +8,10 @@ const Player = {
     audioEl: new Audio(),
     videoEl: null, 
     imageTimer: null,
+    resyncIntervalId: null,
+    resyncEnabled: true,
+    resyncIntervalMs: 30000, // how often to nudge video decoder
+    resyncNudgeSeconds: 0.02, // small forward seek to force a resync without noticeable jump
     isPlaying: false,
 
     init() {
@@ -48,6 +52,7 @@ const Player = {
         
         this.pause();
         clearTimeout(this.imageTimer);
+        this.stopResyncLoop();
         
         this.videoEl.classList.add('hidden');
         this.videoEl.pause();
@@ -70,6 +75,7 @@ const Player = {
             this.videoEl.classList.remove('hidden');
             this.videoEl.play();
             this.isPlaying = true;
+            this.startResyncLoop(item);
         } else if (item.type === 'image') {
             const img = document.getElementById('ep-image');
             img.src = src;
@@ -101,7 +107,10 @@ const Player = {
         const item = this.queue[this.currentIndex];
 
         if (item.type === 'audio') this.audioEl.play();
-        else if (item.type === 'video') this.videoEl.play();
+        else if (item.type === 'video') {
+            this.videoEl.play();
+            this.startResyncLoop(item);
+        }
         else if (item.type === 'image') {
             clearTimeout(this.imageTimer);
             this.imageTimer = setTimeout(() => this.next(), 5000);
@@ -165,6 +174,7 @@ const Player = {
         this.queue = [];
         this.currentIndex = -1;
         UI.hidePlayerBar();
+        this.stopResyncLoop();
         
         // Clear Media Session position state
         this.updatePlaybackState('none');
@@ -231,6 +241,34 @@ const Player = {
             navigator.mediaSession.playbackState = nextState;
         } catch (e) {
             // Ignore if not supported
+        }
+    },
+
+    startResyncLoop(item) {
+        if (!this.resyncEnabled || !item || item.type !== 'video') return;
+        this.stopResyncLoop(); // ensure only one loop is running
+        this.resyncIntervalId = setInterval(() => {
+            if (!this.isPlaying) return;
+            if (!this.videoEl || this.videoEl.paused || this.videoEl.readyState < 2) return;
+            if (!this.videoEl.duration || Number.isNaN(this.videoEl.duration)) return;
+            const pos = this.videoEl.currentTime;
+            // Force a tiny seek to ask the decoder to realign A/V without skipping noticeable content
+            const target = Math.min(
+                pos + this.resyncNudgeSeconds,
+                Math.max(0, this.videoEl.duration - 0.05)
+            );
+            try {
+                this.videoEl.currentTime = target;
+            } catch (e) {
+                // Ignore seek errors; will try again on next tick
+            }
+        }, this.resyncIntervalMs);
+    },
+
+    stopResyncLoop() {
+        if (this.resyncIntervalId) {
+            clearInterval(this.resyncIntervalId);
+            this.resyncIntervalId = null;
         }
     }
 };
