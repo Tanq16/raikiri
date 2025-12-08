@@ -9,12 +9,18 @@ const Player = {
     videoEl: null, 
     imageTimer: null,
     resyncIntervalId: null,
-    resyncEnabled: true,
+    // Disable resync loop; native playback stays in sync once SW bypasses media
+    resyncEnabled: false,
     resyncIntervalMs: 30000, // how often to nudge video decoder
     resyncRateBump: 0.01, // small playback rate bump to avoid overlay flash
     resyncRateDurationMs: 800, // how long to keep the rate bump
     resyncRateTimerId: null,
     basePlaybackRate: 1.0,
+    // Periodic micro-seek to re-anchor playback without visible flash
+    driftFixEnabled: true,
+    driftSeekSeconds: 0.1,
+    driftIntervalMs: 120000, // every 2 minutes
+    driftIntervalId: null,
     isPlaying: false,
 
     init() {
@@ -56,6 +62,7 @@ const Player = {
         this.pause();
         clearTimeout(this.imageTimer);
         this.stopResyncLoop();
+        this.stopDriftCorrectionLoop();
         
         this.videoEl.classList.add('hidden');
         this.videoEl.pause();
@@ -79,6 +86,7 @@ const Player = {
             this.videoEl.play();
             this.isPlaying = true;
             this.startResyncLoop(item);
+            this.startDriftCorrectionLoop(item);
         } else if (item.type === 'image') {
             const img = document.getElementById('ep-image');
             img.src = src;
@@ -113,6 +121,7 @@ const Player = {
         else if (item.type === 'video') {
             this.videoEl.play();
             this.startResyncLoop(item);
+            this.startDriftCorrectionLoop(item);
         }
         else if (item.type === 'image') {
             clearTimeout(this.imageTimer);
@@ -130,6 +139,7 @@ const Player = {
         this.videoEl.pause();
         clearTimeout(this.imageTimer);
         this.isPlaying = false;
+        this.stopDriftCorrectionLoop();
         UI.updatePlayButton(false);
         // Keep position accurate when pausing
         this.updatePlaybackState('paused');
@@ -147,6 +157,18 @@ const Player = {
             this.videoEl.currentTime = (percent / 100) * this.videoEl.duration;
             this.updateMediaSessionPosition();
         }
+    },
+
+    seekBy(seconds) {
+        if (!this.queue.length) return;
+        const item = this.queue[this.currentIndex];
+        let media = null;
+        if (item.type === 'audio') media = this.audioEl;
+        else if (item.type === 'video') media = this.videoEl;
+        if (!media || !media.duration || Number.isNaN(media.duration)) return;
+        const next = Math.min(Math.max(0, media.currentTime + seconds), Math.max(media.duration - 0.01, 0));
+        media.currentTime = next;
+        this.updateMediaSessionPosition();
     },
 
     next() {
@@ -178,6 +200,7 @@ const Player = {
         this.currentIndex = -1;
         UI.hidePlayerBar();
         this.stopResyncLoop();
+        this.stopDriftCorrectionLoop();
         
         // Clear Media Session position state
         this.updatePlaybackState('none');
@@ -295,6 +318,33 @@ const Player = {
             } catch (e) {
                 // ignore
             }
+        }
+    },
+
+    startDriftCorrectionLoop(item) {
+        if (!this.driftFixEnabled || !item || item.type !== 'video') return;
+        this.stopDriftCorrectionLoop();
+        this.driftIntervalId = setInterval(() => {
+            if (!this.isPlaying) return;
+            const video = this.videoEl;
+            if (!video || video.paused || video.readyState < 2) return;
+            const target = video.currentTime + this.driftSeekSeconds;
+            try {
+                if (typeof video.fastSeek === 'function') {
+                    video.fastSeek(target);
+                } else {
+                    video.currentTime = target;
+                }
+            } catch (e) {
+                // swallow to avoid disrupting playback
+            }
+        }, this.driftIntervalMs);
+    },
+
+    stopDriftCorrectionLoop() {
+        if (this.driftIntervalId) {
+            clearInterval(this.driftIntervalId);
+            this.driftIntervalId = null;
         }
     }
 };

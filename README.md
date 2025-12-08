@@ -107,3 +107,10 @@ The queue dialog displays all items in the current playlist, with the active ite
 Images automatically advance every 5 seconds when playing. Videos and audio support standard playback controls including play/pause, previous/next, and seeking. Fullscreen mode is available for videos and images.
 
 Raikiri uses browser-provided video playback (HTML5 video). This means that certain media types like some `.mkv` may not be playable directly on some browsers. However, all media where playback is not supported will open in a new tab with a raw GET request.
+
+### Quickie on Playback Sync
+
+- Service Worker bypasses `/content/` so media streams use native ranged requests.
+- Drift fix: tiny periodic micro-seek on video (defaults: +0.1s every 2 min) to keep long sessions aligned. Drifts happen due to browser decoding capabilities being mediocre compraed to VLC.
+- Custom fullscreen overlay for video allows own controls (play/pause, +-10s, seek, exit) so native browser controls stay hidden.
+- Fullscreen button is disabled for audio items (only images/videos use fullscreen).

@@ -6,6 +6,11 @@ import API from './api.js';
 
 const UI = {
     container: document.getElementById('main-container'),
+    videoHome: null,
+    fullscreenControlsTimer: null,
+    fullscreenControlsVisible: true,
+    fullscreenActivityAttached: false,
+    fullscreenActivityHandler: null,
     
     init() {
         const range = document.getElementById('ep-range');
@@ -26,6 +31,36 @@ const UI = {
             document.getElementById('ep-range-fill-mob').style.width = `${percent}%`;
         });
         
+        this.videoHome = document.getElementById('ep-video')?.parentElement || null;
+
+        const fvRange = document.getElementById('fv-range');
+        if (fvRange) {
+            fvRange.addEventListener('input', (e) => {
+                const percent = e.target.value;
+                Player.seek(percent);
+                document.getElementById('fv-range-fill').style.width = `${percent}%`;
+            });
+        }
+
+        const fvBack = document.getElementById('fv-back');
+        if (fvBack) fvBack.addEventListener('click', () => Player.seekBy(-10));
+
+        const fvForward = document.getElementById('fv-forward');
+        if (fvForward) fvForward.addEventListener('click', () => Player.seekBy(10));
+
+        const fvPlay = document.getElementById('fv-play');
+        if (fvPlay) fvPlay.addEventListener('click', () => Player.toggle());
+
+        const fvExit = document.getElementById('fv-exit');
+        if (fvExit) fvExit.addEventListener('click', () => this.exitVideoFullscreen());
+
+        const fvContainer = document.getElementById('fullscreen-video-container');
+        if (fvContainer) {
+            ['mousemove', 'touchstart'].forEach(evt => {
+                fvContainer.addEventListener(evt, () => this.showFullscreenControls());
+            });
+        }
+
         // Handle queue item clicks (XSS-safe event delegation)
         const queueContainer = document.getElementById('queue-list-container');
         if (queueContainer) {
@@ -154,6 +189,10 @@ const UI = {
         if (epPlayIconDesktop) {
             epPlayIconDesktop.setAttribute('data-lucide', icon);
         }
+        const fvPlayIcon = document.getElementById('fv-play-icon');
+        if (fvPlayIcon) {
+            fvPlayIcon.setAttribute('data-lucide', icon);
+        }
         this.refreshIcons();
     },
     
@@ -252,6 +291,16 @@ const UI = {
         
         this.renderQueueList();
         this.refreshIcons();
+
+        // Disable fullscreen for audio-only
+        const fsBtn = document.getElementById('ep-fullscreen-btn');
+        if (fsBtn) {
+            const isAudio = item.type === 'audio';
+            fsBtn.setAttribute('aria-disabled', isAudio ? 'true' : 'false');
+            fsBtn.classList.toggle('pointer-events-none', isAudio);
+            fsBtn.classList.toggle('opacity-40', isAudio);
+            fsBtn.classList.toggle('cursor-not-allowed', isAudio);
+        }
     },
     
     renderQueueList() {
@@ -310,6 +359,20 @@ const UI = {
         // Update mobile time displays
         document.getElementById('ep-time-curr-mob').innerText = timeStr;
         document.getElementById('ep-time-total-mob').innerText = totalStr;
+
+        // Update fullscreen overlay controls
+        const fvRange = document.getElementById('fv-range');
+        if (fvRange && document.activeElement !== fvRange) {
+            fvRange.value = percent;
+        }
+        const fvRangeFill = document.getElementById('fv-range-fill');
+        if (fvRangeFill) {
+            fvRangeFill.style.width = `${percent}%`;
+        }
+        const fvCurr = document.getElementById('fv-time-curr');
+        const fvTotal = document.getElementById('fv-time-total');
+        if (fvCurr) fvCurr.innerText = timeStr;
+        if (fvTotal) fvTotal.innerText = totalStr;
     },
 
     toggleFullscreen() {
@@ -317,19 +380,7 @@ const UI = {
         const item = Player.queue[Player.currentIndex];
         
         if (item.type === 'video') {
-            // For videos, use native fullscreen API
-            const videoEl = document.getElementById('ep-video');
-            if (videoEl && !videoEl.classList.contains('hidden')) {
-                if (videoEl.requestFullscreen) {
-                    videoEl.requestFullscreen();
-                } else if (videoEl.webkitRequestFullscreen) {
-                    videoEl.webkitRequestFullscreen();
-                } else if (videoEl.mozRequestFullScreen) {
-                    videoEl.mozRequestFullScreen();
-                } else if (videoEl.msRequestFullscreen) {
-                    videoEl.msRequestFullscreen();
-                }
-            }
+            this.enterVideoFullscreen();
         } else if (item.type === 'image') {
             // For images, use our custom fullscreen container
             const container = document.getElementById('fullscreen-image-container');
@@ -359,8 +410,15 @@ const UI = {
     },
 
     exitFullscreen() {
+        const videoContainer = document.getElementById('fullscreen-video-container');
+        if (videoContainer && !videoContainer.classList.contains('hidden')) {
+            this.exitVideoFullscreen();
+            return;
+        }
+
         const container = document.getElementById('fullscreen-image-container');
-        
+        if (!container) return;
+
         if (document.fullscreenElement || document.webkitFullscreenElement || 
             document.mozFullScreenElement || document.msFullscreenElement) {
             if (document.exitFullscreen) {
@@ -377,12 +435,102 @@ const UI = {
         container.classList.add('hidden');
     },
 
+    requestFullscreenElement(el) {
+        if (!el) return;
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+        else if (el.msRequestFullscreen) el.msRequestFullscreen();
+    },
+
+    enterVideoFullscreen() {
+        const container = document.getElementById('fullscreen-video-container');
+        const slot = document.getElementById('fv-video-slot');
+        const videoEl = document.getElementById('ep-video');
+        if (!container || !slot || !videoEl) return;
+
+        if (!this.videoHome) {
+            this.videoHome = videoEl.parentElement;
+        }
+
+        if (videoEl.parentElement !== slot) {
+            slot.innerHTML = '';
+            slot.appendChild(videoEl);
+            videoEl.classList.add('w-full', 'h-full', 'object-contain', 'bg-black');
+        }
+
+        videoEl.classList.remove('z-30');
+        container.classList.remove('hidden');
+        this.showFullscreenControls();
+        this.requestFullscreenElement(container);
+    },
+
+    exitVideoFullscreen(options = {}) {
+        const { skipExit } = options;
+        const container = document.getElementById('fullscreen-video-container');
+        const slot = document.getElementById('fv-video-slot');
+        const videoEl = document.getElementById('ep-video');
+        if (!container || !videoEl) return;
+
+        container.classList.add('hidden');
+        this.hideFullscreenControls(true);
+
+        if (this.videoHome && videoEl.parentElement !== this.videoHome) {
+            this.videoHome.appendChild(videoEl);
+            videoEl.classList.remove('w-full', 'h-full', 'object-contain', 'bg-black');
+        } else if (!this.videoHome && slot && videoEl.parentElement === slot) {
+            slot.removeChild(videoEl);
+        }
+
+        videoEl.classList.add('z-30');
+        if (!skipExit && (document.fullscreenElement || document.webkitFullscreenElement || 
+            document.mozFullScreenElement || document.msFullscreenElement)) {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
+    },
+
+    showFullscreenControls() {
+        const controls = document.getElementById('fv-controls');
+        if (!controls) return;
+        controls.classList.remove('fv-hidden');
+        this.fullscreenControlsVisible = true;
+        if (this.fullscreenControlsTimer) {
+            clearTimeout(this.fullscreenControlsTimer);
+        }
+        this.fullscreenControlsTimer = setTimeout(() => this.hideFullscreenControls(), 5000);
+    },
+
+    hideFullscreenControls(force = false) {
+        const controls = document.getElementById('fv-controls');
+        if (!controls) return;
+        if (!force && !this.fullscreenControlsVisible) return;
+        controls.classList.add('fv-hidden');
+        this.fullscreenControlsVisible = false;
+        if (this.fullscreenControlsTimer) {
+            clearTimeout(this.fullscreenControlsTimer);
+            this.fullscreenControlsTimer = null;
+        }
+    },
+
     handleFullscreenChange() {
         const container = document.getElementById('fullscreen-image-container');
+        const videoContainer = document.getElementById('fullscreen-video-container');
         const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || 
                                document.mozFullScreenElement || document.msFullscreenElement);
         
-        if (!isFullscreen && !container.classList.contains('hidden')) {
+        if (!isFullscreen && videoContainer && !videoContainer.classList.contains('hidden')) {
+            this.exitVideoFullscreen({ skipExit: true });
+        }
+
+        if (!isFullscreen && container && !container.classList.contains('hidden')) {
             // User exited fullscreen (e.g., via escape key)
             container.classList.add('hidden');
         }
