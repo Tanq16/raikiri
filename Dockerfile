@@ -5,7 +5,7 @@ RUN go build -ldflags="-s -w" -o raikiri .
 
 FROM alpine:latest
 WORKDIR /app
-RUN mkdir -p /app/media
+RUN mkdir -p /app/media /app/music
 COPY --from=builder /app/raikiri .
 EXPOSE 8080
-CMD ["/app/raikiri"]
+CMD ["/app/raikiri", "-media", "/app/media", "-music", "/app/music"]
