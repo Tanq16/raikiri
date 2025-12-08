@@ -13,6 +13,11 @@ const App = {
 
         // Search Listener
         document.getElementById('search-input').addEventListener('input', (e) => this.handleSearch(e.target.value));
+        
+        // Music view filters
+        document.getElementById('music-filter-navigate').addEventListener('click', () => this.setMusicView('navigate'));
+        document.getElementById('music-filter-albums').addEventListener('click', () => this.setMusicView('albums'));
+        document.getElementById('music-filter-tracks').addEventListener('click', () => this.setMusicView('tracks'));
     },
     
     async handleHashChange() {
@@ -33,6 +38,7 @@ const App = {
         state.path = path;
         
         this.updateTabs(mode);
+        this.updateMusicFilters();
         await this.loadDirectory();
     },
     
@@ -51,8 +57,44 @@ const App = {
         document.getElementById('tab-music-mob').className = mode === 'music' ? mobileActive : mobileInactive;
     },
     
+    updateMusicFilters() {
+        const container = document.getElementById('music-filters');
+        if (!container) return;
+        if (state.mode !== 'music') {
+            container.classList.add('hidden');
+            return;
+        }
+        container.classList.remove('hidden');
+        
+        const active = "px-3 py-1 rounded-full text-xs font-bold transition-all bg-mauve text-base shadow-sm";
+        const inactive = "px-3 py-1 rounded-full text-xs font-bold transition-all text-subtext0 hover:text-text";
+        
+        document.getElementById('music-filter-navigate').className = state.musicView === 'navigate' ? active : inactive;
+        document.getElementById('music-filter-albums').className = state.musicView === 'albums' ? active : inactive;
+        document.getElementById('music-filter-tracks').className = state.musicView === 'tracks' ? active : inactive;
+    },
+    
     async loadDirectory() {
-        const items = await API.list(state.path, state.mode);
+        let items = [];
+        
+        const isMusic = state.mode === 'music';
+        if (isMusic) {
+            if (state.musicView === 'navigate') {
+                const res = await API.list(state.path, state.mode);
+                items = res.filter(i => i.type === 'folder' || i.type === 'audio');
+            } else if (state.musicView === 'albums') {
+                state.path = '/';
+                const res = await API.list('/', 'music', true);
+                items = res.filter(i => i.type === 'folder' && i.path.split('/').filter(Boolean).length === 2);
+            } else if (state.musicView === 'tracks') {
+                state.path = '/';
+                const res = await API.list('/', 'music', true);
+                items = res.filter(i => i.type === 'audio');
+            }
+        } else {
+            items = await API.list(state.path, state.mode);
+        }
+        
         state.items = items;
         
         UI.renderBreadcrumbs();
@@ -74,6 +116,13 @@ const App = {
     
     switchTab(mode) {
         state.setMode(mode);
+    },
+    
+    setMusicView(view) {
+        if (state.musicView === view) return;
+        state.setMusicView(view);
+        this.updateMusicFilters();
+        this.loadDirectory();
     },
     
     toggleView() {

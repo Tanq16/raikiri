@@ -119,30 +119,60 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 
 	if recursive {
 		err := filepath.WalkDir(targetDir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
+			if err != nil {
 				return nil
 			}
-			// Skip hidden files/thumbnails
-			if strings.HasPrefix(d.Name(), ".") {
+			name := d.Name()
+			if strings.HasPrefix(name, ".") {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
 				return nil
 			}
 
-			fType := getFileType(d.Name(), false)
+			rel, _ := filepath.Rel(root, path)
+			rel = filepath.ToSlash(rel)
+			if rel == "." {
+				return nil
+			}
+
+			if d.IsDir() {
+				thumbPath := filepath.ToSlash(filepath.Join(rel, ".thumbnail.jpg"))
+				entries = append(entries, FileEntry{
+					Name:  name,
+					Path:  rel,
+					Type:  "folder",
+					Size:  "",
+					Thumb: thumbPath,
+				})
+				return nil
+			}
+
+			fType := getFileType(name, false)
 			if fType == "audio" || fType == "video" || fType == "image" {
-				rel, _ := filepath.Rel(root, path)
-				rel = filepath.ToSlash(rel) // Force forward slash
-
 				info, err := d.Info()
 				size := ""
 				if err == nil {
 					size = fmt.Sprintf("%.1f MB", float64(info.Size())/1024/1024)
 				}
 
+				thumbPath := ""
+				if fType == "video" || fType == "image" || fType == "audio" {
+					if mode == "music" && fType == "audio" {
+						dir := filepath.Dir(rel)
+						thumbPath = filepath.Join(dir, ".thumbnail.jpg")
+					} else {
+						thumbPath = filepath.Join(rel, "."+name+".thumbnail.jpg")
+					}
+					thumbPath = filepath.ToSlash(thumbPath)
+				}
+
 				entries = append(entries, FileEntry{
-					Name: d.Name(),
-					Path: rel,
-					Type: fType,
-					Size: size,
+					Name:  name,
+					Path:  rel,
+					Type:  fType,
+					Size:  size,
+					Thumb: thumbPath,
 				})
 			}
 			return nil
@@ -183,7 +213,11 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 			if f.IsDir() {
 				thumbPath = filepath.Join(relPath, f.Name(), ".thumbnail.jpg")
 			} else if fType == "video" || fType == "image" || fType == "audio" {
-				thumbPath = filepath.Join(relPath, "."+f.Name()+".thumbnail.jpg")
+				if mode == "music" && fType == "audio" {
+					thumbPath = filepath.Join(relPath, ".thumbnail.jpg")
+				} else {
+					thumbPath = filepath.Join(relPath, "."+f.Name()+".thumbnail.jpg")
+				}
 			}
 			thumbPath = filepath.ToSlash(thumbPath)
 
