@@ -1,52 +1,32 @@
 #!/bin/bash
 
-mkdir -p frontend/static/css
-mkdir -p frontend/static/js
-mkdir -p frontend/static/webfonts
-mkdir -p frontend/static/fonts
+# Create necessary directories for public assets
+mkdir -p public/static/css
+mkdir -p public/static/js
+mkdir -p public/static/fonts
 
-# Download Tailwind CSS
-curl -sL "https://cdn.tailwindcss.com" -o "frontend/static/js/tailwindcss.js"
+echo "Downloading Tailwind CSS..."
+# Download Tailwind CSS (standalone version)
+curl -sL "https://cdn.tailwindcss.com" -o "public/static/js/tailwindcss.js"
 
-# Download Font Awesome 6.7.2 CSS
-curl -sL https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css -o frontend/static/css/all.min.css
-curl -sL https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-brands-400.woff2 -o frontend/static/webfonts/fa-brands-400.woff2
-curl -sL https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-regular-400.woff2 -o frontend/static/webfonts/fa-regular-400.woff2
-curl -sL https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2 -o frontend/static/webfonts/fa-solid-900.woff2
-curl -sL https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-v4compatibility.woff2 -o frontend/static/webfonts/fa-v4compatibility.woff2
+echo "Downloading Lucide Icons..."
+# Download Lucide Icons (UMD version for browser)
+curl -sL "https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" -o "public/static/js/lucide.min.js"
 
-# Update the CSS to use the local webfonts path
-sed 's|https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/|/static/webfonts/|g' frontend/static/css/all.min.css > frontend/static/css/all.min.css.tmp && mv frontend/static/css/all.min.css.tmp frontend/static/css/all.min.css
-
+echo "Downloading Inter font..."
 # Download Inter font from Google Fonts
-curl -sL "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" -A "Mozilla/5.0" -o frontend/static/css/inter.css
+curl -sL "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" -A "Mozilla/5.0" -o "public/static/css/inter.css"
 
-# Download font files referenced in the CSS
-grep -o "https://fonts.gstatic.com/s/inter/[^)]*" frontend/static/css/inter.css | while read -r url; do
+# Extract font URLs from the CSS and download them
+echo "Downloading Inter font files..."
+grep -o "https://fonts.gstatic.com/s/inter/[^)]*" public/static/css/inter.css | while read -r url; do
   filename=$(basename "$url")
-  curl -sL "$url" -o "frontend/static/fonts/$filename"
+  curl -sL "$url" -o "public/static/fonts/$filename"
 done
 
 # Update font CSS to use local files
-sed -i.bak 's|https://fonts.gstatic.com/s/inter/v[0-9]*/|/static/fonts/|g' frontend/static/css/inter.css
-rm frontend/static/css/inter.css.bak
+echo "Updating Inter font CSS paths..."
+sed -i.bak 's|https://fonts.gstatic.com/s/inter/v[0-9]*/|/static/fonts/|g' public/static/css/inter.css
+rm -f public/static/css/inter.css.bak
 
-# Download Plyr JS and CSS
-curl -sL https://cdn.plyr.io/3.7.8/plyr.css -o frontend/static/css/plyr.css
-curl -sL https://cdn.plyr.io/3.7.8/plyr.js -o frontend/static/js/plyr.js
-
-# Download Plyr SVG icon referenced in its CSS
-curl -sL "https://cdn.plyr.io/static/plyr/3.7.8/plyr.svg" -o "frontend/static/css/plyr.svg"
-
-# Update Plyr CSS to use the local SVG icon
-sed -i.bak 's|https://cdn.plyr.io/static/plyr/3.7.8/plyr.svg|plyr.svg|g' frontend/static/css/plyr.css
-rm frontend/static/css/plyr.css.bak
-
-# Download assets for markdown rendering
-curl -sL https://raw.githubusercontent.com/sindresorhus/github-markdown-css/refs/heads/main/github-markdown-dark.css -o frontend/static/css/gh-md.css
-curl -sL https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css -o frontend/static/css/highlight-github-dark.min.css
-curl -sL https://cdn.jsdelivr.net/npm/marked/marked.min.js -o frontend/static/js/marked.min.js
-curl -sL https://cdn.jsdelivr.net/npm/mermaid@11.9.0/dist/mermaid.min.js -o frontend/static/js/mermaid.min.js
-curl -sL https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js -o frontend/static/js/highlight.min.js
-
-echo "All assets downloaded!"
+echo "All assets downloaded successfully!"
