@@ -18,8 +18,8 @@ const Player = {
     basePlaybackRate: 1.0,
     // Periodic micro-seek to re-anchor playback without visible flash
     driftFixEnabled: true,
-    driftSeekSeconds: 0.02,
-    driftIntervalMs: 60000, // every 1 minute
+    driftSeekSeconds: 0.2,
+    driftIntervalMs: 120000, // every 2 minutes
     driftIntervalId: null,
     isPlaying: false,
 

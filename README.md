@@ -27,6 +27,18 @@ The aim of the application is to provide directory listing in an elegant interfa
 - Fully self-hosted with local assets and self-contained binary and container
 - Efficient size for both binary and container - under 15 MB
 
+## Screenshots
+
+<div align="center">
+
+| | | |
+|:---:|:---:|:---:|
+| <img src=".github/assets/01.png" width="100%"> | <img src=".github/assets/02.png" width="100%"> | <img src=".github/assets/03.png" width="100%"> |
+| <img src=".github/assets/04.png" width="100%"> | <img src=".github/assets/05.png" width="100%"> | <img src=".github/assets/06.png" width="100%"> |
+| <img src=".github/assets/07.png" width="100%"> | <img src=".github/assets/08.png" width="100%"> | <img src=".github/assets/09.png" width="100%"> |
+
+</div>
+
 ## Usage
 
 ### Docker (for Homelab)
@@ -108,9 +120,9 @@ Images automatically advance every 5 seconds when playing. Videos and audio supp
 
 Raikiri uses browser-provided video playback (HTML5 video). This means that certain media types like some `.mkv` may not be playable directly on some browsers. However, all media where playback is not supported will open in a new tab with a raw GET request.
 
-### Quickie on Playback Sync
+#### Quickie on Playback Sync
 
 - Service Worker bypasses `/content/` so media streams use native ranged requests.
-- Drift fix: tiny periodic micro-seek on video (defaults: +0.1s every 2 min) to keep long sessions aligned. Drifts happen due to browser decoding capabilities being mediocre compared to VLC.
+- Drift fix: tiny periodic micro-seek on video (defaults: +0.2s every 2 min) to keep long sessions aligned. Drifts happen due to browser decoding capabilities being mediocre compared to VLC.
 - Custom fullscreen overlay for video allows own controls (play/pause, +-10s, seek, exit) so native browser controls stay hidden.
 - Fullscreen button is disabled for audio items (only images/videos use fullscreen).
