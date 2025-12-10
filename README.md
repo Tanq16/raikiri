@@ -12,13 +12,13 @@ The aim of the application is to provide directory listing in an elegant interfa
 ## Features
 
 - Beautiful Catppuccin Mocha themed application for modern web-based directory listing
-- Dual system with separate Media and Music modes, each with independent directory paths
-- Grid and list view modes with thumbnail previews for images, videos, and audio files
+- Dual system with separate Media and Music modes, each with independent directory paths; music navigation is folder-first (Artist → Album → Tracks) with no extra pills
+- Tracks in Music are always shown in list view and skip thumbnail fetching
 - Intelligent thumbnail system that displays preview images when available, with fallback to icons
-- Playlist queue system that automatically creates playlists from media in the current directory
+- Playlist queue system that automatically creates playlists from media in the current directory; items can be removed from the queue
 - Player bar with expanded player view supporting audio, video, and image playback
 - Image slideshow mode with automatic advancement every 5 seconds
-- Play all and shuffle modes for recursive directory playback
+- Shuffle mode for recursive directory playback (media files only)
 - Queue dialog showing current playlist with ability to jump to any item
 - Fullscreen support for videos and images
 - Search functionality to filter files in the current directory
@@ -68,7 +68,7 @@ The `-media` flag specifies the path to your media directory (defaults to curren
 
 ### Local development
 
-With `Go 1.23+` installed, run the following to download the binary to your GOBIN:
+With `Go 1.24+` installed, run the following to download the binary to your GOBIN:
 
 ```bash
 go install github.com/tanq16/raikiri@latest
@@ -96,13 +96,13 @@ raikiri -prepare
 
 Raikiri will intelligently skip files which already have a thumbnail. Thumbnails are generated at 50% of the video duration to provide a representative frame. For images, the original file is used as a fallback if no thumbnail exists.
 
-Thumbnails are also supported for the Music mode. Music expects the base directory to have multiple artists, each represented by a directory, containing albums (directories), which in turn contain tracks. If a thumbnail file is present within an album, that becomes the album art. Similarly, a thumbnail inside the artist directory becomes the artist cover.
+Thumbnails are also supported for the Music mode. Music expects the base directory to have multiple artists, each represented by a directory, containing albums (directories), which in turn contain tracks. If a thumbnail file is present within an album, that becomes the album art; similarly, a thumbnail inside the artist directory becomes the artist cover. Track rows use the list view and do not fetch thumbnails.
 
 #### Player and Playlists
 
 When you click on a media file (image, video, or audio), Raikiri automatically creates a playlist queue from all media files in the current directory. The player bar appears at the bottom of the screen, showing the current item with thumbnail, title, and playback controls. Clicking the player bar expands it to show the full player with seek controls, time display, and a queue dialog button.
 
-The queue dialog displays all items in the current playlist, with the active item highlighted. You can click any item in the queue to jump directly to it. Use the "Play All" button to play all media files recursively from the current directory, or "Shuffle" to play them in random order.
+The queue dialog displays all items in the current playlist, with the active item highlighted. You can click any item in the queue to jump directly to it. Use the Shuffle button to play all media files recursively from the current directory in random order; non-media files and folders are skipped.
 
 Images automatically advance every 5 seconds when playing. Videos and audio support standard playback controls including play/pause, previous/next, and seeking. Fullscreen mode is available for videos and images.
 
@@ -111,6 +111,6 @@ Raikiri uses browser-provided video playback (HTML5 video). This means that cert
 ### Quickie on Playback Sync
 
 - Service Worker bypasses `/content/` so media streams use native ranged requests.
-- Drift fix: tiny periodic micro-seek on video (defaults: +0.1s every 2 min) to keep long sessions aligned. Drifts happen due to browser decoding capabilities being mediocre compraed to VLC.
+- Drift fix: tiny periodic micro-seek on video (defaults: +0.1s every 2 min) to keep long sessions aligned. Drifts happen due to browser decoding capabilities being mediocre compared to VLC.
 - Custom fullscreen overlay for video allows own controls (play/pause, +-10s, seek, exit) so native browser controls stay hidden.
 - Fullscreen button is disabled for audio items (only images/videos use fullscreen).
