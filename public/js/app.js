@@ -169,6 +169,11 @@ document.getElementById('main-container').addEventListener('error', (e) => {
 }, true); // Use capture phase to catch errors
 
 const fileInput = document.getElementById('file-upload');
-fileInput.addEventListener('change', (e) => App.handleUpload(e.target.files));
+fileInput.addEventListener('change', async (e) => {
+    const files = e.target.files;
+    await App.handleUpload(files);
+    // Reset so selecting the same file again still fires a change event
+    e.target.value = '';
+});
 
 App.init();
