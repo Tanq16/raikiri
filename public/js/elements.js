@@ -119,11 +119,14 @@ const Elements = {
         `;
     },
     
-    createQueueItem(item, isActive) {
+    createQueueItem(item, isActive, idx) {
         return `
-            <div class="flex items-center gap-3 p-2 rounded hover:bg-surface0/50 cursor-pointer ${isActive ? 'bg-surface0 text-mauve' : 'text-subtext1'}" data-queue-index="${Escape.attr(item.index)}">
+            <div class="flex items-center gap-3 p-2 rounded hover:bg-surface0/50 cursor-pointer ${isActive ? 'bg-surface0 text-mauve' : 'text-subtext1'}" data-queue-index="${Escape.attr(idx)}">
                 <i data-lucide="${isActive ? 'bar-chart-2' : 'play'}" size="14"></i>
                 <div class="flex-1 truncate text-sm">${Escape.html(item.name)}</div>
+                <button class="p-1 rounded hover:bg-surface0/70 text-red hover:text-red shrink-0" data-queue-remove="${Escape.attr(idx)}" aria-label="Remove from queue">
+                    <i data-lucide="x" size="14"></i>
+                </button>
             </div>
         `;
     }

@@ -65,6 +65,14 @@ const UI = {
         const queueContainer = document.getElementById('queue-list-container');
         if (queueContainer) {
             queueContainer.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest('[data-queue-remove]');
+                if (removeBtn) {
+                    const idx = parseInt(removeBtn.getAttribute('data-queue-remove'), 10);
+                    if (!Number.isNaN(idx)) {
+                        Player.removeFromQueue(idx);
+                    }
+                    return;
+                }
                 const item = e.target.closest('[data-queue-index]');
                 if (item) {
                     const index = item.getAttribute('data-queue-index');
@@ -315,7 +323,7 @@ const UI = {
         const list = document.getElementById('queue-list-container');
         if (list) {
             list.innerHTML = Player.queue.map((item, idx) => 
-                Elements.createQueueItem(item, idx === Player.currentIndex)
+                Elements.createQueueItem(item, idx === Player.currentIndex, idx)
             ).join('');
             this.refreshIcons();
         }

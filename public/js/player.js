@@ -51,9 +51,33 @@ const Player = {
     },
 
     setQueue(items, startIndex = 0) {
-        this.queue = items.map((item, idx) => ({ ...item, index: idx }));
+        this.queue = items.map((item) => ({ ...item }));
         this.currentIndex = startIndex;
         this.load(this.queue[this.currentIndex]);
+    },
+
+    removeFromQueue(idx) {
+        if (idx < 0 || idx >= this.queue.length) return;
+        const removingCurrent = idx === this.currentIndex;
+        this.queue.splice(idx, 1);
+
+        if (!this.queue.length) {
+            this.stop();
+            UI.renderQueueList();
+            return;
+        }
+
+        if (idx < this.currentIndex) {
+            this.currentIndex -= 1;
+        } else if (removingCurrent) {
+            if (this.currentIndex >= this.queue.length) {
+                this.currentIndex = this.queue.length - 1;
+            }
+            this.load(this.queue[this.currentIndex]);
+            return;
+        }
+
+        UI.renderQueueList();
     },
 
     load(item) {
