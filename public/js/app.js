@@ -112,16 +112,17 @@ const App = {
     
     async playRecursive(shuffle) {
         const allItems = await API.list(state.path, state.mode, true);
-        if (!allItems.length) return;
+        const mediaItems = allItems.filter(item => ['audio', 'video', 'image'].includes(item.type));
+        if (!mediaItems.length) return;
         
         if (shuffle) {
-            for (let i = allItems.length - 1; i > 0; i--) {
+            for (let i = mediaItems.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [allItems[i], allItems[j]] = [allItems[j], allItems[i]];
+                [mediaItems[i], mediaItems[j]] = [mediaItems[j], mediaItems[i]];
             }
         }
         
-        Player.setQueue(allItems, 0);
+        Player.setQueue(mediaItems, 0);
     },
     
     async handleUpload(files) {
@@ -139,8 +140,7 @@ window.app = App;
 window.player = Player;
 window.ui = UI;
 window.queue = {
-    shuffleCurrentPath: () => App.playRecursive(true),
-    playAll: () => App.playRecursive(false)
+    shuffleCurrentPath: () => App.playRecursive(true)
 };
 window.navigate = (path) => state.setPath(path);
 
