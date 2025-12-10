@@ -51,6 +51,7 @@ docker run --rm -d --name raikiri \
   -p 8080:8080 \
   -v $HOME/raikiri:/app/media \
   -v $HOME/music:/app/music \
+  -v $HOME/raikiri-cache:/app/cache \
   tanq16/raikiri:main
 ```
 
@@ -64,6 +65,7 @@ services:
     volumes:
       - /home/tanq/raikiri:/app/media # Change as needed
       - /home/tanq/music:/app/music # Change as needed
+      - /home/tanq/raikiri-cache:/app/cache # HLS segment cache
     ports:
       - 8080:8080
 ```
@@ -76,7 +78,9 @@ To use the binary, simply download the latest version from the project releases 
 raikiri -media $YOUR_MEDIA_FOLDER -music $YOUR_MUSIC_FOLDER
 ```
 
-The `-media` flag specifies the path to your media directory (defaults to current directory), and `-music` specifies the path to your music directory (defaults to `./music`). You can switch between Media and Music modes using the tabs in the interface.
+The `-media` flag specifies the path to your media directory (defaults to current directory), `-music` specifies the path to your music directory (defaults to `./music`), and `-cache` specifies the path to the cache directory for HLS segments (defaults to `/tmp`). You can switch between Media and Music modes using the tabs in the interface.
+
+The `-cache` flag specified the cache directory, stores temporary HLS (HTTP Live Streaming) segments created during video transcoding (well, mostly transmuxing). These segments are generated on-the-fly when videos are played and are automatically cleaned up after playback ends. While an SSD location is faster for performance, an HDD path is recommended for longevity since the cache involves frequent write operations during video playback. The default `/tmp` location is fine for most use cases, but you may want to specify a dedicated directory on a non-SSD drive for recurring use.
 
 ### Local development
 
@@ -95,6 +99,14 @@ go build .
 ```
 
 ### Additional Notes
+
+#### Requirements
+
+Raikiri requires `ffmpeg` (which includes `ffprobe`) to be installed and available in your system's PATH for:
+- Video playback: Videos are transcoded to HLS format on-the-fly
+- Thumbnail generation: When using the `-prepare` flag
+
+For Docker deployments, provided image includes `ffmpeg`.
 
 #### Thumbnails
 
@@ -118,11 +130,11 @@ The queue dialog displays all items in the current playlist, with the active ite
 
 Images automatically advance every 5 seconds when playing. Videos and audio support standard playback controls including play/pause, previous/next, and seeking. Fullscreen mode is available for videos and images.
 
-Raikiri uses browser-provided video playback (HTML5 video). This means that certain media types like some `.mkv` may not be playable directly on some browsers. However, all media where playback is not supported will open in a new tab with a raw GET request.
+Raikiri uses HLS (HTTP Live Streaming) for video playback, which provides better compatibility across browsers and formats. Videos are transcoded on-the-fly using `ffmpeg` into HLS segments, enabling smooth playback and seeking even for formats like `.mkv` that may not be directly supported by browsers. Audio files are played directly using HTML5 audio. For files that cannot be played in the browser, they will open in a new tab with a raw GET request.
 
 #### Quickie on Playback Sync
 
-- Service Worker bypasses `/content/` so media streams use native ranged requests.
-- Drift fix: tiny periodic micro-seek on video (defaults: +0.2s every 2 min) to keep long sessions aligned. Drifts happen due to browser decoding capabilities being mediocre compared to VLC.
-- Custom fullscreen overlay for video allows own controls (play/pause, +-10s, seek, exit) so native browser controls stay hidden.
+- Service Worker bypasses `/content/` requests so direct file downloads use native browser ranged requests for efficient streaming.
+- Videos are transcoded to HLS format on-the-fly using `ffmpeg`, providing full seekability and compatibility across all video formats.
+- Custom fullscreen overlay for video provides dedicated controls (play/pause, +-10s seek, seek bar, exit) while keeping native browser controls hidden.
 - Fullscreen button is disabled for audio items (only images/videos use fullscreen).
