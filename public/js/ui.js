@@ -119,8 +119,16 @@ const UI = {
     },
 
     render(items) {
+        const depth = state.path.split('/').filter(p => p).length;
+        const forceList = state.mode === 'music' && depth >= 2;
+        const view = forceList ? 'list' : state.view;
+
+        this.container.classList.toggle('view-grid', view === 'grid');
+        this.container.classList.toggle('view-list', view === 'list');
+        document.getElementById('view-toggle-icon').setAttribute('data-lucide', view === 'grid' ? 'layout-grid' : 'list');
+
         this.container.innerHTML = items.map(item => 
-            state.view === 'grid' 
+            view === 'grid' 
                 ? Elements.createGridItem(item) 
                 : Elements.createListItem(item)
         ).join('');

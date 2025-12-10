@@ -15,6 +15,27 @@ const Elements = {
         return map[type] || 'file';
     },
 
+    getDisplayType(item) {
+        if (state.mode === 'music') {
+            const depth = state.path.split('/').filter(p => p).length;
+            if (item.type === 'audio') return 'Track';
+            if (item.type === 'folder') {
+                if (depth === 0) return 'Artist';
+                if (depth === 1) return 'Album';
+                return 'Folder';
+            }
+        }
+        const map = {
+            'folder': 'Folder',
+            'audio': 'Audio',
+            'video': 'Video',
+            'image': 'Image',
+            'pdf': 'PDF',
+            'text': 'Document'
+        };
+        return map[item.type] || 'File';
+    },
+
     createGridItem(item) {
         const isMedia = ['image', 'video', 'audio'].includes(item.type);
         const iconName = this.getIconName(item.type);
@@ -72,17 +93,27 @@ const Elements = {
 
     createListItem(item) {
         const iconName = this.getIconName(item.type);
+        const typeLabel = this.getDisplayType(item);
+        const size = item.type === 'folder' ? '—' : (item.size || '—');
+        const modified = item.modified || '—';
         
         return `
-            <div class="flex items-center gap-4 px-3 py-3 rounded-lg hover:bg-surface0/80 transition-colors cursor-pointer group border-b border-surface0/10 hover:border-transparent select-none"
+            <div class="group w-full"
                 data-id="${Escape.attr(item.path)}" data-type="${Escape.attr(item.type)}" data-name="${Escape.attr(item.name.toLowerCase())}">
-
-                <div class="w-6 h-6 flex items-center justify-center text-subtext0 group-hover:text-mauve shrink-0">
-                    <i data-lucide="${iconName}" size="20"></i>
-                </div>
-
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-text truncate w-full">${Escape.html(item.name)}</p>
+                <div class="grid grid-cols-[auto,1fr] md:grid-cols-[auto,1fr,120px,100px,160px] items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface0/80 transition-colors cursor-pointer border border-transparent hover:border-surface0/40 select-none">
+                    <div class="w-6 h-6 flex items-center justify-center text-subtext0 group-hover:text-mauve shrink-0">
+                        <i data-lucide="${iconName}" size="20"></i>
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                        <p class="text-sm font-semibold text-text truncate group-hover:text-mauve transition-colors">${Escape.html(item.name)}</p>
+                        <div class="flex items-center gap-2 text-[11px] text-subtext0 md:hidden">
+                            <span>${Escape.html(typeLabel)}</span>
+                            ${item.type !== 'folder' ? `<span class="text-overlay0">•</span><span>${Escape.html(size)}</span>` : ''}
+                        </div>
+                    </div>
+                    <span class="hidden md:block text-xs text-subtext0 font-semibold uppercase tracking-wide">${Escape.html(typeLabel)}</span>
+                    <span class="hidden md:block text-xs text-subtext0">${Escape.html(size)}</span>
+                    <span class="hidden md:block text-xs text-subtext0">${Escape.html(modified)}</span>
                 </div>
             </div>
         `;

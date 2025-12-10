@@ -26,11 +26,12 @@ var (
 )
 
 type FileEntry struct {
-	Name  string `json:"name"`
-	Path  string `json:"path"` // Relative path from root of mode
-	Type  string `json:"type"` // folder, audio, video, image, other
-	Size  string `json:"size"`
-	Thumb string `json:"thumb,omitempty"`
+	Name     string `json:"name"`
+	Path     string `json:"path"` // Relative path from root of mode
+	Type     string `json:"type"` // folder, audio, video, image, other
+	Size     string `json:"size"`
+	Thumb    string `json:"thumb,omitempty"`
+	Modified string `json:"modified,omitempty"`
 }
 
 func main() {
@@ -122,6 +123,10 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return nil
 			}
+			info, err := d.Info()
+			if err != nil {
+				return nil
+			}
 			name := d.Name()
 			if strings.HasPrefix(name, ".") {
 				if d.IsDir() {
@@ -139,22 +144,19 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 			if d.IsDir() {
 				thumbPath := filepath.ToSlash(filepath.Join(rel, ".thumbnail.jpg"))
 				entries = append(entries, FileEntry{
-					Name:  name,
-					Path:  rel,
-					Type:  "folder",
-					Size:  "",
-					Thumb: thumbPath,
+					Name:     name,
+					Path:     rel,
+					Type:     "folder",
+					Size:     "",
+					Thumb:    thumbPath,
+					Modified: info.ModTime().Format("2006-01-02 15:04"),
 				})
 				return nil
 			}
 
 			fType := getFileType(name, false)
 			if fType == "audio" || fType == "video" || fType == "image" {
-				info, err := d.Info()
-				size := ""
-				if err == nil {
-					size = fmt.Sprintf("%.1f MB", float64(info.Size())/1024/1024)
-				}
+				size := fmt.Sprintf("%.1f MB", float64(info.Size())/1024/1024)
 
 				thumbPath := ""
 				if fType == "video" || fType == "image" || fType == "audio" {
@@ -168,11 +170,12 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 				}
 
 				entries = append(entries, FileEntry{
-					Name:  name,
-					Path:  rel,
-					Type:  fType,
-					Size:  size,
-					Thumb: thumbPath,
+					Name:     name,
+					Path:     rel,
+					Type:     fType,
+					Size:     size,
+					Thumb:    thumbPath,
+					Modified: info.ModTime().Format("2006-01-02 15:04"),
 				})
 			}
 			return nil
@@ -201,6 +204,7 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 			if !f.IsDir() {
 				size = fmt.Sprintf("%.1f MB", float64(info.Size())/1024/1024)
 			}
+			modified := info.ModTime().Format("2006-01-02 15:04")
 
 			fType := getFileType(f.Name(), f.IsDir())
 
@@ -222,11 +226,12 @@ func handleList(w http.ResponseWriter, r *http.Request) {
 			thumbPath = filepath.ToSlash(thumbPath)
 
 			entries = append(entries, FileEntry{
-				Name:  f.Name(),
-				Path:  fullRelPath,
-				Type:  fType,
-				Size:  size,
-				Thumb: thumbPath,
+				Name:     f.Name(),
+				Path:     fullRelPath,
+				Type:     fType,
+				Size:     size,
+				Thumb:    thumbPath,
+				Modified: modified,
 			})
 		}
 	}

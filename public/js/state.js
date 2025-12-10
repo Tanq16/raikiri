@@ -2,7 +2,6 @@ const state = {
     mode: 'files', // 'files' | 'music'
     path: '/',
     view: 'grid',
-    musicView: 'navigate', // 'navigate' | 'albums' | 'tracks'
     items: [],
     
     setPath(newPath) {
@@ -17,10 +16,6 @@ const state = {
         this.path = '/';
         window.location.hash = `#/${newMode}/`;
     },
-    
-    setMusicView(newView) {
-        this.musicView = newView;
-    }
 };
 
 export default state;
