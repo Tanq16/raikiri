@@ -13,6 +13,10 @@ echo "Downloading Lucide Icons..."
 # Download Lucide Icons (UMD version for browser)
 curl -sL "https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" -o "public/static/js/lucide.min.js"
 
+echo "Downloading HLS.js..."
+# Download HLS.js for video streaming
+curl -sL "https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js" -o "public/static/js/hls.min.js"
+
 echo "Downloading Inter font..."
 # Download Inter font from Google Fonts
 curl -sL "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" -A "Mozilla/5.0" -o "public/static/css/inter.css"
