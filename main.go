@@ -24,7 +24,7 @@ var (
 )
 
 func main() {
-	prepareMode := flag.String("prepare", "", "Mode: 'videos' (generate ffmpeg thumbs), 'shows' (auto-match all subdirs), 'show' (manual interactive match current dir)")
+	prepareMode := flag.String("prepare", "", "Mode: 'videos' (generate ffmpeg thumbs recursively), 'video' (generate ffmpeg thumbs in current folder), 'shows' (auto-match all subdirs), 'show' (manual interactive match current dir)")
 
 	flag.StringVar(&mediaPath, "media", ".", "Path to media directory")
 	flag.StringVar(&musicPath, "music", "./music", "Path to music directory")
@@ -37,7 +37,7 @@ func main() {
 			log.Fatalf("Error getting current working directory: %v", err)
 		}
 
-		if *prepareMode == "videos" {
+		if *prepareMode == "videos" || *prepareMode == "video" {
 			if _, err := exec.LookPath("ffmpeg"); err != nil {
 				log.Fatalf("Error: `ffmpeg` not found in PATH.")
 			}
@@ -45,7 +45,12 @@ func main() {
 				log.Fatalf("Error: `ffprobe` not found in PATH.")
 			}
 			log.Println("Starting video thumbnail generation...")
-			thumbnails.ProcessVideos(cwd)
+			switch *prepareMode {
+			case "videos":
+				thumbnails.ProcessVideos(cwd)
+			case "video":
+				thumbnails.ProcessVideo(cwd)
+			}
 			log.Println("Complete.")
 			return
 		}
@@ -58,10 +63,11 @@ func main() {
 			}
 			thumbnails.TmdbAPIKey = apiKey
 
-			if *prepareMode == "shows" {
+			switch *prepareMode {
+			case "shows":
 				log.Println("Starting automatic show processing...")
 				thumbnails.ProcessShowsAuto(cwd)
-			} else if *prepareMode == "show" {
+			case "show":
 				log.Println("Starting manual show processing...")
 				thumbnails.ProcessShowManual(cwd)
 			}
@@ -69,7 +75,7 @@ func main() {
 			return
 		}
 
-		log.Fatalf("Invalid prepare mode: '%s'. Use 'videos', 'shows', or 'show'.", *prepareMode)
+		log.Fatalf("Invalid prepare mode: '%s'. Use 'videos', 'video', 'shows', or 'show'.", *prepareMode)
 	}
 
 	// Initialize handler package variables

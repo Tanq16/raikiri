@@ -194,6 +194,37 @@ func ProcessVideos(rootDir string) {
 	}
 }
 
+func ProcessVideo(currentDir string) {
+	var filesToProcess []string
+	videoExts := []string{".mp4", ".mkv", ".webm", ".mov", ".avi"}
+
+	entries, err := os.ReadDir(currentDir)
+	if err != nil {
+		log.Printf("Error reading directory: %v", err)
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if slices.Contains(videoExts, ext) {
+			filePath := filepath.Join(currentDir, entry.Name())
+			filesToProcess = append(filesToProcess, filePath)
+		}
+	}
+
+	fmt.Printf("Found %d video files in '%s'.\n", len(filesToProcess), currentDir)
+	for i, filePath := range filesToProcess {
+		fmt.Printf("[%d/%d] Processing: %s\n", i+1, len(filesToProcess), filepath.Base(filePath))
+		err := CreateVideoThumbnail(filePath)
+		if err != nil {
+			fmt.Printf("ERROR: %v\n", err)
+		}
+	}
+}
+
 func ProcessShowsAuto(rootDir string) {
 	entries, err := os.ReadDir(rootDir)
 	if err != nil {

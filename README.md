@@ -25,7 +25,7 @@ The aim of the application is to provide directory listing in an elegant interfa
 - Ability to upload files to the server at specific paths
 - Functionality in the binary to prepare media for thumbnails (using `ffmpeg`)
 - Fully self-hosted with local assets and self-contained binary and container
-- Efficient size for both binary and container - under 15 MB
+- Efficient size for both binary and container - under 15 and 50 MB resp.
 
 ## Screenshots
 
@@ -112,13 +112,17 @@ For Docker deployments, provided image includes `ffmpeg`.
 
 Raikiri supports thumbnails for images, videos, and audio files. Thumbnails are stored as hidden files (prefixed with `.`) in the same directory as the media files. When available, thumbnails are displayed in the grid view for quick preview.
 
-To generate thumbnails for video files, use the prepare mode:
+To generate thumbnails, use the `-prepare` flag with one of the following modes:
+- `videos`: Generate thumbnails recursively for all video files in the current directory
+- `video`: Generate thumbnails for video files in the current folder only
+- `shows`: Auto-match TV shows using TMDB API (requires `TMDB_API_KEY` environment variable)
+- `show`: Manual interactive TV show matching using TMDB API (requires `TMDB_API_KEY` environment variable)
 
 ```bash
-raikiri -prepare
+raikiri -prepare videos
 ```
 
-Raikiri will intelligently skip files which already have a thumbnail. Thumbnails are generated at 50% of the video duration to provide a representative frame. For images, the original file is used as a fallback if no thumbnail exists.
+Raikiri will intelligently skip files which already have a thumbnail. Video thumbnails are generated at 50% of the video duration. For images, the original file is used as a fallback if no thumbnail exists.
 
 Thumbnails are also supported for the Music mode. Music expects the base directory to have multiple artists, each represented by a directory, containing albums (directories), which in turn contain tracks. If a thumbnail file is present within an album, that becomes the album art; similarly, a thumbnail inside the artist directory becomes the artist cover. Track rows use the list view and do not fetch thumbnails.
 
@@ -134,7 +138,6 @@ Raikiri uses HLS (HTTP Live Streaming) for video playback, which provides better
 
 #### Quickie on Playback Sync
 
-- Service Worker bypasses `/content/` requests so direct file downloads use native browser ranged requests for efficient streaming.
 - Videos are transcoded to HLS format on-the-fly using `ffmpeg`, providing full seekability and compatibility across all video formats.
 - Custom fullscreen overlay for video provides dedicated controls (play/pause, +-10s seek, seek bar, exit) while keeping native browser controls hidden.
 - Fullscreen button is disabled for audio items (only images/videos use fullscreen).
