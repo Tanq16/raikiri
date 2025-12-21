@@ -62,6 +62,24 @@ func GetFileType(name string, isDir bool) string {
 	return "file"
 }
 
+func GetThumbnailPath(relPath, fileName, fileType, mode string) string {
+	if fileType == "folder" {
+		return filepath.ToSlash(filepath.Join(relPath, ".thumbnail.jpg"))
+	}
+	if mode == "music" && fileType == "audio" {
+		return filepath.ToSlash(filepath.Join(relPath, ".thumbnail.jpg"))
+	}
+	return filepath.ToSlash(filepath.Join(relPath, "."+fileName+".thumbnail.jpg"))
+}
+
+func FormatFileSize(bytes int64) string {
+	return fmt.Sprintf("%.1f MB", float64(bytes)/1024/1024)
+}
+
+func FormatModTime(t time.Time) string {
+	return t.Format("2006-01-02 15:04")
+}
+
 func HandleContent(w http.ResponseWriter, r *http.Request) {
 	mode := r.URL.Query().Get("mode")
 	relPath := strings.TrimPrefix(r.URL.Path, "/content/")
@@ -103,40 +121,28 @@ func HandleList(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if d.IsDir() {
-				thumbPath := filepath.ToSlash(filepath.Join(rel, ".thumbnail.jpg"))
 				entries = append(entries, FileEntry{
 					Name:     name,
 					Path:     rel,
 					Type:     "folder",
 					Size:     "",
-					Thumb:    thumbPath,
-					Modified: info.ModTime().Format("2006-01-02 15:04"),
+					Thumb:    GetThumbnailPath(rel, name, "folder", mode),
+					Modified: FormatModTime(info.ModTime()),
 				})
 				return nil
 			}
 
 			fType := GetFileType(name, false)
 			if fType == "audio" || fType == "video" || fType == "image" {
-				size := fmt.Sprintf("%.1f MB", float64(info.Size())/1024/1024)
-
-				thumbPath := ""
-				if fType == "video" || fType == "image" || fType == "audio" {
-					if mode == "music" && fType == "audio" {
-						dir := filepath.Dir(rel)
-						thumbPath = filepath.Join(dir, ".thumbnail.jpg")
-					} else {
-						thumbPath = filepath.Join(rel, "."+name+".thumbnail.jpg")
-					}
-					thumbPath = filepath.ToSlash(thumbPath)
-				}
+				dir := filepath.Dir(rel)
 
 				entries = append(entries, FileEntry{
 					Name:     name,
 					Path:     rel,
 					Type:     fType,
-					Size:     size,
-					Thumb:    thumbPath,
-					Modified: info.ModTime().Format("2006-01-02 15:04"),
+					Size:     FormatFileSize(info.Size()),
+					Thumb:    GetThumbnailPath(dir, name, fType, mode),
+					Modified: FormatModTime(info.ModTime()),
 				})
 			}
 			return nil
@@ -163,9 +169,8 @@ func HandleList(w http.ResponseWriter, r *http.Request) {
 			}
 			size := ""
 			if !f.IsDir() {
-				size = fmt.Sprintf("%.1f MB", float64(info.Size())/1024/1024)
+				size = FormatFileSize(info.Size())
 			}
-			modified := info.ModTime().Format("2006-01-02 15:04")
 
 			fType := GetFileType(f.Name(), f.IsDir())
 
@@ -173,26 +178,13 @@ func HandleList(w http.ResponseWriter, r *http.Request) {
 			fullRelPath := filepath.Join(relPath, f.Name())
 			fullRelPath = filepath.ToSlash(fullRelPath)
 
-			// Determine thumbnail path logic
-			thumbPath := ""
-			if f.IsDir() {
-				thumbPath = filepath.Join(relPath, f.Name(), ".thumbnail.jpg")
-			} else if fType == "video" || fType == "image" || fType == "audio" {
-				if mode == "music" && fType == "audio" {
-					thumbPath = filepath.Join(relPath, ".thumbnail.jpg")
-				} else {
-					thumbPath = filepath.Join(relPath, "."+f.Name()+".thumbnail.jpg")
-				}
-			}
-			thumbPath = filepath.ToSlash(thumbPath)
-
 			entries = append(entries, FileEntry{
 				Name:     f.Name(),
 				Path:     fullRelPath,
 				Type:     fType,
 				Size:     size,
-				Thumb:    thumbPath,
-				Modified: modified,
+				Thumb:    GetThumbnailPath(relPath, f.Name(), fType, mode),
+				Modified: FormatModTime(info.ModTime()),
 			})
 		}
 	}

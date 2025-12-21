@@ -18,24 +18,6 @@ const Escape = {
             .replace(/'/g, '&#39;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
-    },
-    
-    // Escape for use in JavaScript strings (handles quotes and backslashes)
-    js(value) {
-        if (value == null) return '';
-        return String(value)
-            .replace(/\\/g, '\\\\')
-            .replace(/'/g, "\\'")
-            .replace(/"/g, '\\"')
-            .replace(/\n/g, '\\n')
-            .replace(/\r/g, '\\r')
-            .replace(/\t/g, '\\t');
-    },
-    
-    // Escape URL for use in href/src attributes (encodeURIComponent for query params)
-    url(value) {
-        if (value == null) return '';
-        return String(value);
     }
 };
 

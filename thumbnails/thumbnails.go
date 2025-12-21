@@ -155,7 +155,7 @@ func CreateVideoThumbnail(filePath string) error {
 
 	seekTime := duration / 2.0
 	if seekTime >= duration {
-		seekTime = max(0, duration-0.5)
+		seekTime = max(0.0, duration-0.5)
 	}
 	seekTimeStr := FormatDuration(seekTime)
 
@@ -333,7 +333,7 @@ func ProcessShowManual(currentDir string) {
 
 	fmt.Println("\n--- Possible Matches ---")
 	for i, r := range results {
-		if i >= 5 {
+		if i >= min(5, len(results)) {
 			break
 		}
 		date := "N/A"
@@ -342,7 +342,7 @@ func ProcessShowManual(currentDir string) {
 		}
 		fmt.Printf("%d. %s (%s) - ID: %d\n", i+1, r.Name, date, r.ID)
 	}
-	fmt.Printf("%d. Enter TMDB ID Manually\n", min(len(results), 5)+1)
+	fmt.Printf("%d. Enter TMDB ID Manually\n", min(5, len(results))+1)
 
 	reader := getReader()
 	fmt.Print("\nSelect option (or 'q' to quit): ")
@@ -426,18 +426,4 @@ func ProcessShowManual(currentDir string) {
 			}
 		}
 	}
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b float64) float64 {
-	if a > b {
-		return a
-	}
-	return b
 }

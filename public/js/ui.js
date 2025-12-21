@@ -9,27 +9,18 @@ const UI = {
     videoHome: null,
     fullscreenControlsTimer: null,
     fullscreenControlsVisible: true,
-    fullscreenActivityAttached: false,
-    fullscreenActivityHandler: null,
     
     init() {
-        const range = document.getElementById('ep-range');
-        range.addEventListener('input', (e) => {
+        const handleRangeInput = (e) => {
             const percent = e.target.value;
             Player.seek(percent);
             // Update fill in real-time while dragging
             document.getElementById('ep-range-fill').style.width = `${percent}%`;
             document.getElementById('ep-range-fill-mob').style.width = `${percent}%`;
-        });
+        };
         
-        const rangeMob = document.getElementById('ep-range-mob');
-        rangeMob.addEventListener('input', (e) => {
-            const percent = e.target.value;
-            Player.seek(percent);
-            // Update fill in real-time while dragging
-            document.getElementById('ep-range-fill').style.width = `${percent}%`;
-            document.getElementById('ep-range-fill-mob').style.width = `${percent}%`;
-        });
+        document.getElementById('ep-range').addEventListener('input', handleRangeInput);
+        document.getElementById('ep-range-mob').addEventListener('input', handleRangeInput);
         
         this.videoHome = document.getElementById('ep-video')?.parentElement || null;
 
@@ -124,6 +115,18 @@ const UI = {
     
     refreshIcons() {
         if (window.lucide) window.lucide.createIcons();
+    },
+
+    exitBrowserFullscreen() {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
     },
 
     render(items) {
@@ -437,15 +440,7 @@ const UI = {
 
         if (document.fullscreenElement || document.webkitFullscreenElement || 
             document.mozFullScreenElement || document.msFullscreenElement) {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) {
-                document.webkitExitFullscreen();
-            } else if (document.mozCancelFullScreen) {
-                document.mozCancelFullScreen();
-            } else if (document.msExitFullscreen) {
-                document.msExitFullscreen();
-            }
+            this.exitBrowserFullscreen();
         }
         
         container.classList.add('hidden');
@@ -501,15 +496,7 @@ const UI = {
         videoEl.classList.add('z-30');
         if (!skipExit && (document.fullscreenElement || document.webkitFullscreenElement || 
             document.mozFullScreenElement || document.msFullscreenElement)) {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) {
-                document.webkitExitFullscreen();
-            } else if (document.mozCancelFullScreen) {
-                document.mozCancelFullScreen();
-            } else if (document.msExitFullscreen) {
-                document.msExitFullscreen();
-            }
+            this.exitBrowserFullscreen();
         }
     },
 
