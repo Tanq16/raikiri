@@ -177,13 +177,17 @@ func HandleList(w http.ResponseWriter, r *http.Request) {
 			// Generate relative path from ROOT, not from current folder
 			fullRelPath := filepath.Join(relPath, f.Name())
 			fullRelPath = filepath.ToSlash(fullRelPath)
+			thumbBasePath := relPath
+			if fType == "folder" {
+				thumbBasePath = fullRelPath
+			}
 
 			entries = append(entries, FileEntry{
 				Name:     f.Name(),
 				Path:     fullRelPath,
 				Type:     fType,
 				Size:     size,
-				Thumb:    GetThumbnailPath(relPath, f.Name(), fType, mode),
+				Thumb:    GetThumbnailPath(thumbBasePath, f.Name(), fType, mode),
 				Modified: FormatModTime(info.ModTime()),
 			})
 		}
