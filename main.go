@@ -24,27 +24,52 @@ var (
 )
 
 func main() {
-	prepare := flag.Bool("prepare", false, "Generate thumbnails for all video files and exit")
+	prepareMode := flag.String("prepare", "", "Mode: 'videos' (generate ffmpeg thumbs), 'shows' (auto-match all subdirs), 'show' (manual interactive match current dir)")
+
 	flag.StringVar(&mediaPath, "media", ".", "Path to media directory")
 	flag.StringVar(&musicPath, "music", "./music", "Path to music directory")
 	flag.StringVar(&cachePath, "cache", "/tmp", "Path to cache directory for HLS segments")
 	flag.Parse()
 
-	if *prepare {
-		log.Println("Starting in prepare mode. Generating thumbnails for video files...")
-		if _, err := exec.LookPath("ffmpeg"); err != nil {
-			log.Fatalf("Error: `ffmpeg` is not installed or not in your system's PATH. Please install ffmpeg to use the prepare feature.")
-		}
-		if _, err := exec.LookPath("ffprobe"); err != nil {
-			log.Fatalf("Error: `ffprobe` is not installed or not in your system's PATH. Please install ffmpeg (which includes ffprobe) to use the prepare feature.")
-		}
+	if *prepareMode != "" {
 		cwd, err := os.Getwd()
 		if err != nil {
 			log.Fatalf("Error getting current working directory: %v", err)
 		}
-		thumbnails.ProcessDirectoryForThumbnails(cwd)
-		log.Println("Thumbnail generation complete.")
-		return
+
+		if *prepareMode == "videos" {
+			if _, err := exec.LookPath("ffmpeg"); err != nil {
+				log.Fatalf("Error: `ffmpeg` not found in PATH.")
+			}
+			if _, err := exec.LookPath("ffprobe"); err != nil {
+				log.Fatalf("Error: `ffprobe` not found in PATH.")
+			}
+			log.Println("Starting video thumbnail generation...")
+			thumbnails.ProcessVideos(cwd)
+			log.Println("Complete.")
+			return
+		}
+
+		// Check TMDB Key for Show modes
+		if *prepareMode == "shows" || *prepareMode == "show" {
+			apiKey := os.Getenv("TMDB_API_KEY")
+			if apiKey == "" {
+				log.Fatal("Error: TMDB_API_KEY environment variable is required for show metadata.")
+			}
+			thumbnails.TmdbAPIKey = apiKey
+
+			if *prepareMode == "shows" {
+				log.Println("Starting automatic show processing...")
+				thumbnails.ProcessShowsAuto(cwd)
+			} else if *prepareMode == "show" {
+				log.Println("Starting manual show processing...")
+				thumbnails.ProcessShowManual(cwd)
+			}
+			log.Println("Complete.")
+			return
+		}
+
+		log.Fatalf("Invalid prepare mode: '%s'. Use 'videos', 'shows', or 'show'.", *prepareMode)
 	}
 
 	// Initialize handler package variables
