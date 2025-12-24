@@ -301,12 +301,25 @@ func HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	audioCodec := GetAudioCodec(fullPath)
+	// Get all audio tracks and select the best one (prefer English)
+	audioTracks := GetAudioTracks(fullPath)
+	selectedAudio := SelectBestAudioTrack(audioTracks)
+
 	var audioArgs []string
-	if IsAudioCompatible(audioCodec) {
-		audioArgs = []string{"-c:a", "copy"}
+	if selectedAudio != nil {
+		audioArgs = []string{"-map", "0:v:0", "-map", fmt.Sprintf("0:%d", selectedAudio.Index)}
+		log.Printf("Selected audio track %d (codec=%s, lang=%s) for file=%s", selectedAudio.Index, selectedAudio.Codec, selectedAudio.Language, targetFile)
+
+		// Check if we need to transcode the audio
+		if IsAudioCompatible(selectedAudio.Codec) {
+			audioArgs = append(audioArgs, "-c:a", "copy")
+		} else {
+			audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "128k")
+		}
 	} else {
-		audioArgs = []string{"-c:a", "aac", "-b:a", "128k"}
+		// No audio track found, proceed without audio mapping
+		log.Printf("No audio tracks found for file=%s", targetFile)
+		audioArgs = []string{"-map", "0:v:0"}
 	}
 
 	sessionID := fmt.Sprintf("s_%d", time.Now().UnixNano())
@@ -361,10 +374,10 @@ func HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	args := []string{
 		"-loglevel", "warning",
 		"-i", fullPath,
-		"-c:v", "copy",
 	}
 	args = append(args, audioArgs...)
 	args = append(args,
+		"-c:v", "copy",
 		"-f", "hls",
 		"-hls_time", "6",
 		"-hls_list_size", "0", // 0 = unlimited, keep all segments in playlist
@@ -478,6 +491,67 @@ func GetVideoDuration(filePath string) (float64, error) {
 		return 0, fmt.Errorf("failed to parse duration: %w", err)
 	}
 	return duration, nil
+}
+
+type AudioTrack struct {
+	Index    int    `json:"index"`
+	Codec    string `json:"codec"`
+	Language string `json:"language"`
+}
+
+func GetAudioTracks(filePath string) []AudioTrack {
+	cmd := exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "a",
+		"-show_entries", "stream=index,codec_name:stream_tags=language",
+		"-of", "csv=p=0",
+		filePath)
+
+	output, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+
+	var tracks []AudioTrack
+	lines := strings.SplitSeq(strings.TrimSpace(string(output)), "\n")
+	for line := range lines {
+		if line == "" {
+			continue
+		}
+		// Format: index,codec_name,language (language might be missing)
+		parts := strings.Split(line, ",")
+		if len(parts) >= 2 {
+			index, err := strconv.Atoi(parts[0])
+			if err != nil {
+				continue
+			}
+			codec := parts[1]
+			language := "und" // undefined
+			if len(parts) >= 3 {
+				language = parts[2]
+			}
+			tracks = append(tracks, AudioTrack{
+				Index:    index,
+				Codec:    codec,
+				Language: language,
+			})
+		}
+	}
+
+	return tracks
+}
+
+func SelectBestAudioTrack(tracks []AudioTrack) *AudioTrack {
+	if len(tracks) == 0 {
+		return nil
+	}
+	for _, track := range tracks {
+		if track.Language == "eng" || track.Language == "en" {
+			return &track
+		}
+	}
+	// Fallback to first track
+	return &tracks[0]
 }
 
 func GetAudioCodec(filePath string) string {
