@@ -12,6 +12,8 @@ const Player = {
     currentSessionId: null,
     videoDuration: null,
     isPlaying: false,
+    availableSubtitles: [],
+    activeSubtitleIndex: null,
 
     init() {
         this.videoEl = document.getElementById('ep-video');
@@ -95,6 +97,10 @@ const Player = {
         this.videoEl.pause();
         document.getElementById('ep-image').classList.add('hidden');
         document.getElementById('ep-audio-art').classList.add('hidden');
+        
+        this.availableSubtitles = [];
+        this.activeSubtitleIndex = null;
+        UI.updateSubtitleButton(false);
 
         const thumb = item.thumb ? API.getContentUrl(item.thumb, state.mode) : null;
         
@@ -114,8 +120,13 @@ const Player = {
                 
                 this.currentSessionId = data.sessionId;
                 this.videoDuration = data.duration || null;
+                this.availableSubtitles = data.subtitles || [];
                 const hlsUrl = data.url;
                 this.videoEl.classList.remove('hidden');
+                
+                while (this.videoEl.firstChild) {
+                    this.videoEl.removeChild(this.videoEl.firstChild);
+                }
                 
                 if (Hls.isSupported()) {
                     this.hls = new Hls();
@@ -129,6 +140,7 @@ const Player = {
                     this.videoEl.play();
                 }
                 
+                UI.updateSubtitleButton(this.availableSubtitles.length > 0);
                 this.isPlaying = true;
             } catch (e) {
                 console.error("Stream failed", e);
@@ -309,6 +321,26 @@ const Player = {
         } catch (e) {
             // Ignore if not supported
         }
+    },
+
+    setSubtitle(index) {
+        if (!this.videoEl || !this.currentSessionId) return;
+
+        const existingTracks = this.videoEl.querySelectorAll('track');
+        existingTracks.forEach(track => track.remove());
+
+        if (index !== null && index > 0) {
+            const track = document.createElement('track');
+            track.kind = 'subtitles';
+            track.label = `Sub ${index}`;
+            track.srclang = 'en';
+            track.src = `/api/hls/${this.currentSessionId}/sub_${index}.vtt`;
+            track.default = true;
+            this.videoEl.appendChild(track);
+            track.track.mode = 'showing';
+        }
+
+        this.activeSubtitleIndex = index;
     }
 };
 

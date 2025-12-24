@@ -79,6 +79,7 @@
         .view-list { display: flex; flex-direction: column; gap: 0.25rem; }
         
         #queue-dialog { z-index: 60; }
+        #subtitle-dialog { z-index: 60; }
     </style>
 </head>
 <body class="bg-base text-text h-screen w-screen overflow-hidden flex flex-col select-none">
@@ -134,6 +135,16 @@
         </div>
     </div>
 
+    <div id="subtitle-dialog" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 backdrop-blur-sm" onclick="ui.toggleSubtitleDialog()">
+        <div class="bg-mantle w-full max-w-sm rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-surface1" onclick="event.stopPropagation()">
+            <div class="p-4 border-b border-surface0 flex justify-between items-center bg-base">
+                <span class="font-bold">Subtitles</span>
+                <button onclick="ui.toggleSubtitleDialog()"><i data-lucide="x" size="20"></i></button>
+            </div>
+            <div id="subtitle-list-container" class="p-4 space-y-2"></div>
+        </div>
+    </div>
+
     <div id="player-bar" class="fixed bottom-0 left-0 right-0 h-16 md:h-20 bg-mantle/95 backdrop-blur-xl border-t border-white/5 z-40 translate-y-full transition-transform duration-300 flex flex-col shadow-[0_-4px_20px_rgba(0,0,0,0.2)] overflow-hidden">
         <div id="pb-progress-container" class="w-full h-1 bg-surface0 cursor-pointer group relative" onclick="ui.handlePlayerBarSeek(event)">
             <div id="pb-progress" class="h-full bg-mauve w-0 relative transition-all duration-100 ease-linear"></div>
@@ -168,6 +179,9 @@
             </div>
 
             <div class="flex items-center justify-end w-1/3 gap-4">
+                 <button id="pb-cc-btn" onclick="ui.toggleSubtitleDialog()" class="text-subtext0 hover:text-mauve p-2 rounded-lg hover:bg-surface0 transition-colors hidden">
+                    <i data-lucide="closed-caption" size="20"></i>
+                </button>
                  <button onclick="ui.toggleQueueDialog()" class="text-subtext0 hover:text-mauve relative p-2 rounded-lg hover:bg-surface0 transition-colors">
                     <i data-lucide="list-music" size="20"></i>
                 </button>
@@ -239,9 +253,11 @@
                             <i id="ep-play-icon" data-lucide="play" size="36" class="fill-current"></i>
                         </button>
                         <button onclick="player.next()" class="text-text hover:scale-110 transition shrink-0"><i data-lucide="skip-forward" size="24" class="fill-current"></i></button>
+                        <button id="ep-cc-btn-mob" onclick="ui.toggleSubtitleDialog()" class="text-subtext0 hover:text-mauve shrink-0 hidden"><i data-lucide="closed-caption" size="20"></i></button>
                         <button onclick="ui.toggleQueueDialog()" class="text-subtext0 hover:text-mauve shrink-0"><i data-lucide="list-music" size="20"></i></button>
                     </div>
-                    <!-- Desktop: Playlist button -->
+                    <!-- Desktop: CC and Playlist buttons -->
+                    <button id="ep-cc-btn-desktop" onclick="ui.toggleSubtitleDialog()" class="hidden max-md:hidden md:flex text-subtext0 hover:text-mauve shrink-0"><i data-lucide="closed-caption" size="20"></i></button>
                     <button id="ep-desktop-playlist" onclick="ui.toggleQueueDialog()" class="hidden md:block text-subtext0 hover:text-mauve shrink-0"><i data-lucide="list-music" size="20"></i></button>
                 </div>
             </div>

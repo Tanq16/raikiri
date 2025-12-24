@@ -341,6 +341,65 @@ const UI = {
             dialog.classList.add('hidden');
         }
     },
+
+    toggleSubtitleDialog() {
+        const dialog = document.getElementById('subtitle-dialog');
+        if (dialog.classList.contains('hidden')) {
+            dialog.classList.remove('hidden');
+            this.renderSubtitleList();
+        } else {
+            dialog.classList.add('hidden');
+        }
+    },
+
+    renderSubtitleList() {
+        const container = document.getElementById('subtitle-list-container');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const disabledOption = document.createElement('label');
+        disabledOption.className = 'flex items-center gap-3 p-3 rounded-lg hover:bg-surface0 cursor-pointer transition-colors';
+        disabledOption.innerHTML = `
+            <input type="radio" name="subtitle" value="0" ${Player.activeSubtitleIndex === null ? 'checked' : ''} class="w-4 h-4 text-mauve">
+            <span class="text-text">Disabled</span>
+        `;
+        disabledOption.querySelector('input').addEventListener('change', () => {
+            Player.setSubtitle(null);
+            this.toggleSubtitleDialog();
+        });
+        container.appendChild(disabledOption);
+
+        Player.availableSubtitles.forEach(sub => {
+            const option = document.createElement('label');
+            option.className = 'flex items-center gap-3 p-3 rounded-lg hover:bg-surface0 cursor-pointer transition-colors';
+            option.innerHTML = `
+                <input type="radio" name="subtitle" value="${sub.index}" ${Player.activeSubtitleIndex === sub.index ? 'checked' : ''} class="w-4 h-4 text-mauve">
+                <span class="text-text">${Escape.html(sub.label)}</span>
+            `;
+            option.querySelector('input').addEventListener('change', () => {
+                Player.setSubtitle(sub.index);
+                this.toggleSubtitleDialog();
+            });
+            container.appendChild(option);
+        });
+    },
+
+    updateSubtitleButton(visible) {
+        const epCcMob = document.getElementById('ep-cc-btn-mob');
+        const epCcDesktop = document.getElementById('ep-cc-btn-desktop');
+        const pbCc = document.getElementById('pb-cc-btn');
+        
+        if (visible) {
+            if (epCcMob) epCcMob.classList.remove('hidden');
+            if (epCcDesktop) epCcDesktop.classList.remove('hidden');
+            if (pbCc) pbCc.classList.remove('hidden');
+        } else {
+            if (epCcMob) epCcMob.classList.add('hidden');
+            if (epCcDesktop) epCcDesktop.classList.add('hidden');
+            if (pbCc) pbCc.classList.add('hidden');
+        }
+    },
     
     updateProgress(current, duration) {
         if (!duration) return;
