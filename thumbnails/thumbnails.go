@@ -49,6 +49,23 @@ type tmdbSeason struct {
 	PosterPath   string `json:"poster_path"`
 }
 
+type tmdbMovieSearchResponse struct {
+	Results []tmdbMovie `json:"results"`
+}
+
+type tmdbMovie struct {
+	ID          int    `json:"id"`
+	Title       string `json:"title"`
+	ReleaseDate string `json:"release_date"`
+	PosterPath  string `json:"poster_path"`
+}
+
+type tmdbMovieDetails struct {
+	ID         int    `json:"id"`
+	Title      string `json:"title"`
+	PosterPath string `json:"poster_path"`
+}
+
 func getReader() *bufio.Reader {
 	return bufio.NewReader(os.Stdin)
 }
@@ -121,6 +138,40 @@ func getTVDetails(id int) (*tmdbShowDetails, error) {
 	defer resp.Body.Close()
 
 	var details tmdbShowDetails
+	if err := json.NewDecoder(resp.Body).Decode(&details); err != nil {
+		return nil, err
+	}
+	return &details, nil
+}
+
+func searchMovie(query string, year string) ([]tmdbMovie, error) {
+	endpoint := fmt.Sprintf("%s/search/movie?api_key=%s&query=%s", tmdbBaseURL, TmdbAPIKey, url.QueryEscape(query))
+	if year != "" {
+		endpoint += fmt.Sprintf("&year=%s", year)
+	}
+
+	resp, err := http.Get(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result tmdbMovieSearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result.Results, nil
+}
+
+func getMovieDetails(id int) (*tmdbMovieDetails, error) {
+	endpoint := fmt.Sprintf("%s/movie/%d?api_key=%s", tmdbBaseURL, id, TmdbAPIKey)
+	resp, err := http.Get(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var details tmdbMovieDetails
 	if err := json.NewDecoder(resp.Body).Decode(&details); err != nil {
 		return nil, err
 	}
@@ -423,6 +474,140 @@ func ProcessShowManual(currentDir string) {
 					fmt.Printf("-> Season %d (%s): Done\n", sNum, folder)
 				}
 				break
+			}
+		}
+	}
+}
+
+func ProcessMoviesAuto(rootDir string) {
+	entries, err := os.ReadDir(rootDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	regexNameYear := regexp.MustCompile(`^(.*) \((\d{4})\)?$`)
+
+	for _, entry := range entries {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+
+		folderName := entry.Name()
+		fullPath := filepath.Join(rootDir, folderName)
+		fmt.Printf("\nProcessing Folder: %s\n", folderName)
+
+		// Parse Name/Year
+		match := regexNameYear.FindStringSubmatch(folderName)
+		var queryName, queryYear string
+		if match != nil {
+			queryName = strings.TrimSpace(match[1])
+			queryYear = match[2]
+		} else {
+			queryName = folderName // Fallback to raw folder name
+		}
+
+		// Search
+		results, err := searchMovie(queryName, queryYear)
+		if err != nil {
+			fmt.Printf("-> TMDB Error: %v\n", err)
+			continue
+		}
+		if len(results) == 0 {
+			// Try fallback without year
+			if queryYear != "" {
+				results, _ = searchMovie(queryName, "")
+			}
+			if len(results) == 0 {
+				fmt.Println("-> No matches found.")
+				continue
+			}
+		}
+
+		// Pick Top Result
+		best := results[0]
+		fmt.Printf("-> Match: %s (%s) [ID:%d]\n", best.Title, best.ReleaseDate, best.ID)
+
+		details, err := getMovieDetails(best.ID)
+		if err != nil {
+			fmt.Printf("-> Failed to get details: %v\n", err)
+			continue
+		}
+
+		// Download Movie Poster
+		if details.PosterPath != "" {
+			url := imageBaseURL + details.PosterPath
+			dest := filepath.Join(fullPath, ".thumbnail.jpg")
+			if err := downloadFile(url, dest); err == nil {
+				fmt.Println("-> Movie Poster: OK")
+			}
+		}
+	}
+}
+
+func ProcessMovieManual(currentDir string) {
+	dirName := filepath.Base(currentDir)
+	fmt.Printf("Processing Directory: %s\n", dirName)
+
+	// Clean name for search
+	cleanName := strings.ReplaceAll(dirName, "-", " ")
+	cleanName = strings.ReplaceAll(cleanName, ".", " ")
+
+	results, err := searchMovie(cleanName, "")
+	if err != nil {
+		log.Fatalf("Search failed: %v", err)
+	}
+
+	fmt.Println("\n--- Possible Matches ---")
+	for i, r := range results {
+		if i >= min(5, len(results)) {
+			break
+		}
+		date := "N/A"
+		if len(r.ReleaseDate) >= 4 {
+			date = r.ReleaseDate[:4]
+		}
+		fmt.Printf("%d. %s (%s) - ID: %d\n", i+1, r.Title, date, r.ID)
+	}
+	fmt.Printf("%d. Enter TMDB ID Manually\n", min(5, len(results))+1)
+
+	reader := getReader()
+	fmt.Print("\nSelect option (or 'q' to quit): ")
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+
+	if input == "q" {
+		return
+	}
+
+	var tmdbID int
+	choice, err := strconv.Atoi(input)
+	if err == nil && choice > 0 && choice <= len(results) {
+		tmdbID = results[choice-1].ID
+	} else {
+		fmt.Print("Enter TMDB ID: ")
+		manualInput, _ := reader.ReadString('\n')
+		tmdbID, err = strconv.Atoi(strings.TrimSpace(manualInput))
+		if err != nil {
+			fmt.Println("Invalid ID")
+			return
+		}
+	}
+
+	details, err := getMovieDetails(tmdbID)
+	if err != nil {
+		log.Fatalf("Failed to get details: %v", err)
+	}
+
+	fmt.Printf("\nSelected: %s\n", details.Title)
+	fmt.Print("Apply Movie Poster? [Y/n]: ")
+	ans, _ := reader.ReadString('\n')
+	if strings.TrimSpace(strings.ToLower(ans)) != "n" {
+		if details.PosterPath != "" {
+			err := downloadFile(imageBaseURL+details.PosterPath, filepath.Join(currentDir, ".thumbnail.jpg"))
+			if err != nil {
+				fmt.Printf("Error downloading movie poster: %v\n", err)
+			} else {
+				fmt.Println("-> Movie Poster applied.")
 			}
 		}
 	}

@@ -24,7 +24,7 @@ var (
 )
 
 func main() {
-	prepareMode := flag.String("prepare", "", "Mode: 'videos' (generate ffmpeg thumbs recursively), 'video' (generate ffmpeg thumbs in current folder), 'shows' (auto-match all subdirs), 'show' (manual interactive match current dir)")
+	prepareMode := flag.String("prepare", "", "Mode: 'videos' (generate ffmpeg thumbs recursively), 'video' (generate ffmpeg thumbs in current folder), 'shows' (auto-match all subdirs), 'show' (manual interactive match current dir), 'movies' (auto-match all movie subdirs), 'movie' (manual interactive match current movie dir)")
 
 	flag.StringVar(&mediaPath, "media", ".", "Path to media directory")
 	flag.StringVar(&musicPath, "music", "./music", "Path to music directory")
@@ -75,7 +75,27 @@ func main() {
 			return
 		}
 
-		log.Fatalf("Invalid prepare mode: '%s'. Use 'videos', 'video', 'shows', or 'show'.", *prepareMode)
+		// Check TMDB Key for Movie modes
+		if *prepareMode == "movies" || *prepareMode == "movie" {
+			apiKey := os.Getenv("TMDB_API_KEY")
+			if apiKey == "" {
+				log.Fatal("Error: TMDB_API_KEY environment variable is required for movie metadata.")
+			}
+			thumbnails.TmdbAPIKey = apiKey
+
+			switch *prepareMode {
+			case "movies":
+				log.Println("Starting automatic movie processing...")
+				thumbnails.ProcessMoviesAuto(cwd)
+			case "movie":
+				log.Println("Starting manual movie processing...")
+				thumbnails.ProcessMovieManual(cwd)
+			}
+			log.Println("Complete.")
+			return
+		}
+
+		log.Fatalf("Invalid prepare mode: '%s'. Use 'videos', 'video', 'shows', 'show', 'movies', or 'movie'.", *prepareMode)
 	}
 
 	// Initialize handler package variables
