@@ -80,6 +80,27 @@
         
         #queue-dialog { z-index: 60; }
         #subtitle-dialog { z-index: 60; }
+        
+        ::cue {
+            color: rgb(240, 240, 240) !important;
+            font-family: "Inter", sans-serif !important;
+            font-size: 1.2rem !important;
+            background: rgba(0, 0, 0, 0.0) !important;
+            text-shadow: none !important;
+        }
+
+        video::-webkit-media-text-track-display {
+            background: transparent !important;
+            color: rgb(240, 240, 240) !important;
+            font-family: "Inter", sans-serif !important;
+            font-size: 1.2rem !important;
+            text-shadow: none !important;
+        }
+
+        ::cue-region {
+            background: none !important;
+            background-color: transparent !important;
+        }
     </style>
 </head>
 <body class="bg-base text-text h-screen w-screen overflow-hidden flex flex-col select-none">

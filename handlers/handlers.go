@@ -359,6 +359,7 @@ func HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Pre-generated HLS playlist: session=%s duration=%.2fs segments=%d", sessionID, duration, int(duration/segmentDuration)+1)
 
 	args := []string{
+		"-loglevel", "warning",
 		"-i", fullPath,
 		"-c:v", "copy",
 	}
@@ -427,16 +428,7 @@ func HandleStreamStop(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 }
 
-// Minimal request logger used for HLS so we can see if requests reach the server.
-func LogRequests(prefix string, h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("HLS request [%s]: %s", prefix, r.URL.Path)
-		h.ServeHTTP(w, r)
-	})
-}
-
-// makeHLSHandler serves files from the HLS temp directory with explicit existence checks
-// and path cleaning to avoid traversal and to log misses.
+// makeHLSHandler serves files from the HLS temp directory.
 func MakeHLSHandler(root string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rel := strings.TrimPrefix(r.URL.Path, "/")

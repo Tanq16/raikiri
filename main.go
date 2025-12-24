@@ -9,6 +9,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/tanq16/raikiri/handlers"
 	"github.com/tanq16/raikiri/thumbnails"
@@ -108,6 +112,9 @@ func main() {
 		log.Fatalf("Failed to create cache directory: %v", err)
 	}
 
+	// Start cache cleanup goroutine
+	go cleanupOldCacheSessions()
+
 	http.HandleFunc("/api/list", handlers.HandleList)
 	http.HandleFunc("/api/stream", handlers.HandleStreamStart)
 	http.HandleFunc("/api/stop-stream", handlers.HandleStreamStop)
@@ -115,8 +122,8 @@ func main() {
 	http.HandleFunc("/content/", handlers.HandleContent)
 
 	hlsHandler := handlers.MakeHLSHandler(cachePath)
-	http.Handle("/hls/", http.StripPrefix("/hls/", handlers.LogRequests("hls", hlsHandler)))
-	http.Handle("/api/hls/", http.StripPrefix("/api/hls/", handlers.LogRequests("api/hls", hlsHandler)))
+	http.Handle("/hls/", http.StripPrefix("/hls/", hlsHandler))
+	http.Handle("/api/hls/", http.StripPrefix("/api/hls/", hlsHandler))
 
 	http.Handle("/", http.FileServer(http.FS(mustSub(staticFiles, "public"))))
 
@@ -130,4 +137,51 @@ func mustSub(f embed.FS, path string) fs.FS {
 		panic(err)
 	}
 	return sub
+}
+
+// delete old cache sessions every 3 days at 3 AM
+func cleanupOldCacheSessions() {
+	for {
+		now := time.Now()
+		next3AM := time.Date(now.Year(), now.Month(), now.Day(), 3, 0, 0, 0, now.Location())
+		if now.After(next3AM) {
+			next3AM = next3AM.Add(24 * time.Hour)
+		}
+
+		duration := next3AM.Sub(now)
+		log.Printf("Cache cleanup scheduled for: %s (in %s)", next3AM.Format("2006-01-02 15:04:05"), duration.Round(time.Second))
+		time.Sleep(duration)
+		log.Println("Starting cache cleanup...")
+		cutoffTime := time.Now().Add(-3 * 24 * time.Hour)
+
+		entries, err := os.ReadDir(cachePath)
+		if err != nil {
+			log.Printf("Error reading cache directory: %v", err)
+			continue
+		}
+
+		removedCount := 0
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			dirPath := filepath.Join(cachePath, entry.Name())
+			var dirTime time.Time
+			if after, ok := strings.CutPrefix(entry.Name(), "s_"); ok {
+				if unixNano, err := strconv.ParseInt(after, 10, 64); err == nil {
+					dirTime = time.Unix(0, unixNano)
+				}
+			}
+
+			if dirTime.Before(cutoffTime) {
+				log.Printf("Removing old cache directory: %s (created: %s)", entry.Name(), dirTime.Format("2006-01-02 15:04:05"))
+				if err := os.RemoveAll(dirPath); err != nil {
+					log.Printf("Error removing directory %s: %v", entry.Name(), err)
+				} else {
+					removedCount++
+				}
+			}
+		}
+		log.Printf("Cache cleanup complete. Removed %d old session(s)", removedCount)
+	}
 }

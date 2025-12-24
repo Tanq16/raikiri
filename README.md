@@ -21,9 +21,11 @@ The aim of the application is to provide directory listing in an elegant interfa
 - Shuffle mode for recursive directory playback (media files only)
 - Queue dialog showing current playlist with ability to jump to any item
 - Fullscreen support for videos and images
+- Subtitle support for videos with automatic detection of external SRT files and embedded subtitle tracks; switch between multiple subtitle tracks or disable subtitles
 - Search functionality to filter files in the current directory
 - Ability to upload files to the server at specific paths
 - Functionality in the binary to prepare media for thumbnails (using `ffmpeg`)
+- Automatic cache cleanup that removes old HLS session files older than 3 days
 - Fully self-hosted with local assets and self-contained binary and container
 - Efficient size for both binary and container - under 15 and 50 MB resp.
 
@@ -80,7 +82,7 @@ raikiri -media $YOUR_MEDIA_FOLDER -music $YOUR_MUSIC_FOLDER
 
 The `-media` flag specifies the path to your media directory (defaults to current directory), `-music` specifies the path to your music directory (defaults to `./music`), and `-cache` specifies the path to the cache directory for HLS segments (defaults to `/tmp`). You can switch between Media and Music modes using the tabs in the interface.
 
-The `-cache` flag specified the cache directory, stores temporary HLS (HTTP Live Streaming) segments created during video transcoding (well, mostly transmuxing). These segments are generated on-the-fly when videos are played and are automatically cleaned up after playback ends. While an SSD location is faster for performance, an HDD path is recommended for longevity since the cache involves frequent write operations during video playback. The default `/tmp` location is fine for most use cases, but you may want to specify a dedicated directory on a non-SSD drive for recurring use.
+The `-cache` flag specified the cache directory, stores temporary HLS (HTTP Live Streaming) segments created during video transcoding (well, mostly transmuxing). These segments are generated on-the-fly when videos are played and are automatically cleaned up after playback ends. Raikiri also runs an automatic background cleanup process that removes cache sessions older than 3 days, running daily at 3 AM to keep the cache directory from growing indefinitely. While an SSD location is faster for performance, an HDD path is recommended for longevity since the cache involves frequent write operations during video playback. The default `/tmp` location is fine for most use cases, but you may want to specify a dedicated directory on a non-SSD drive for recurring use.
 
 ### Local development
 
@@ -135,6 +137,8 @@ The queue dialog displays all items in the current playlist, with the active ite
 Images automatically advance every 5 seconds when playing. Videos and audio support standard playback controls including play/pause, previous/next, and seeking. Fullscreen mode is available for videos and images.
 
 Raikiri uses HLS (HTTP Live Streaming) for video playback, which provides better compatibility across browsers and formats. Videos are transcoded on-the-fly using `ffmpeg` into HLS segments, enabling smooth playback and seeking even for formats like `.mkv` that may not be directly supported by browsers. Audio files are played directly using HTML5 audio. For files that cannot be played in the browser, they will open in a new tab with a raw GET request.
+
+Raikiri supports subtitles for video playback. External subtitle files in SRT format are automatically detected if they are in the same directory as the video file, or in a `subs/` or `Subs/` subdirectory. Embedded subtitle tracks within video files are also automatically extracted and made available. All subtitles are converted to WebVTT format for web playback. Use the subtitle button (CC icon) in the player to open the subtitle selection dialog, where you can choose from available subtitle tracks or disable subtitles entirely.
 
 #### Quickie on Playback Sync
 
