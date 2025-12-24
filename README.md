@@ -128,8 +128,8 @@ To generate thumbnails, use the `-prepare` flag with one of the following modes:
 - `video`: Generate thumbnails for video files in the current folder only
 - `shows`: Auto-match TV shows using TMDB API (requires `TMDB_API_KEY` environment variable)
 - `show`: Manual interactive TV show matching using TMDB API (requires `TMDB_API_KEY` environment variable)
-- `movies`:
-- `movie`:
+- `movies`: Auto-match movies using TMDB API (requires `TMDB_API_KEY` environment variable)
+- `movie`: Manual interactive movie matching using TMDB API (requires `TMDB_API_KEY` environment variable)
 
 ```bash
 raikiri -prepare videos
