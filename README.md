@@ -5,29 +5,31 @@
   <a href="https://github.com/tanq16/raikiri/actions/workflows/release.yml"><img alt="Build Workflow" src="https://github.com/tanq16/raikiri/actions/workflows/release.yml/badge.svg"></a>&nbsp;<a href="https://github.com/Tanq16/raikiri/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/tanq16/raikiri"></a>&nbsp;<a href="https://hub.docker.com/r/tanq16/raikiri"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/tanq16/raikiri"></a><br><br>
 </div>
 
-A fast, simple, self-hosted, no-nonsense app for running a media server. This is meant for those instances when you don't need something beefy like Jellyfin or Plex, and don't want to go through the pain of metadata tagging.
+A fast, simple, self-hosted, no-nonsense media server. Lightweight alternative to Jellyfin/Plex without complex metadata tagging.
 
-The aim of the application is to provide directory listing in an elegant interface to view images and videos easily. There is no need for metadata and match, Raikiri just uses the folder navigation to display things. While Raikiri displays common image, video, and audio formats, other files will also be displayed to download directly.
+The aim is to provide an elegant directory listing for images, videos, and audio. It uses folder navigation and predictable thumbail paths for cover art, thumbnails, etc. Other files are also available to browse and can be directly downloaded.
 
 ## Features
 
 - Beautiful Catppuccin Mocha themed application for modern web-based directory listing
-- Dual system with separate Media and Music modes, each with independent directory paths; music navigation is folder-first (Artist → Album → Tracks) with no extra pills
-- Tracks in Music are always shown in list view and skip thumbnail fetching
-- Intelligent thumbnail system that displays preview images when available, with fallback to icons
-- Playlist queue system that automatically creates playlists from media in the current directory; items can be removed from the queue
+- Dual system with separate Media and Music modes, each with independent directory paths
+- Music navigation is folder-first (Artist → Album → Tracks) with no extra pills
+- Tracks in Music are always shown in list view without thumbnails
+- Intelligent thumbnail system that displays previews when available, else fallback to icons
+- Playlist queue automatically created from media (removable items) in current directory
 - Player bar with expanded player view supporting audio, video, and image playback
 - Image slideshow mode with automatic advancement every 5 seconds
 - Shuffle mode for recursive directory playback (media files only)
 - Queue dialog showing current playlist with ability to jump to any item
-- Fullscreen support for videos and images
-- Subtitle support for videos with automatic detection of external SRT files and embedded subtitle tracks; switch between multiple subtitle tracks or disable subtitles
+- Fullscreen player support for videos and images
+- Subtitle support for videos with automatic detection of SRT files and embedded tracks
+- Player with support to switch between multiple available subtitle tracks
 - Search functionality to filter files in the current directory
 - Ability to upload files to the server at specific paths
-- Functionality in the binary to prepare media for thumbnails (using `ffmpeg`)
+- Thumbnail generation mode in CLI for movies, shows, and videos (using `ffmpeg` and TMDB API)
 - Automatic cache cleanup that removes old HLS session files older than 3 days
 - Fully self-hosted with local assets and self-contained binary and container
-- Efficient size for both binary and container - under 15 and 50 MB resp.
+- Efficient size for both binary and container, ~15 and ~50 MB resp
 
 ## Screenshots
 
@@ -57,7 +59,7 @@ docker run --rm -d --name raikiri \
   tanq16/raikiri:main
 ```
 
-The application will be available at `http://localhost:8080` (or your server IP). You can also use the following compose file:
+Available at `http://localhost:8080`. Docker Compose example:
 
 ```yaml
 services:
@@ -77,22 +79,29 @@ services:
 To use the binary, simply download the latest version from the project releases and run as follows:
 
 ```bash
-raikiri -media $YOUR_MEDIA_FOLDER -music $YOUR_MUSIC_FOLDER
+raikiri -media $YOUR_MEDIA_FOLDER -music $YOUR_MUSIC_FOLDER -cache $YOUR_HLD_CACHE_FOLDER
 ```
 
-The `-media` flag specifies the path to your media directory (defaults to current directory), `-music` specifies the path to your music directory (defaults to `./music`), and `-cache` specifies the path to the cache directory for HLS segments (defaults to `/tmp`). You can switch between Media and Music modes using the tabs in the interface.
+Flags:
+- `-media`: media directory path
+- `-music`: music directory path
+- `-cache`: HLS cache directory
 
-The `-cache` flag specified the cache directory, stores temporary HLS (HTTP Live Streaming) segments created during video transcoding (well, mostly transmuxing). These segments are generated on-the-fly when videos are played and are automatically cleaned up after playback ends. Raikiri also runs an automatic background cleanup process that removes cache sessions older than 3 days, running daily at 3 AM to keep the cache directory from growing indefinitely. While an SSD location is faster for performance, an HDD path is recommended for longevity since the cache involves frequent write operations during video playback. The default `/tmp` location is fine for most use cases, but you may want to specify a dedicated directory on a non-SSD drive for recurring use.
+Switch between Media and Music modes via interface tabs. Think of it as your own minimal Netflix on the Media tab and your own minimal Spotify on the Music tab.
 
-### Local development
+Cache directory stores temporary HLS segments generated during video playback. Auto-cleanup runs daily at 3 AM, removing sessions older than 3 days.
 
-With `Go 1.24+` installed, run the following to download the binary to your GOBIN:
+Storing cache in your SSD will yield faster performance (or instant seeks anywhere in the video). However, using HDD is recommended for longevity (lots of segment writes), even though it's not instant when seeking to further ahead right after launching the video.
+
+### Local Development
+
+Install with Go 1.24+:
 
 ```bash
 go install github.com/tanq16/raikiri@latest
 ```
 
-Or, you can build from source like so:
+Or build from source:
 
 ```bash
 git clone https://github.com/tanq16/raikiri.git && \
@@ -104,44 +113,58 @@ go build .
 
 #### Requirements
 
-Raikiri requires `ffmpeg` (which includes `ffprobe`) to be installed and available in your system's PATH for:
-- Video playback: Videos are transcoded to HLS format on-the-fly
-- Thumbnail generation: When using the `-prepare` flag
+Requires `ffmpeg` (includes `ffprobe`) in PATH for:
+- Video playback (HLS transmuxing; transcodes if audio is a mismatch)
+- Thumbnail generation (`-prepare` flag)
 
 For Docker deployments, provided image includes `ffmpeg`.
 
 #### Thumbnails
 
-Raikiri supports thumbnails for images, videos, and audio files. Thumbnails are stored as hidden files (prefixed with `.`) in the same directory as the media files. When available, thumbnails are displayed in the grid view for quick preview.
+Thumbnails are stored as hidden files (`.filename.thumbnail.jpg`) alongside media. It is displayed in grid view when available.
 
 To generate thumbnails, use the `-prepare` flag with one of the following modes:
 - `videos`: Generate thumbnails recursively for all video files in the current directory
 - `video`: Generate thumbnails for video files in the current folder only
 - `shows`: Auto-match TV shows using TMDB API (requires `TMDB_API_KEY` environment variable)
 - `show`: Manual interactive TV show matching using TMDB API (requires `TMDB_API_KEY` environment variable)
+- `movies`:
+- `movie`:
 
 ```bash
 raikiri -prepare videos
 ```
 
-Raikiri will intelligently skip files which already have a thumbnail. Video thumbnails are generated at 50% of the video duration. For images, the original file is used as a fallback if no thumbnail exists.
+> [!NOTE]
+> - Video thumbnails are screenshots at 50% of the video duration
+> - For images, the original file is used as a fallback if no thumbnail exists
 
-Thumbnails are also supported for the Music mode. Music expects the base directory to have multiple artists, each represented by a directory, containing albums (directories), which in turn contain tracks. If a thumbnail file is present within an album, that becomes the album art; similarly, a thumbnail inside the artist directory becomes the artist cover. Track rows use the list view and do not fetch thumbnails.
+> [!TIP]
+> In Music mode, album art is considered as the directory thumbnail (`.thumbnail.jpg`), artist cover is considered from artist directory thumbnail. Tracks use list view (no thumbnails).
 
 #### Player and Playlists
 
-When you click on a media file (image, video, or audio), Raikiri automatically creates a playlist queue from all media files in the current directory. The player bar appears at the bottom of the screen, showing the current item with thumbnail, title, and playback controls. Clicking the player bar expands it to show the full player with seek controls, time display, and a queue dialog button.
+Clicking media auto-creates a playlist from current directory files. Player bar shows current item with controls. Click to expand for seek controls, time display, and queue dialog.
 
-The queue dialog displays all items in the current playlist, with the active item highlighted. You can click any item in the queue to jump directly to it. Use the Shuffle button to play all media files recursively from the current directory in random order; non-media files and folders are skipped.
+Queue dialog highlights active item; click any item to jump. Shuffle button plays all media recursively in random order (skips non-media).
 
-Images automatically advance every 5 seconds when playing. Videos and audio support standard playback controls including play/pause, previous/next, and seeking. Fullscreen mode is available for videos and images.
+- Images: auto-advance every 5s
+- Videos/audio: play/pause, prev/next, seek
+- Fullscreen: videos and images only
 
-Raikiri uses HLS (HTTP Live Streaming) for video playback, which provides better compatibility across browsers and formats. Videos are transcoded on-the-fly using `ffmpeg` into HLS segments, enabling smooth playback and seeking even for formats like `.mkv` that may not be directly supported by browsers. Audio files are played directly using HTML5 audio. For files that cannot be played in the browser, they will open in a new tab with a raw GET request.
+**Video Playback**
+- HLS auto-segmented to 6s segments via `ffmpeg`
+- Audio is played back directly in HTML5
+- Unplayable files open in new tab as raw GET
 
-Raikiri supports subtitles for video playback. External subtitle files in SRT format are automatically detected if they are in the same directory as the video file, or in a `subs/` or `Subs/` subdirectory. Embedded subtitle tracks within video files are also automatically extracted and made available. All subtitles are converted to WebVTT format for web playback. Use the subtitle button (CC icon) in the player to open the subtitle selection dialog, where you can choose from available subtitle tracks or disable subtitles entirely.
+**Subtitles**
+- Auto-detection of SRTs in same directory, `subs/`, or `Subs/`
+- Auto-extraction of embedded subtitle tracks
+- All subtitles are converted to WebVTT and served as options
+- CC button allows selecting across available tracks or disabled
 
 #### Quickie on Playback Sync
 
-- Videos are transcoded to HLS format on-the-fly using `ffmpeg`, providing full seekability and compatibility across all video formats.
-- Custom fullscreen overlay for video provides dedicated controls (play/pause, +-10s seek, seek bar, exit) while keeping native browser controls hidden.
-- Fullscreen button is disabled for audio items (only images/videos use fullscreen).
+- Videos are HLS tranmuxed/transcoding via `ffmpeg` (full seekability, format compatibility)
+- Fullscreen player with custom overlay with controls (play/pause, +-10s seek, seek bar, exit)
+- Fullscreen disabled for audio (images/videos only)
