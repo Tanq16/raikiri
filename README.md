@@ -126,10 +126,10 @@ Thumbnails are stored as hidden files (`.filename.thumbnail.jpg`) alongside medi
 To generate thumbnails, use the `-prepare` flag with one of the following modes:
 - `videos`: Generate thumbnails recursively for all video files in the current directory
 - `video`: Generate thumbnails for video files in the current folder only
-- `shows`: Auto-match TV shows using TMDB API (requires `TMDB_API_KEY` environment variable)
-- `show`: Manual interactive TV show matching using TMDB API (requires `TMDB_API_KEY` environment variable)
-- `movies`: Auto-match movies using TMDB API (requires `TMDB_API_KEY` environment variable)
-- `movie`: Manual interactive movie matching using TMDB API (requires `TMDB_API_KEY` environment variable)
+- `shows`: Auto-match TV shows using TMDB API (requires `TMDB_API_KEY` environment variable); needs to be run in directory that has directories of all shows
+- `show`: Manual interactive TV show matching using TMDB API (requires `TMDB_API_KEY` environment variable); needs to be run in directory of a specific show
+- `movies`: Auto-match movies using TMDB API (requires `TMDB_API_KEY` environment variable); ; needs to be run in directory that has directories of all movies
+- `movie`: Manual interactive movie matching using TMDB API (requires `TMDB_API_KEY` environment variable); needs to be run in directory of a specific movie
 
 ```bash
 raikiri -prepare videos
