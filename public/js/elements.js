@@ -129,6 +129,15 @@ const Elements = {
                 </button>
             </div>
         `;
+    },
+    
+    createHistoryItem(path, idx) {
+        return `
+            <div class="flex items-center gap-3 p-2 rounded hover:bg-surface0/50 text-subtext1">
+                <i data-lucide="film" size="14"></i>
+                <div class="flex-1 truncate text-sm">${Escape.html(path)}</div>
+            </div>
+        `;
     }
 };
 

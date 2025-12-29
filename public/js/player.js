@@ -114,6 +114,20 @@ const Player = {
             this.isPlaying = true;
             document.getElementById('ep-audio-art').classList.remove('hidden');
         } else if (item.type === 'video') {
+            // Store video path in history before starting playback
+            const fullPath = item.path;
+            try {
+                const history = JSON.parse(localStorage.getItem('raikiri_history') || '[]');
+                // Remove if already exists (to move to top)
+                const filtered = history.filter(p => p !== fullPath);
+                filtered.unshift(fullPath);
+                // Cap at 50 entries
+                const capped = filtered.slice(0, 50);
+                localStorage.setItem('raikiri_history', JSON.stringify(capped));
+            } catch (e) {
+                console.error('Failed to save history', e);
+            }
+            
             try {
                 const res = await fetch(`/api/stream?file=${encodeURIComponent(item.path)}&mode=${state.mode}`);
                 const data = await res.json();

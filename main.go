@@ -28,7 +28,7 @@ var (
 )
 
 func main() {
-	prepareMode := flag.String("prepare", "", "Mode: 'videos' (generate ffmpeg thumbs recursively), 'video' (generate ffmpeg thumbs in current folder), 'shows' (auto-match all subdirs), 'show' (manual interactive match current dir), 'movies' (auto-match all movie subdirs), 'movie' (manual interactive match current movie dir)")
+	prepareMode := flag.String("prepare", "", "Mode: 'videos' (generate ffmpeg thumbs recursively), 'video' (generate ffmpeg thumbs in current folder), 'video-one' (generate ffmpeg thumb for a single video file), 'shows' (auto-match all subdirs), 'show' (manual interactive match current dir), 'movies' (auto-match all movie subdirs), 'movie' (manual interactive match current movie dir)")
 
 	flag.StringVar(&mediaPath, "media", ".", "Path to media directory")
 	flag.StringVar(&musicPath, "music", "./music", "Path to music directory")
@@ -41,7 +41,7 @@ func main() {
 			log.Fatalf("Error getting current working directory: %v", err)
 		}
 
-		if *prepareMode == "videos" || *prepareMode == "video" {
+		if *prepareMode == "videos" || *prepareMode == "video" || *prepareMode == "video-one" {
 			if _, err := exec.LookPath("ffmpeg"); err != nil {
 				log.Fatalf("Error: `ffmpeg` not found in PATH.")
 			}
@@ -54,6 +54,28 @@ func main() {
 				thumbnails.ProcessVideos(cwd)
 			case "video":
 				thumbnails.ProcessVideo(cwd)
+			case "video-one":
+				args := flag.Args()
+				if len(args) == 0 {
+					log.Fatal("Error: 'video-one' mode requires a video file path as an argument.")
+				}
+				if len(args) > 1 {
+					log.Fatalf("Error: 'video-one' mode expects exactly one video file path, but got %d argument(s).", len(args))
+				}
+				videoPath := args[0]
+				// Resolve the path (handle both relative and absolute paths)
+				if !filepath.IsAbs(videoPath) {
+					videoPath = filepath.Join(cwd, videoPath)
+				}
+				// Check if file exists
+				if _, err := os.Stat(videoPath); os.IsNotExist(err) {
+					log.Fatalf("Error: video file not found: %s", videoPath)
+				}
+				fmt.Printf("Processing: %s\n", filepath.Base(videoPath))
+				err := thumbnails.CreateVideoThumbnail(videoPath)
+				if err != nil {
+					log.Fatalf("Error creating thumbnail: %v", err)
+				}
 			}
 			log.Println("Complete.")
 			return
@@ -99,7 +121,7 @@ func main() {
 			return
 		}
 
-		log.Fatalf("Invalid prepare mode: '%s'. Use 'videos', 'video', 'shows', 'show', 'movies', or 'movie'.", *prepareMode)
+		log.Fatalf("Invalid prepare mode: '%s'. Use 'videos', 'video', 'video-one', 'shows', 'show', 'movies', or 'movie'.", *prepareMode)
 	}
 
 	// Initialize handler package variables

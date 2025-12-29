@@ -21,6 +21,7 @@ The aim is to provide an elegant directory listing for images, videos, and audio
 - Image slideshow mode with automatic advancement every 5 seconds
 - Shuffle mode for recursive directory playback (media files only)
 - Queue dialog showing current playlist with ability to jump to any item
+- Video history tracking - stores last 50 video paths in browser local storage
 - Fullscreen player support for videos and images
 - Subtitle support for videos with automatic detection of SRT files and embedded tracks
 - Player with support to switch between multiple available subtitle tracks
@@ -151,6 +152,10 @@ Queue dialog highlights active item; click any item to jump. Shuffle button play
 - Images: auto-advance every 5s
 - Videos/audio: play/pause, prev/next, seek
 - Fullscreen: videos and images only
+
+**History Tracking**
+- Click the Raikiri logo to open a history modal with last 50 videos (not audio/images) played
+- History is stored in browser localStorage and shows full file path as most recent first
 
 **Video Playback**
 - HLS auto-segmented to 6s segments via `ffmpeg`

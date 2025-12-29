@@ -351,6 +351,36 @@ const UI = {
             dialog.classList.add('hidden');
         }
     },
+    
+    toggleHistoryDialog() {
+        const dialog = document.getElementById('history-dialog');
+        if (dialog.classList.contains('hidden')) {
+            dialog.classList.remove('hidden');
+            this.renderHistoryList();
+        } else {
+            dialog.classList.add('hidden');
+        }
+    },
+    
+    renderHistoryList() {
+        const container = document.getElementById('history-list-container');
+        if (!container) return;
+        
+        try {
+            const history = JSON.parse(localStorage.getItem('raikiri_history') || '[]');
+            if (history.length === 0) {
+                container.innerHTML = '<div class="p-4 text-center text-subtext0 text-sm">No history</div>';
+            } else {
+                container.innerHTML = history.map((path, idx) => 
+                    Elements.createHistoryItem(path, idx)
+                ).join('');
+                this.refreshIcons();
+            }
+        } catch (e) {
+            console.error('Failed to load history', e);
+            container.innerHTML = '<div class="p-4 text-center text-subtext0 text-sm">Error loading history</div>';
+        }
+    },
 
     renderSubtitleList() {
         const container = document.getElementById('subtitle-list-container');
