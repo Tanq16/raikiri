@@ -564,7 +564,7 @@ func GetAudioCodec(filePath string) string {
 }
 
 func IsAudioCompatible(codec string) bool {
-	compatible := []string{"aac", "mp3", "ac3", "eac3", "opus"}
+	compatible := []string{"aac", "mp3", "opus"}
 	return slices.Contains(compatible, codec)
 }
 
