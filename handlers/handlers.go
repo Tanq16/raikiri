@@ -314,7 +314,8 @@ func HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		if IsAudioCompatible(selectedAudio.Codec) {
 			audioArgs = append(audioArgs, "-c:a", "copy")
 		} else {
-			audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "128k")
+			audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
+			log.Printf("Audio codec %s is not compatible, transcoding to AAC (stereo, 48kHz)", selectedAudio.Codec)
 		}
 	} else {
 		// No audio track found, proceed without audio mapping
