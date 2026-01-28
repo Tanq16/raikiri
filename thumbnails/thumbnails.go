@@ -383,8 +383,9 @@ func ProcessShowManual(currentDir string) {
 	}
 
 	fmt.Println("\n--- Possible Matches ---")
+	maxDisplay := min(5, len(results))
 	for i, r := range results {
-		if i >= min(5, len(results)) {
+		if i >= maxDisplay {
 			break
 		}
 		date := "N/A"
@@ -393,7 +394,8 @@ func ProcessShowManual(currentDir string) {
 		}
 		fmt.Printf("%d. %s (%s) - ID: %d\n", i+1, r.Name, date, r.ID)
 	}
-	fmt.Printf("%d. Enter TMDB ID Manually\n", min(5, len(results))+1)
+	manualOptionNum := maxDisplay + 1
+	fmt.Printf("%d. Enter TMDB ID Manually\n", manualOptionNum)
 
 	reader := getReader()
 	fmt.Print("\nSelect option (or 'q' to quit): ")
@@ -406,9 +408,9 @@ func ProcessShowManual(currentDir string) {
 
 	var tmdbID int
 	choice, err := strconv.Atoi(input)
-	if err == nil && choice > 0 && choice <= len(results) {
+	if err == nil && choice > 0 && choice <= maxDisplay {
 		tmdbID = results[choice-1].ID
-	} else {
+	} else if err == nil && choice == manualOptionNum {
 		fmt.Print("Enter TMDB ID: ")
 		manualInput, _ := reader.ReadString('\n')
 		tmdbID, err = strconv.Atoi(strings.TrimSpace(manualInput))
@@ -416,6 +418,9 @@ func ProcessShowManual(currentDir string) {
 			fmt.Println("Invalid ID")
 			return
 		}
+	} else {
+		fmt.Println("Invalid selection")
+		return
 	}
 
 	details, err := getTVDetails(tmdbID)
@@ -558,8 +563,9 @@ func ProcessMovieManual(currentDir string) {
 	}
 
 	fmt.Println("\n--- Possible Matches ---")
+	maxDisplay := min(5, len(results))
 	for i, r := range results {
-		if i >= min(5, len(results)) {
+		if i >= maxDisplay {
 			break
 		}
 		date := "N/A"
@@ -568,7 +574,8 @@ func ProcessMovieManual(currentDir string) {
 		}
 		fmt.Printf("%d. %s (%s) - ID: %d\n", i+1, r.Title, date, r.ID)
 	}
-	fmt.Printf("%d. Enter TMDB ID Manually\n", min(5, len(results))+1)
+	manualOptionNum := maxDisplay + 1
+	fmt.Printf("%d. Enter TMDB ID Manually\n", manualOptionNum)
 
 	reader := getReader()
 	fmt.Print("\nSelect option (or 'q' to quit): ")
@@ -581,9 +588,9 @@ func ProcessMovieManual(currentDir string) {
 
 	var tmdbID int
 	choice, err := strconv.Atoi(input)
-	if err == nil && choice > 0 && choice <= len(results) {
+	if err == nil && choice > 0 && choice <= maxDisplay {
 		tmdbID = results[choice-1].ID
-	} else {
+	} else if err == nil && choice == manualOptionNum {
 		fmt.Print("Enter TMDB ID: ")
 		manualInput, _ := reader.ReadString('\n')
 		tmdbID, err = strconv.Atoi(strings.TrimSpace(manualInput))
@@ -591,6 +598,9 @@ func ProcessMovieManual(currentDir string) {
 			fmt.Println("Invalid ID")
 			return
 		}
+	} else {
+		fmt.Println("Invalid selection")
+		return
 	}
 
 	details, err := getMovieDetails(tmdbID)
