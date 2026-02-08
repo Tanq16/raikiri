@@ -301,6 +301,15 @@ func HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get video codec and check if transcoding is needed
+	videoCodec := GetVideoCodec(fullPath)
+	needsVideoTranscode := !IsVideoCompatibleForHLS(videoCodec)
+	if needsVideoTranscode {
+		log.Printf("Video codec %s is not HLS-compatible, will transcode to H.264 for file=%s", videoCodec, targetFile)
+	} else {
+		log.Printf("Video codec %s is HLS-compatible, will copy for file=%s", videoCodec, targetFile)
+	}
+
 	// Get all audio tracks and select the best one (prefer English)
 	audioTracks := GetAudioTracks(fullPath)
 	selectedAudio := SelectBestAudioTrack(audioTracks)
@@ -308,14 +317,21 @@ func HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	var audioArgs []string
 	if selectedAudio != nil {
 		audioArgs = []string{"-map", "0:v:0", "-map", fmt.Sprintf("0:%d", selectedAudio.Index)}
-		log.Printf("Selected audio track %d (codec=%s, lang=%s) for file=%s", selectedAudio.Index, selectedAudio.Codec, selectedAudio.Language, targetFile)
+		log.Printf("Selected audio track %d (codec=%s, lang=%s, channels=%d) for file=%s",
+			selectedAudio.Index, selectedAudio.Codec, selectedAudio.Language, selectedAudio.Channels, targetFile)
 
-		// Check if we need to transcode the audio
-		if IsAudioCompatible(selectedAudio.Codec) {
-			audioArgs = append(audioArgs, "-c:a", "copy")
-		} else {
+		// Transcode if: incompatible codec OR multi-channel audio (>2 channels)
+		needsAudioTranscode := !IsAudioCompatible(selectedAudio.Codec) || selectedAudio.Channels > 2
+
+		if needsAudioTranscode {
 			audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
-			log.Printf("Audio codec %s is not compatible, transcoding to AAC (stereo, 48kHz)", selectedAudio.Codec)
+			if selectedAudio.Channels > 2 {
+				log.Printf("Audio has %d channels, downmixing to stereo for browser compatibility", selectedAudio.Channels)
+			} else {
+				log.Printf("Audio codec %s is not compatible, transcoding to AAC (stereo, 48kHz)", selectedAudio.Codec)
+			}
+		} else {
+			audioArgs = append(audioArgs, "-c:a", "copy")
 		}
 	} else {
 		// No audio track found, proceed without audio mapping
@@ -377,8 +393,21 @@ func HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		"-i", fullPath,
 	}
 	args = append(args, audioArgs...)
+	if needsVideoTranscode {
+		// Transcode to H.264 for browser compatibility
+		args = append(args,
+			"-c:v", "libx264",
+			"-preset", "fast",
+			"-crf", "23",
+			"-maxrate", "3000k",
+			"-bufsize", "6000k",
+		)
+	} else {
+		// Copy video stream as-is (already compatible)
+		args = append(args, "-c:v", "copy")
+	}
+
 	args = append(args,
-		"-c:v", "copy",
 		"-f", "hls",
 		"-hls_time", "6",
 		"-hls_list_size", "0", // 0 = unlimited, keep all segments in playlist
@@ -498,13 +527,14 @@ type AudioTrack struct {
 	Index    int    `json:"index"`
 	Codec    string `json:"codec"`
 	Language string `json:"language"`
+	Channels int    `json:"channels"`
 }
 
 func GetAudioTracks(filePath string) []AudioTrack {
 	cmd := exec.Command("ffprobe",
 		"-v", "error",
 		"-select_streams", "a",
-		"-show_entries", "stream=index,codec_name:stream_tags=language",
+		"-show_entries", "stream=index,codec_name,channels:stream_tags=language",
 		"-of", "csv=p=0",
 		filePath)
 
@@ -519,22 +549,27 @@ func GetAudioTracks(filePath string) []AudioTrack {
 		if line == "" {
 			continue
 		}
-		// Format: index,codec_name,language (language might be missing)
+		// Format: index,codec_name,channels,language (language might be missing)
 		parts := strings.Split(line, ",")
-		if len(parts) >= 2 {
+		if len(parts) >= 3 {
 			index, err := strconv.Atoi(parts[0])
 			if err != nil {
 				continue
 			}
 			codec := parts[1]
+			channels, err := strconv.Atoi(parts[2])
+			if err != nil {
+				channels = 2 // default to stereo if parsing fails
+			}
 			language := "und" // undefined
-			if len(parts) >= 3 {
-				language = parts[2]
+			if len(parts) >= 4 {
+				language = parts[3]
 			}
 			tracks = append(tracks, AudioTrack{
 				Index:    index,
 				Codec:    codec,
 				Language: language,
+				Channels: channels,
 			})
 		}
 	}
@@ -564,8 +599,22 @@ func GetAudioCodec(filePath string) string {
 	return strings.TrimSpace(string(output))
 }
 
+func GetVideoCodec(filePath string) string {
+	cmd := exec.Command("ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name", "-of", "default=noprint_wrappers=1:nokey=1", filePath)
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
+
 func IsAudioCompatible(codec string) bool {
 	compatible := []string{"aac", "mp3", "opus"}
+	return slices.Contains(compatible, codec)
+}
+
+func IsVideoCompatibleForHLS(codec string) bool {
+	compatible := []string{"h264", "avc", "hevc", "h265"}
 	return slices.Contains(compatible, codec)
 }
 
