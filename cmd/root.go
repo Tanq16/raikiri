@@ -33,7 +33,7 @@ func setupLogs() {
 		level = zerolog.DebugLevel
 	}
 	log.Logger = zerolog.New(
-		zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339},
+		zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.DateTime},
 	).With().Timestamp().Logger().Level(level)
 }
 
