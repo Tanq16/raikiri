@@ -3,6 +3,8 @@
   <h1>Raikiri</h1>
 
   <a href="https://github.com/tanq16/raikiri/actions/workflows/release.yml"><img alt="Build Workflow" src="https://github.com/tanq16/raikiri/actions/workflows/release.yml/badge.svg"></a>&nbsp;<a href="https://github.com/Tanq16/raikiri/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/tanq16/raikiri"></a>&nbsp;<a href="https://hub.docker.com/r/tanq16/raikiri"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/tanq16/raikiri"></a><br><br>
+
+  [Features](#features) &bull; [Screenshots](#screenshots) &bull; [Usage](#usage) &bull; [Thumbnails](#thumbnails) &bull; [Player](#player-and-playlists)
 </div>
 
 A fast, simple, self-hosted, no-nonsense media server. Lightweight alternative to Jellyfin/Plex without complex metadata tagging.
@@ -80,13 +82,16 @@ services:
 To use the binary, simply download the latest version from the project releases and run as follows:
 
 ```bash
-raikiri -media $YOUR_MEDIA_FOLDER -music $YOUR_MUSIC_FOLDER -cache $YOUR_HLD_CACHE_FOLDER
+raikiri serve --media $YOUR_MEDIA_FOLDER --music $YOUR_MUSIC_FOLDER --cache $YOUR_HLS_CACHE_FOLDER
 ```
 
 Flags:
-- `-media`: media directory path
-- `-music`: music directory path
-- `-cache`: HLS cache directory
+- `--media`: media directory path (default: `.`)
+- `--music`: music directory path (default: `./music`)
+- `--cache`: HLS cache directory (default: `/tmp`)
+- `--port`: port to listen on (default: `8080`)
+- `--debug`: enable debug logging (global flag)
+- `--version`: print version information
 
 Switch between Media and Music modes via interface tabs. Think of it as your own minimal Netflix on the Media tab and your own minimal Spotify on the Music tab.
 
@@ -107,7 +112,7 @@ Or build from source:
 ```bash
 git clone https://github.com/tanq16/raikiri.git && \
 cd raikiri && \
-go build .
+make build
 ```
 
 ### Additional Notes
@@ -116,7 +121,7 @@ go build .
 
 Requires `ffmpeg` (includes `ffprobe`) in PATH for:
 - Video playback (HLS transmuxing; transcodes if audio is a mismatch)
-- Thumbnail generation (`-prepare` flag)
+- Thumbnail generation (`prepare` subcommand)
 
 For Docker deployments, provided image includes `ffmpeg`.
 
@@ -124,16 +129,22 @@ For Docker deployments, provided image includes `ffmpeg`.
 
 Thumbnails are stored as hidden files (`.filename.thumbnail.jpg`) alongside media. It is displayed in grid view when available.
 
-To generate thumbnails, use the `-prepare` flag with one of the following modes:
-- `videos`: Generate thumbnails recursively for all video files in the current directory
-- `video`: Generate thumbnails for video files in the current folder only
-- `shows`: Auto-match TV shows using TMDB API (requires `TMDB_API_KEY` environment variable); needs to be run in directory that has directories of all shows
-- `show`: Manual interactive TV show matching using TMDB API (requires `TMDB_API_KEY` environment variable); needs to be run in directory of a specific show
-- `movies`: Auto-match movies using TMDB API (requires `TMDB_API_KEY` environment variable); ; needs to be run in directory that has directories of all movies
-- `movie`: Manual interactive movie matching using TMDB API (requires `TMDB_API_KEY` environment variable); needs to be run in directory of a specific movie
+To generate thumbnails, use the `prepare` subcommand:
+
+- `thumbnails`: Generate ffmpeg thumbnails recursively for all videos in the current directory
+- `thumbnails --current`: Generate thumbnails for the current directory only (non-recursive)
+- `thumbnails <file>`: Generate a thumbnail for a single video file
+- `shows`: Auto-match TV shows using TMDB API (requires `TMDB_API_KEY` environment variable); run in the directory containing all show directories
+- `shows --manual`: Interactive TV show matching for a single show directory
+- `movies`: Auto-match movies using TMDB API (requires `TMDB_API_KEY` environment variable); run in the directory containing all movie directories
+- `movies --manual`: Interactive movie matching for a single movie directory
 
 ```bash
-raikiri -prepare videos
+raikiri prepare thumbnails
+raikiri prepare thumbnails --current
+raikiri prepare thumbnails path/to/video.mkv
+raikiri prepare shows
+raikiri prepare movies --manual
 ```
 
 > [!NOTE]

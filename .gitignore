@@ -1,3 +1,4 @@
-media
-raikiri
+/media
+/raikiri
+raikiri-*
 **/.DS_Store
