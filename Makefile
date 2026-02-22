@@ -1,41 +1,121 @@
+.PHONY: help assets verify-assets clean build build-for build-all docker-build docker-push version
+
+# =============================================================================
+# Variables
+# =============================================================================
 APP_NAME := raikiri
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev-build")
-LDFLAGS := -s -w -X github.com/tanq16/raikiri/cmd.AppVersion=$(VERSION)
+DOCKER_USER := tanq16
 
-.PHONY: build build-all clean version help assets verify-assets
+# Build variables (set by CI or use defaults)
+VERSION ?= dev-build
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
 
-## build: Build for current platform
-build:
-	go build -ldflags="$(LDFLAGS)" -o $(APP_NAME) .
+# Asset versions - update as needed
+LUCIDE_VERSION := 0.575.0
+HLS_VERSION := 1.6.15
 
-## build-all: Cross-compile for 6 platform combos
-build-all:
-	GOOS=linux   GOARCH=amd64 go build -ldflags="$(LDFLAGS)" -o $(APP_NAME)-linux-amd64 .
-	GOOS=linux   GOARCH=arm64 go build -ldflags="$(LDFLAGS)" -o $(APP_NAME)-linux-arm64 .
-	GOOS=darwin  GOARCH=amd64 go build -ldflags="$(LDFLAGS)" -o $(APP_NAME)-darwin-amd64 .
-	GOOS=darwin  GOARCH=arm64 go build -ldflags="$(LDFLAGS)" -o $(APP_NAME)-darwin-arm64 .
-	GOOS=windows GOARCH=amd64 go build -ldflags="$(LDFLAGS)" -o $(APP_NAME)-windows-amd64.exe .
-	GOOS=windows GOARCH=arm64 go build -ldflags="$(LDFLAGS)" -o $(APP_NAME)-windows-arm64.exe .
+# Directories
+STATIC_DIR := internal/server/static/static
+JS_DIR := $(STATIC_DIR)/js
+CSS_DIR := $(STATIC_DIR)/css
+FONTS_DIR := $(STATIC_DIR)/fonts
 
-## clean: Remove built binaries
-clean:
-	rm -f $(APP_NAME) $(APP_NAME)-*
+# Console colors
+CYAN := \033[0;36m
+GREEN := \033[0;32m
+YELLOW := \033[0;33m
+NC := \033[0m
 
-## version: Print the current version
-version:
-	@echo $(VERSION)
+# =============================================================================
+# Help
+# =============================================================================
+help: ## Show this help
+	@echo "$(CYAN)Available targets:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 
-## assets: Download frontend static assets
-assets:
-	bash scripts/asset_download.sh
+.DEFAULT_GOAL := help
 
-## verify-assets: Check that required static assets exist
-verify-assets:
-	@test -f internal/server/static/static/js/tailwindcss.js || (echo "Missing tailwindcss.js" && exit 1)
-	@test -f internal/server/static/static/js/lucide.min.js  || (echo "Missing lucide.min.js" && exit 1)
-	@test -f internal/server/static/static/js/hls.min.js     || (echo "Missing hls.min.js" && exit 1)
-	@echo "All required assets present."
+# =============================================================================
+# Assets
+# =============================================================================
+assets: ## Download static assets
+	@echo "$(CYAN)Downloading assets...$(NC)"
+	@mkdir -p $(JS_DIR) $(CSS_DIR) $(FONTS_DIR)
+	@curl -sL "https://cdn.tailwindcss.com" -o "$(JS_DIR)/tailwindcss.js"
+	@curl -sL "https://unpkg.com/lucide@$(LUCIDE_VERSION)/dist/umd/lucide.min.js" -o "$(JS_DIR)/lucide.min.js"
+	@curl -sL "https://cdn.jsdelivr.net/npm/hls.js@$(HLS_VERSION)/dist/hls.min.js" -o "$(JS_DIR)/hls.min.js"
+	@curl -sL "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" -H "User-Agent: Mozilla/5.0" -o "$(CSS_DIR)/inter.css"
+	@grep -o "https://fonts.gstatic.com/[^)']*" "$(CSS_DIR)/inter.css" | sort -u | while read url; do \
+		filename=$$(basename "$$url" | sed 's/?.*//'); \
+		curl -sL "$$url" -o "$(FONTS_DIR)/$$filename"; \
+	done
+	@sed -i.bak -E 's|https://fonts.gstatic.com/s/inter/[^/]+/||g' "$(CSS_DIR)/inter.css" && rm -f "$(CSS_DIR)/inter.css.bak"
+	@sed -i.bak 's|src: url(|src: url(/static/fonts/|g' "$(CSS_DIR)/inter.css" && rm -f "$(CSS_DIR)/inter.css.bak"
+	@echo "$(GREEN)Assets downloaded$(NC)"
 
-## help: Show this help
-help:
-	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/## //' | column -t -s ':'
+verify-assets: ## Verify required assets exist
+	@test -f $(JS_DIR)/tailwindcss.js || (echo "$(YELLOW)tailwindcss.js missing. Run 'make assets'$(NC)" && exit 1)
+	@test -f $(JS_DIR)/lucide.min.js || (echo "$(YELLOW)lucide.min.js missing. Run 'make assets'$(NC)" && exit 1)
+	@test -f $(JS_DIR)/hls.min.js || (echo "$(YELLOW)hls.min.js missing. Run 'make assets'$(NC)" && exit 1)
+	@echo "$(GREEN)Assets verified$(NC)"
+
+clean: ## Remove built artifacts and downloaded assets
+	@rm -f $(APP_NAME) $(APP_NAME)-*
+	@rm -rf $(JS_DIR)/*.js $(CSS_DIR)/*.css $(FONTS_DIR)/*
+	@echo "$(GREEN)Cleaned$(NC)"
+
+# =============================================================================
+# Build
+# =============================================================================
+build: assets verify-assets ## Build binary for current platform
+	@go build -ldflags="-s -w -X 'github.com/tanq16/raikiri/cmd.AppVersion=$(VERSION)'" -o $(APP_NAME) .
+	@echo "$(GREEN)Built: ./$(APP_NAME)$(NC)"
+
+build-for: verify-assets ## Build binary for specified GOOS/GOARCH
+	@CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags="-s -w -X 'github.com/tanq16/raikiri/cmd.AppVersion=$(VERSION)'" -o $(APP_NAME)-$(GOOS)-$(GOARCH) .
+	@echo "$(GREEN)Built: ./$(APP_NAME)-$(GOOS)-$(GOARCH)$(NC)"
+
+build-all: assets verify-assets ## Build all platform binaries
+	@$(MAKE) build-for GOOS=linux GOARCH=amd64
+	@$(MAKE) build-for GOOS=linux GOARCH=arm64
+	@$(MAKE) build-for GOOS=darwin GOARCH=amd64
+	@$(MAKE) build-for GOOS=darwin GOARCH=arm64
+
+# =============================================================================
+# Docker
+# =============================================================================
+docker-build: ## Build Docker image
+	@docker build -t $(DOCKER_USER)/$(APP_NAME):$(VERSION) .
+	@docker tag $(DOCKER_USER)/$(APP_NAME):$(VERSION) $(DOCKER_USER)/$(APP_NAME):latest
+	@echo "$(GREEN)Docker image built$(NC)"
+
+docker-push: docker-build ## Push Docker image to Docker Hub
+	@docker push $(DOCKER_USER)/$(APP_NAME):$(VERSION)
+	@docker push $(DOCKER_USER)/$(APP_NAME):latest
+	@echo "$(GREEN)Docker image pushed$(NC)"
+
+# =============================================================================
+# Version
+# =============================================================================
+version: ## Calculate next version from commit message
+	@LATEST_TAG=$$(git tag --sort=-v:refname | head -n1 2>/dev/null || echo "v0.0.0"); \
+	LATEST_TAG=$${LATEST_TAG:-v0.0.0}; \
+	LATEST_TAG=$${LATEST_TAG#v}; \
+	if ! echo "$$LATEST_TAG" | grep -q '\.'; then \
+		echo "v1.0.0"; \
+		exit 0; \
+	fi; \
+	MAJOR=$$(echo "$$LATEST_TAG" | cut -d. -f1); \
+	MINOR=$$(echo "$$LATEST_TAG" | cut -d. -f2); \
+	PATCH=$$(echo "$$LATEST_TAG" | cut -d. -f3); \
+	MAJOR=$${MAJOR:-0}; MINOR=$${MINOR:-0}; PATCH=$${PATCH:-0}; \
+	COMMIT_MSG="$$(git log -1 --pretty=%B)"; \
+	if echo "$$COMMIT_MSG" | grep -q "\[major-release\]"; then \
+		MAJOR=$$((MAJOR + 1)); MINOR=0; PATCH=0; \
+	elif echo "$$COMMIT_MSG" | grep -q "\[minor-release\]"; then \
+		MINOR=$$((MINOR + 1)); PATCH=0; \
+	else \
+		PATCH=$$((PATCH + 1)); \
+	fi; \
+	echo "v$${MAJOR}.$${MINOR}.$${PATCH}"
