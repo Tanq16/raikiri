@@ -2,7 +2,7 @@
   <img src=".github/assets/logo.svg" alt="Local Content Share Logo" width="200">
   <h1>Raikiri</h1>
 
-  <a href="https://github.com/tanq16/raikiri/actions/workflows/release.yml"><img alt="Build Workflow" src="https://github.com/tanq16/raikiri/actions/workflows/release.yml/badge.svg"></a>&nbsp;<a href="https://github.com/Tanq16/raikiri/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/tanq16/raikiri"></a>&nbsp;<a href="https://hub.docker.com/r/tanq16/raikiri"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/tanq16/raikiri"></a><br><br>
+  <a href="https://github.com/tanq16/raikiri/actions/workflows/release.yaml"><img alt="Build Workflow" src="https://github.com/tanq16/raikiri/actions/workflows/release.yaml/badge.svg"></a>&nbsp;<a href="https://github.com/Tanq16/raikiri/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/tanq16/raikiri"></a>&nbsp;<a href="https://hub.docker.com/r/tanq16/raikiri"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/tanq16/raikiri"></a><br><br>
 
   [Features](#features) &bull; [Screenshots](#screenshots) &bull; [Usage](#usage) &bull; [Thumbnails](#thumbnails) &bull; [Player](#player-and-playlists)
 </div>
@@ -90,7 +90,6 @@ Flags:
 - `--music`: music directory path (default: `./music`)
 - `--cache`: HLS cache directory (default: `/tmp`)
 - `--port`: port to listen on (default: `8080`)
-- `--debug`: enable debug logging (global flag)
 - `--version`: print version information
 
 Switch between Media and Music modes via interface tabs. Think of it as your own minimal Netflix on the Media tab and your own minimal Spotify on the Music tab.

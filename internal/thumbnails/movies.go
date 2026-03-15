@@ -2,20 +2,19 @@ package thumbnails
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/tanq16/raikiri/internal/utils"
 )
 
 // ProcessMoviesAuto auto-matches all subdirectories to TMDB movies.
 func ProcessMoviesAuto(rootDir string) {
 	entries, err := os.ReadDir(rootDir)
 	if err != nil {
-		utils.PrintFatal(fmt.Sprintf("%v", err))
+		log.Fatalf("ERROR [thumbnails] %v", err)
 	}
 
 	regexNameYear := regexp.MustCompile(`^(.*) \((\d{4})\)?$`)
@@ -27,7 +26,7 @@ func ProcessMoviesAuto(rootDir string) {
 
 		folderName := entry.Name()
 		fullPath := filepath.Join(rootDir, folderName)
-		utils.PrintInfo(fmt.Sprintf("Processing Folder: %s", folderName))
+		log.Printf("INFO [thumbnails] processing folder: %s", folderName)
 
 		match := regexNameYear.FindStringSubmatch(folderName)
 		var queryName, queryYear string
@@ -40,7 +39,7 @@ func ProcessMoviesAuto(rootDir string) {
 
 		results, err := searchMovie(queryName, queryYear)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("TMDB Error: %v", err))
+			log.Printf("ERROR [thumbnails] TMDB error: %v", err)
 			continue
 		}
 		if len(results) == 0 {
@@ -48,17 +47,17 @@ func ProcessMoviesAuto(rootDir string) {
 				results, _ = searchMovie(queryName, "")
 			}
 			if len(results) == 0 {
-				utils.PrintWarn("No matches found.")
+				log.Printf("WARN [thumbnails] no matches found")
 				continue
 			}
 		}
 
 		best := results[0]
-		utils.PrintSuccess(fmt.Sprintf("Match: %s (%s) [ID:%d]", best.Title, best.ReleaseDate, best.ID))
+		log.Printf("OK [thumbnails] match: %s (%s) [ID:%d]", best.Title, best.ReleaseDate, best.ID)
 
 		details, err := getMovieDetails(best.ID)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("Failed to get details: %v", err))
+			log.Printf("ERROR [thumbnails] failed to get details: %v", err)
 			continue
 		}
 
@@ -66,7 +65,7 @@ func ProcessMoviesAuto(rootDir string) {
 			url := imageBaseURL + details.PosterPath
 			dest := filepath.Join(fullPath, ".thumbnail.jpg")
 			if err := downloadFile(url, dest); err == nil {
-				utils.PrintSuccess("Movie Poster: OK")
+				log.Printf("OK [thumbnails] movie poster: OK")
 			}
 		}
 	}
@@ -75,14 +74,14 @@ func ProcessMoviesAuto(rootDir string) {
 // ProcessMovieManual interactively matches the current directory to a TMDB movie.
 func ProcessMovieManual(currentDir string) {
 	dirName := filepath.Base(currentDir)
-	utils.PrintInfo(fmt.Sprintf("Processing Directory: %s", dirName))
+	log.Printf("INFO [thumbnails] processing directory: %s", dirName)
 
 	cleanName := strings.ReplaceAll(dirName, "-", " ")
 	cleanName = strings.ReplaceAll(cleanName, ".", " ")
 
 	results, err := searchMovie(cleanName, "")
 	if err != nil {
-		utils.PrintFatal(fmt.Sprintf("Search failed: %v", err))
+		log.Fatalf("ERROR [thumbnails] search failed: %v", err)
 	}
 
 	fmt.Println("\n--- Possible Matches ---")
@@ -118,17 +117,17 @@ func ProcessMovieManual(currentDir string) {
 		manualInput, _ := reader.ReadString('\n')
 		tmdbID, err = strconv.Atoi(strings.TrimSpace(manualInput))
 		if err != nil {
-			utils.PrintError("Invalid ID")
+			log.Printf("ERROR [thumbnails] invalid ID")
 			return
 		}
 	} else {
-		utils.PrintError("Invalid selection")
+		log.Printf("ERROR [thumbnails] invalid selection")
 		return
 	}
 
 	details, err := getMovieDetails(tmdbID)
 	if err != nil {
-		utils.PrintFatal(fmt.Sprintf("Failed to get details: %v", err))
+		log.Fatalf("ERROR [thumbnails] failed to get details: %v", err)
 	}
 
 	fmt.Printf("\nSelected: %s\n", details.Title)
@@ -138,9 +137,9 @@ func ProcessMovieManual(currentDir string) {
 		if details.PosterPath != "" {
 			err := downloadFile(imageBaseURL+details.PosterPath, filepath.Join(currentDir, ".thumbnail.jpg"))
 			if err != nil {
-				utils.PrintError(fmt.Sprintf("Error downloading movie poster: %v", err))
+				log.Printf("ERROR [thumbnails] error downloading movie poster: %v", err)
 			} else {
-				utils.PrintSuccess("Movie Poster applied.")
+				log.Printf("OK [thumbnails] movie poster applied")
 			}
 		}
 	}

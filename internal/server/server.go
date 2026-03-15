@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -13,15 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
-
-func plog() *zerolog.Logger {
-	l := log.With().Str("package", "server").Logger()
-	return &l
-}
 
 //go:embed static
 var staticFiles embed.FS
@@ -36,10 +29,10 @@ type Config struct {
 
 // Server is the Raikiri HTTP server.
 type Server struct {
-	config        Config
-	mux           *http.ServeMux
-	activeStreams  map[string]*exec.Cmd
-	streamMutex   sync.Mutex
+	config       Config
+	mux          *http.ServeMux
+	activeStreams map[string]*exec.Cmd
+	streamMutex  sync.Mutex
 }
 
 // New creates a new Server with the given configuration.
@@ -86,18 +79,13 @@ func (s *Server) Run(ctx context.Context) error {
 
 	go func() {
 		<-ctx.Done()
-		plog().Info().Msg("shutting down server")
+		log.Printf("INFO [server] shutting down server")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		srv.Shutdown(shutdownCtx)
 	}()
 
-	plog().Info().
-		Str("media", s.config.MediaPath).
-		Str("music", s.config.MusicPath).
-		Str("cache", s.config.CachePath).
-		Int("port", s.config.Port).
-		Msg("raikiri running")
+	log.Printf("INFO [server] raikiri running media=%s music=%s cache=%s port=%d", s.config.MediaPath, s.config.MusicPath, s.config.CachePath, s.config.Port)
 
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		return err
@@ -123,10 +111,7 @@ func (s *Server) cleanupOldCacheSessions(ctx context.Context) {
 		}
 
 		duration := next3AM.Sub(now)
-		plog().Info().
-			Str("scheduled", next3AM.Format("2006-01-02 15:04:05")).
-			Str("in", duration.Round(time.Second).String()).
-			Msg("cache cleanup scheduled")
+		log.Printf("INFO [server] cache cleanup scheduled at=%s in=%s", next3AM.Format("2006-01-02 15:04:05"), duration.Round(time.Second).String())
 
 		select {
 		case <-ctx.Done():
@@ -134,12 +119,12 @@ func (s *Server) cleanupOldCacheSessions(ctx context.Context) {
 		case <-time.After(duration):
 		}
 
-		plog().Info().Msg("starting cache cleanup")
+		log.Printf("INFO [server] starting cache cleanup")
 		cutoffTime := time.Now().Add(-3 * 24 * time.Hour)
 
 		entries, err := os.ReadDir(s.config.CachePath)
 		if err != nil {
-			plog().Error().Err(err).Msg("error reading cache directory")
+			log.Printf("ERROR [server] error reading cache directory: %v", err)
 			continue
 		}
 
@@ -157,17 +142,14 @@ func (s *Server) cleanupOldCacheSessions(ctx context.Context) {
 			}
 
 			if dirTime.Before(cutoffTime) {
-				plog().Info().
-					Str("dir", entry.Name()).
-					Str("created", dirTime.Format("2006-01-02 15:04:05")).
-					Msg("removing old cache directory")
+				log.Printf("INFO [server] removing old cache directory dir=%s created=%s", entry.Name(), dirTime.Format("2006-01-02 15:04:05"))
 				if err := os.RemoveAll(dirPath); err != nil {
-					plog().Error().Err(err).Str("dir", entry.Name()).Msg("error removing directory")
+					log.Printf("ERROR [server] error removing directory dir=%s: %v", entry.Name(), err)
 				} else {
 					removedCount++
 				}
 			}
 		}
-		plog().Info().Int("removed", removedCount).Msg("cache cleanup complete")
+		log.Printf("INFO [server] cache cleanup complete removed=%d", removedCount)
 	}
 }

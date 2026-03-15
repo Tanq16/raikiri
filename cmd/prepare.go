@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tanq16/raikiri/internal/thumbnails"
-	"github.com/tanq16/raikiri/internal/utils"
 )
 
 var prepareCmd = &cobra.Command{
@@ -19,17 +18,17 @@ var prepareCmd = &cobra.Command{
 
 func requireFFmpeg() {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		utils.PrintFatal("`ffmpeg` not found in PATH.")
+		log.Fatalf("ERROR [prepare] ffmpeg not found in PATH")
 	}
 	if _, err := exec.LookPath("ffprobe"); err != nil {
-		utils.PrintFatal("`ffprobe` not found in PATH.")
+		log.Fatalf("ERROR [prepare] ffprobe not found in PATH")
 	}
 }
 
 func requireTMDB() {
 	apiKey := os.Getenv("TMDB_API_KEY")
 	if apiKey == "" {
-		utils.PrintFatal("TMDB_API_KEY environment variable is required.")
+		log.Fatalf("ERROR [prepare] TMDB_API_KEY environment variable is required")
 	}
 	thumbnails.TmdbAPIKey = apiKey
 }
@@ -37,7 +36,7 @@ func requireTMDB() {
 func getCwd() string {
 	cwd, err := os.Getwd()
 	if err != nil {
-		utils.PrintFatal(fmt.Sprintf("Error getting current working directory: %v", err))
+		log.Fatalf("ERROR [prepare] error getting current working directory: %v", err)
 	}
 	return cwd
 }
@@ -65,24 +64,24 @@ Pass a single file path as an argument to generate a thumbnail for that file onl
 				videoPath = filepath.Join(cwd, videoPath)
 			}
 			if _, err := os.Stat(videoPath); os.IsNotExist(err) {
-				utils.PrintFatal(fmt.Sprintf("Video file not found: %s", videoPath))
+				log.Fatalf("ERROR [prepare] video file not found: %s", videoPath)
 			}
-			utils.PrintInfo(fmt.Sprintf("Processing: %s", filepath.Base(videoPath)))
+			log.Printf("INFO [prepare] processing: %s", filepath.Base(videoPath))
 			if err := thumbnails.CreateVideoThumbnail(videoPath); err != nil {
-				utils.PrintFatal(fmt.Sprintf("Error creating thumbnail: %v", err))
+				log.Fatalf("ERROR [prepare] error creating thumbnail: %v", err)
 			}
-			utils.PrintSuccess("Complete.")
+			log.Printf("OK [prepare] complete")
 			return
 		}
 
 		if thumbnailsFlags.current {
-			utils.PrintInfo("Starting video thumbnail generation (current directory)...")
+			log.Printf("INFO [prepare] starting video thumbnail generation (current directory)")
 			thumbnails.ProcessVideo(cwd)
 		} else {
-			utils.PrintInfo("Starting recursive video thumbnail generation...")
+			log.Printf("INFO [prepare] starting recursive video thumbnail generation")
 			thumbnails.ProcessVideos(cwd)
 		}
-		utils.PrintSuccess("Complete.")
+		log.Printf("OK [prepare] complete")
 	},
 }
 
@@ -100,13 +99,13 @@ Use --manual for interactive matching of the current directory to a specific sho
 	Run: func(cmd *cobra.Command, args []string) {
 		requireTMDB()
 		if showsFlags.manual {
-			utils.PrintInfo("Starting manual show processing...")
+			log.Printf("INFO [prepare] starting manual show processing")
 			thumbnails.ProcessShowManual(getCwd())
 		} else {
-			utils.PrintInfo("Starting automatic show processing...")
+			log.Printf("INFO [prepare] starting automatic show processing")
 			thumbnails.ProcessShowsAuto(getCwd())
 		}
-		utils.PrintSuccess("Complete.")
+		log.Printf("OK [prepare] complete")
 	},
 }
 
@@ -124,13 +123,13 @@ Use --manual for interactive matching of the current directory to a specific mov
 	Run: func(cmd *cobra.Command, args []string) {
 		requireTMDB()
 		if moviesFlags.manual {
-			utils.PrintInfo("Starting manual movie processing...")
+			log.Printf("INFO [prepare] starting manual movie processing")
 			thumbnails.ProcessMovieManual(getCwd())
 		} else {
-			utils.PrintInfo("Starting automatic movie processing...")
+			log.Printf("INFO [prepare] starting automatic movie processing")
 			thumbnails.ProcessMoviesAuto(getCwd())
 		}
-		utils.PrintSuccess("Complete.")
+		log.Printf("OK [prepare] complete")
 	},
 }
 

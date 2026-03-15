@@ -2,21 +2,14 @@ package media
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
-
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
-
-func plog() *zerolog.Logger {
-	l := log.With().Str("package", "media").Logger()
-	return &l
-}
 
 // FindExternalSubtitles looks for .srt files in the same directory,
 // plus "subs/" and "Subs/" subdirectories.
@@ -37,25 +30,25 @@ func FindExternalSubtitles(videoPath string) []string {
 	}
 
 	subsDir := filepath.Join(dir, "subs")
-	plog().Debug().Str("path", subsDir).Msg("checking subs directory")
+	log.Printf("DEBUG [media] checking subs directory path=%s", subsDir)
 	if subsDirEntries, err := os.ReadDir(subsDir); err == nil {
 		for _, f := range subsDirEntries {
-			plog().Debug().Str("file", f.Name()).Msg("checking subtitle")
+			log.Printf("DEBUG [media] checking subtitle file=%s", f.Name())
 			if !f.IsDir() && strings.HasSuffix(strings.ToLower(f.Name()), ".srt") {
-				plog().Debug().Str("file", f.Name()).Msg("found subtitle")
+				log.Printf("DEBUG [media] found subtitle file=%s", f.Name())
 				subtitles = append(subtitles, filepath.Join(subsDir, f.Name()))
 			}
 		}
 	}
 
 	subsDir = filepath.Join(dir, "Subs")
-	plog().Debug().Str("path", subsDir).Msg("checking Subs directory")
+	log.Printf("DEBUG [media] checking Subs directory path=%s", subsDir)
 	if subsDirEntries, err := os.ReadDir(subsDir); err == nil {
-		plog().Debug().Int("count", len(subsDirEntries)).Msg("files in Subs directory")
+		log.Printf("DEBUG [media] files in Subs directory count=%d", len(subsDirEntries))
 		for _, f := range subsDirEntries {
-			plog().Debug().Str("file", f.Name()).Msg("checking subtitle")
+			log.Printf("DEBUG [media] checking subtitle file=%s", f.Name())
 			if !f.IsDir() && strings.HasSuffix(strings.ToLower(f.Name()), ".srt") {
-				plog().Debug().Str("file", f.Name()).Msg("found subtitle")
+				log.Printf("DEBUG [media] found subtitle file=%s", f.Name())
 				subtitles = append(subtitles, filepath.Join(subsDir, f.Name()))
 			}
 		}

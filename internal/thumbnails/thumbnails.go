@@ -2,6 +2,7 @@ package thumbnails
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/tanq16/raikiri/internal/media"
-	"github.com/tanq16/raikiri/internal/utils"
 )
 
 // CreateVideoThumbnail generates a thumbnail for a single video file.
@@ -57,16 +57,16 @@ func ProcessVideos(rootDir string) {
 		return nil
 	})
 	if err != nil {
-		utils.PrintError(fmt.Sprintf("Error walking directory: %v", err))
+		log.Printf("ERROR [thumbnails] error walking directory: %v", err)
 		return
 	}
 
-	utils.PrintInfo(fmt.Sprintf("Found %d video files in '%s'.", len(filesToProcess), rootDir))
+	log.Printf("INFO [thumbnails] found %d video files in '%s'", len(filesToProcess), rootDir)
 	for i, filePath := range filesToProcess {
-		utils.PrintGeneric(fmt.Sprintf("%d/%d", i+1, len(filesToProcess)), fmt.Sprintf("Processing: %s", filepath.Base(filePath)))
+		log.Printf("INFO [thumbnails] [%d/%d] processing: %s", i+1, len(filesToProcess), filepath.Base(filePath))
 		err := CreateVideoThumbnail(filePath)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("%v", err))
+			log.Printf("ERROR [thumbnails] %v", err)
 		}
 	}
 }
@@ -77,7 +77,7 @@ func ProcessVideo(currentDir string) {
 
 	entries, err := os.ReadDir(currentDir)
 	if err != nil {
-		utils.PrintError(fmt.Sprintf("Error reading directory: %v", err))
+		log.Printf("ERROR [thumbnails] error reading directory: %v", err)
 		return
 	}
 
@@ -92,12 +92,12 @@ func ProcessVideo(currentDir string) {
 		}
 	}
 
-	utils.PrintInfo(fmt.Sprintf("Found %d video files in '%s'.", len(filesToProcess), currentDir))
+	log.Printf("INFO [thumbnails] found %d video files in '%s'", len(filesToProcess), currentDir)
 	for i, filePath := range filesToProcess {
-		utils.PrintGeneric(fmt.Sprintf("%d/%d", i+1, len(filesToProcess)), fmt.Sprintf("Processing: %s", filepath.Base(filePath)))
+		log.Printf("INFO [thumbnails] [%d/%d] processing: %s", i+1, len(filesToProcess), filepath.Base(filePath))
 		err := CreateVideoThumbnail(filePath)
 		if err != nil {
-			utils.PrintError(fmt.Sprintf("%v", err))
+			log.Printf("ERROR [thumbnails] %v", err)
 		}
 	}
 }

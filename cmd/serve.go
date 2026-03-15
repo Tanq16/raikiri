@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"context"
+	"log"
 	"os/signal"
 	"syscall"
 
 	"github.com/spf13/cobra"
 
 	"github.com/tanq16/raikiri/internal/server"
-	"github.com/tanq16/raikiri/internal/utils"
 )
 
 var serveFlags struct {
@@ -34,7 +34,7 @@ var serveCmd = &cobra.Command{
 
 		srv := server.New(cfg).Setup()
 		if err := srv.Run(ctx); err != nil {
-			utils.PrintFatal(err.Error())
+			log.Fatalf("ERROR [serve] %v", err)
 		}
 		return nil
 	},
