@@ -100,13 +100,9 @@ docker-push: docker-build ## Push Docker image to Docker Hub
 # Version
 # =============================================================================
 version: ## Calculate next version from commit message
-	@LATEST_TAG=$$(git tag --sort=-v:refname | head -n1 2>/dev/null || echo "v0.0.0"); \
+	@LATEST_TAG=$$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | head -n1); \
 	LATEST_TAG=$${LATEST_TAG:-v0.0.0}; \
 	LATEST_TAG=$${LATEST_TAG#v}; \
-	if ! echo "$$LATEST_TAG" | grep -q '\.'; then \
-		echo "v1.0.0"; \
-		exit 0; \
-	fi; \
 	MAJOR=$$(echo "$$LATEST_TAG" | cut -d. -f1); \
 	MINOR=$$(echo "$$LATEST_TAG" | cut -d. -f2); \
 	PATCH=$$(echo "$$LATEST_TAG" | cut -d. -f3); \

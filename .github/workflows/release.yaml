@@ -123,7 +123,7 @@ jobs:
   # ===========================================================================
   cleanup-on-failure:
     needs: [create-release, docker, binaries, publish]
-    if: failure() && needs.create-release.outputs.release_created == 'true'
+    if: always() && (needs.docker.result == 'failure' || needs.binaries.result == 'failure' || needs.publish.result == 'failure') && needs.create-release.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Delete Draft Release
