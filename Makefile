@@ -16,7 +16,7 @@ LUCIDE_VERSION := 0.577.0
 HLS_VERSION := 1.6.15
 
 # Directories
-STATIC_DIR := internal/server/static/static
+STATIC_DIR := internal/server/static
 JS_DIR := $(STATIC_DIR)/js
 CSS_DIR := $(STATIC_DIR)/css
 FONTS_DIR := $(STATIC_DIR)/fonts
@@ -62,7 +62,8 @@ verify-assets: ## Verify required assets exist
 
 clean: ## Remove built artifacts and downloaded assets
 	@rm -f $(APP_NAME) $(APP_NAME)-*
-	@rm -rf $(JS_DIR)/*.js $(CSS_DIR)/*.css $(FONTS_DIR)/*
+	@rm -f $(JS_DIR)/tailwindcss.js $(JS_DIR)/lucide.min.js $(JS_DIR)/hls.min.js
+	@rm -rf $(CSS_DIR) $(FONTS_DIR)
 	@echo "$(GREEN)Cleaned$(NC)"
 
 # =============================================================================

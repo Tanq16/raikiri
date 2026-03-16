@@ -11,7 +11,6 @@ import (
 	"strings"
 )
 
-// ProcessShowsAuto auto-matches all subdirectories to TMDB TV shows.
 func ProcessShowsAuto(rootDir string) {
 	entries, err := os.ReadDir(rootDir)
 	if err != nil {
@@ -48,13 +47,13 @@ func ProcessShowsAuto(rootDir string) {
 				results, _ = searchTV(queryName, "")
 			}
 			if len(results) == 0 {
-				log.Printf("WARN [thumbnails] no matches found")
+				log.Printf("INFO [thumbnails] no matches found")
 				continue
 			}
 		}
 
 		best := results[0]
-		log.Printf("OK [thumbnails] match: %s (%s) [ID:%d]", best.Name, best.FirstAirDate, best.ID)
+		log.Printf("INFO [thumbnails] match: %s (%s) [ID:%d]", best.Name, best.FirstAirDate, best.ID)
 
 		details, err := getTVDetails(best.ID)
 		if err != nil {
@@ -66,7 +65,7 @@ func ProcessShowsAuto(rootDir string) {
 			url := imageBaseURL + details.PosterPath
 			dest := filepath.Join(fullPath, ".thumbnail.jpg")
 			if err := downloadFile(url, dest); err == nil {
-				log.Printf("OK [thumbnails] show poster: OK")
+				log.Printf("INFO [thumbnails] show poster: OK")
 			}
 		}
 
@@ -87,7 +86,7 @@ func ProcessShowsAuto(rootDir string) {
 					sUrl := imageBaseURL + ts.PosterPath
 					sDest := filepath.Join(fullPath, ls.Name(), ".thumbnail.jpg")
 					if err := downloadFile(sUrl, sDest); err == nil {
-						log.Printf("OK [thumbnails] season %d poster: OK", sNum)
+						log.Printf("INFO [thumbnails] season %d poster: OK", sNum)
 					}
 					break
 				}
@@ -96,7 +95,6 @@ func ProcessShowsAuto(rootDir string) {
 	}
 }
 
-// ProcessShowManual interactively matches the current directory to a TMDB TV show.
 func ProcessShowManual(currentDir string) {
 	dirName := filepath.Base(currentDir)
 	log.Printf("INFO [thumbnails] processing directory: %s", dirName)
@@ -164,7 +162,7 @@ func ProcessShowManual(currentDir string) {
 			if err != nil {
 				log.Printf("ERROR [thumbnails] error downloading show poster: %v", err)
 			} else {
-				log.Printf("OK [thumbnails] show poster applied")
+				log.Printf("INFO [thumbnails] show poster applied")
 			}
 		}
 	}
@@ -199,7 +197,7 @@ func ProcessShowManual(currentDir string) {
 				dest := filepath.Join(currentDir, folder, ".thumbnail.jpg")
 				err := downloadFile(imageBaseURL+ts.PosterPath, dest)
 				if err == nil {
-					log.Printf("OK [thumbnails] season %d (%s): done", sNum, folder)
+					log.Printf("INFO [thumbnails] season %d (%s): done", sNum, folder)
 				}
 				break
 			}

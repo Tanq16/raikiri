@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// WaitForFile waits for a file to exist and be non-empty.
 func WaitForFile(path string, attempts int, sleep time.Duration) bool {
 	for i := 0; i < attempts; i++ {
 		info, err := os.Stat(path)

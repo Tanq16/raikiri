@@ -12,7 +12,6 @@ import (
 	"github.com/tanq16/raikiri/internal/media"
 )
 
-// CreateVideoThumbnail generates a thumbnail for a single video file.
 func CreateVideoThumbnail(filePath string) error {
 	dir := filepath.Dir(filePath)
 	filename := filepath.Base(filePath)
@@ -40,7 +39,6 @@ func CreateVideoThumbnail(filePath string) error {
 	return cmd.Run()
 }
 
-// ProcessVideos generates thumbnails for all videos recursively under rootDir.
 func ProcessVideos(rootDir string) {
 	var filesToProcess []string
 
@@ -71,7 +69,6 @@ func ProcessVideos(rootDir string) {
 	}
 }
 
-// ProcessVideo generates thumbnails for videos in a single directory (non-recursive).
 func ProcessVideo(currentDir string) {
 	var filesToProcess []string
 

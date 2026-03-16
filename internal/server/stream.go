@@ -14,7 +14,6 @@ import (
 	"github.com/tanq16/raikiri/internal/media"
 )
 
-// HandleStreamStart creates an HLS stream session for a video file.
 func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	targetFile := r.URL.Query().Get("file")
 	mode := r.URL.Query().Get("mode")
@@ -149,7 +148,7 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		media.WaitForFile(filepath.Join(sessionDir, "seg_000.m4s"), 50, 200*time.Millisecond) &&
 		media.WaitForFile(playlistPath, 50, 200*time.Millisecond)
 	if !firstSegReady {
-		log.Printf("WARN [server] HLS not ready, killing ffmpeg session=%s", sessionID)
+		log.Printf("INFO [server] HLS not ready, killing ffmpeg session=%s", sessionID)
 		s.streamMutex.Lock()
 		if cmd, exists := s.activeStreams[sessionID]; exists {
 			cmd.Process.Kill()
@@ -174,7 +173,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HandleStreamStop kills an active ffmpeg session and cleans up.
 func (s *Server) HandleStreamStop(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("session")
 	if sessionID == "" {
@@ -194,14 +192,13 @@ func (s *Server) HandleStreamStop(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 }
 
-// makeHLSHandler serves files from the HLS cache directory.
 func (s *Server) makeHLSHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rel := strings.TrimPrefix(r.URL.Path, "/")
 		rel = filepath.Clean(rel)
 		fullPath := filepath.Join(s.config.CachePath, rel)
 		if !strings.HasPrefix(fullPath, s.config.CachePath) {
-			log.Printf("WARN [server] HLS rejected traversal path=%s", fullPath)
+			log.Printf("INFO [server] HLS rejected traversal path=%s", fullPath)
 			http.NotFound(w, r)
 			return
 		}

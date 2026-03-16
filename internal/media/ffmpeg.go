@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-// GetVideoDuration returns the duration of a video file in seconds.
 func GetVideoDuration(filePath string) (float64, error) {
 	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", filePath)
 	output, err := cmd.Output()
@@ -23,7 +22,6 @@ func GetVideoDuration(filePath string) (float64, error) {
 	return duration, nil
 }
 
-// GetAudioTracks returns metadata for all audio streams in a file.
 func GetAudioTracks(filePath string) []AudioTrack {
 	cmd := exec.Command("ffprobe",
 		"-v", "error",
@@ -70,7 +68,6 @@ func GetAudioTracks(filePath string) []AudioTrack {
 	return tracks
 }
 
-// SelectBestAudioTrack picks the best audio track, preferring English.
 func SelectBestAudioTrack(tracks []AudioTrack) *AudioTrack {
 	if len(tracks) == 0 {
 		return nil
@@ -83,17 +80,6 @@ func SelectBestAudioTrack(tracks []AudioTrack) *AudioTrack {
 	return &tracks[0]
 }
 
-// GetAudioCodec returns the codec name of the first audio stream.
-func GetAudioCodec(filePath string) string {
-	cmd := exec.Command("ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=codec_name", "-of", "default=noprint_wrappers=1:nokey=1", filePath)
-	output, err := cmd.Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(output))
-}
-
-// GetVideoCodec returns the codec name of the first video stream.
 func GetVideoCodec(filePath string) string {
 	cmd := exec.Command("ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_name", "-of", "default=noprint_wrappers=1:nokey=1", filePath)
 	output, err := cmd.Output()

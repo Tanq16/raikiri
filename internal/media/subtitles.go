@@ -57,7 +57,6 @@ func FindExternalSubtitles(videoPath string) []string {
 	return subtitles
 }
 
-// GetEmbeddedSubtitleTracks returns text-based subtitle tracks embedded in the file.
 func GetEmbeddedSubtitleTracks(filePath string) []SubtitleTrack {
 	cmd := exec.Command("ffprobe",
 		"-v", "error",
@@ -94,7 +93,6 @@ func GetEmbeddedSubtitleTracks(filePath string) []SubtitleTrack {
 	return tracks
 }
 
-// ExtractSubtitleToSRT extracts a subtitle stream to WebVTT format.
 func ExtractSubtitleToSRT(videoPath string, streamIndex int, outputPath string) error {
 	cmd := exec.Command("ffmpeg",
 		"-i", videoPath,
@@ -105,7 +103,6 @@ func ExtractSubtitleToSRT(videoPath string, streamIndex int, outputPath string) 
 	return cmd.Run()
 }
 
-// ConvertSRTtoVTT converts an SRT file to WebVTT format.
 func ConvertSRTtoVTT(srtPath string, vttPath string) error {
 	cmd := exec.Command("ffmpeg",
 		"-i", srtPath,

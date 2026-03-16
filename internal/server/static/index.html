@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1e1e2e">
     <meta name="description" content="A fast, simple, self-hosted, no-nonsense app for running a media server.">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png">
+    <link rel="icon" type="image/x-icon" href="/static/icons/favicon.ico">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/icon-192x192.png">
     <title>Raikiri Media</title>
     <link rel="stylesheet" href="/static/css/inter.css">
     <script src="/static/js/tailwindcss.js"></script>
@@ -85,6 +86,9 @@
             opacity: 0;
             pointer-events: none;
         }
+        #fullscreen-video-container.fv-cursor-hidden {
+            cursor: none;
+        }
         .view-grid {
             display: grid;
             /* Bigger icons: min 160px */
@@ -125,7 +129,7 @@
     <header class="flex flex-col md:flex-row md:items-center justify-between px-4 md:px-6 py-2 md:py-0 md:h-16 shrink-0 relative z-30 bg-base border-b border-transparent transition-colors duration-300 gap-2">
         <div class="flex items-center justify-between w-full md:w-auto">
             <div class="flex items-center gap-2 w-32">
-                <img src="/logo.svg" alt="Raikiri" class="w-8 h-8 rounded-lg cursor-pointer hover:opacity-80 transition-opacity" onclick="ui.toggleHistoryDialog()">
+                <img src="/static/logo.svg" alt="Raikiri" class="w-8 h-8 rounded-lg cursor-pointer hover:opacity-80 transition-opacity" onclick="ui.toggleHistoryDialog()">
             </div>
             <div class="md:hidden flex bg-surface0 p-1 rounded-full items-center shadow-lg">
                 <button onclick="app.switchTab('files')" id="tab-files-mob" class="w-16 py-1 rounded-full text-xs font-bold transition-all bg-mauve text-base shadow-sm">Media</button>
@@ -339,7 +343,7 @@
     </div>
 
     <script src="/static/js/hls.min.js"></script>
-    <script type="module" src="/js/app.js"></script>
+    <script type="module" src="/static/js/app.js"></script>
     <script>
         // Initialize Lucide icons
         lucide.createIcons();

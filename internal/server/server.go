@@ -19,7 +19,6 @@ import (
 //go:embed static
 var staticFiles embed.FS
 
-// Config holds the server configuration values.
 type Config struct {
 	Port      int
 	MediaPath string
@@ -27,7 +26,6 @@ type Config struct {
 	CachePath string
 }
 
-// Server is the Raikiri HTTP server.
 type Server struct {
 	config       Config
 	mux          *http.ServeMux
@@ -35,7 +33,6 @@ type Server struct {
 	streamMutex  sync.Mutex
 }
 
-// New creates a new Server with the given configuration.
 func New(cfg Config) *Server {
 	return &Server{
 		config:       cfg,
@@ -44,8 +41,7 @@ func New(cfg Config) *Server {
 	}
 }
 
-// Setup registers all routes and returns the server for chaining.
-func (s *Server) Setup() *Server {
+func (s *Server) Setup() error {
 	s.mux.HandleFunc("/api/list", s.HandleList)
 	s.mux.HandleFunc("/api/stream", s.HandleStreamStart)
 	s.mux.HandleFunc("/api/stop-stream", s.HandleStreamStop)
@@ -58,11 +54,26 @@ func (s *Server) Setup() *Server {
 
 	sub, err := fs.Sub(staticFiles, "static")
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to prepare static assets: %w", err)
 	}
-	s.mux.Handle("/", http.FileServer(http.FS(sub)))
+	s.mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(sub))))
+	s.mux.HandleFunc("/", s.handleIndex)
 
-	return s
+	return nil
+}
+
+func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	data, err := staticFiles.ReadFile("static/index.html")
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(data)
 }
 
 // Run starts the HTTP server and the cache cleanup goroutine.
@@ -93,7 +104,6 @@ func (s *Server) Run(ctx context.Context) error {
 	return nil
 }
 
-// getRoot returns the filesystem root for the given mode.
 func (s *Server) getRoot(mode string) string {
 	if mode == "music" {
 		return s.config.MusicPath
@@ -101,7 +111,6 @@ func (s *Server) getRoot(mode string) string {
 	return s.config.MediaPath
 }
 
-// cleanupOldCacheSessions removes cache session directories older than 3 days.
 func (s *Server) cleanupOldCacheSessions(ctx context.Context) {
 	for {
 		now := time.Now()

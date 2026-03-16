@@ -13,7 +13,6 @@ import (
 	"github.com/tanq16/raikiri/internal/media"
 )
 
-// HandleContent serves raw files from the media/music directory.
 func (s *Server) HandleContent(w http.ResponseWriter, r *http.Request) {
 	mode := r.URL.Query().Get("mode")
 	relPath := strings.TrimPrefix(r.URL.Path, "/content/")
@@ -26,7 +25,6 @@ func (s *Server) HandleContent(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, fullPath)
 }
 
-// HandleList returns a JSON array of FileEntry for a directory.
 func (s *Server) HandleList(w http.ResponseWriter, r *http.Request) {
 	mode := r.URL.Query().Get("mode")
 	relPath := r.URL.Query().Get("path")
@@ -145,7 +143,6 @@ func (s *Server) HandleList(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(entries)
 }
 
-// HandleUpload accepts multipart file uploads.
 func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

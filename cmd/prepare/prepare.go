@@ -1,4 +1,4 @@
-package cmd
+package prepare
 
 import (
 	"log"
@@ -11,7 +11,8 @@ import (
 	"github.com/tanq16/raikiri/internal/thumbnails"
 )
 
-var prepareCmd = &cobra.Command{
+// Cmd is the parent command for media preparation subcommands.
+var Cmd = &cobra.Command{
 	Use:   "prepare",
 	Short: "Generate thumbnails and metadata for media files",
 }
@@ -70,7 +71,7 @@ Pass a single file path as an argument to generate a thumbnail for that file onl
 			if err := thumbnails.CreateVideoThumbnail(videoPath); err != nil {
 				log.Fatalf("ERROR [prepare] error creating thumbnail: %v", err)
 			}
-			log.Printf("OK [prepare] complete")
+			log.Printf("INFO [prepare] complete")
 			return
 		}
 
@@ -81,7 +82,7 @@ Pass a single file path as an argument to generate a thumbnail for that file onl
 			log.Printf("INFO [prepare] starting recursive video thumbnail generation")
 			thumbnails.ProcessVideos(cwd)
 		}
-		log.Printf("OK [prepare] complete")
+		log.Printf("INFO [prepare] complete")
 	},
 }
 
@@ -105,7 +106,7 @@ Use --manual for interactive matching of the current directory to a specific sho
 			log.Printf("INFO [prepare] starting automatic show processing")
 			thumbnails.ProcessShowsAuto(getCwd())
 		}
-		log.Printf("OK [prepare] complete")
+		log.Printf("INFO [prepare] complete")
 	},
 }
 
@@ -129,7 +130,7 @@ Use --manual for interactive matching of the current directory to a specific mov
 			log.Printf("INFO [prepare] starting automatic movie processing")
 			thumbnails.ProcessMoviesAuto(getCwd())
 		}
-		log.Printf("OK [prepare] complete")
+		log.Printf("INFO [prepare] complete")
 	},
 }
 
@@ -138,6 +139,5 @@ func init() {
 	showsCmd.Flags().BoolVar(&showsFlags.manual, "manual", false, "Interactive matching for a single show")
 	moviesCmd.Flags().BoolVar(&moviesFlags.manual, "manual", false, "Interactive matching for a single movie")
 
-	prepareCmd.AddCommand(thumbnailsCmd, showsCmd, moviesCmd)
-	rootCmd.AddCommand(prepareCmd)
+	Cmd.AddCommand(thumbnailsCmd, showsCmd, moviesCmd)
 }

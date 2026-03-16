@@ -52,6 +52,25 @@ const UI = {
             });
         }
 
+        document.addEventListener('keydown', (e) => {
+            const fvc = document.getElementById('fullscreen-video-container');
+            if (!fvc || fvc.classList.contains('hidden')) return;
+
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                Player.seekBy(-10);
+                this.showFullscreenControls();
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                Player.seekBy(10);
+                this.showFullscreenControls();
+            } else if (e.key === ' ') {
+                e.preventDefault();
+                Player.toggle();
+                this.showFullscreenControls();
+            }
+        });
+
         // Handle queue item clicks (XSS-safe event delegation)
         const queueContainer = document.getElementById('queue-list-container');
         if (queueContainer) {
@@ -574,6 +593,7 @@ const UI = {
         if (!container || !videoEl) return;
 
         container.classList.add('hidden');
+        container.classList.remove('fv-cursor-hidden');
         this.hideFullscreenControls(true);
 
         if (this.videoHome && videoEl.parentElement !== this.videoHome) {
@@ -592,20 +612,24 @@ const UI = {
 
     showFullscreenControls() {
         const controls = document.getElementById('fv-controls');
+        const container = document.getElementById('fullscreen-video-container');
         if (!controls) return;
         controls.classList.remove('fv-hidden');
+        if (container) container.classList.remove('fv-cursor-hidden');
         this.fullscreenControlsVisible = true;
         if (this.fullscreenControlsTimer) {
             clearTimeout(this.fullscreenControlsTimer);
         }
-        this.fullscreenControlsTimer = setTimeout(() => this.hideFullscreenControls(), 5000);
+        this.fullscreenControlsTimer = setTimeout(() => this.hideFullscreenControls(), 3000);
     },
 
     hideFullscreenControls(force = false) {
         const controls = document.getElementById('fv-controls');
+        const container = document.getElementById('fullscreen-video-container');
         if (!controls) return;
         if (!force && !this.fullscreenControlsVisible) return;
         controls.classList.add('fv-hidden');
+        if (container) container.classList.add('fv-cursor-hidden');
         this.fullscreenControlsVisible = false;
         if (this.fullscreenControlsTimer) {
             clearTimeout(this.fullscreenControlsTimer);

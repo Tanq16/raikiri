@@ -1,6 +1,5 @@
 package media
 
-// FileEntry represents a file or directory in a listing response.
 type FileEntry struct {
 	Name     string `json:"name"`
 	Path     string `json:"path"`
@@ -10,7 +9,6 @@ type FileEntry struct {
 	Modified string `json:"modified,omitempty"`
 }
 
-// AudioTrack holds metadata for one audio stream in a container.
 type AudioTrack struct {
 	Index    int    `json:"index"`
 	Codec    string `json:"codec"`
@@ -18,7 +16,6 @@ type AudioTrack struct {
 	Channels int    `json:"channels"`
 }
 
-// SubtitleTrack holds metadata for one subtitle stream.
 type SubtitleTrack struct {
 	Index int    `json:"index"`
 	Codec string `json:"codec"`

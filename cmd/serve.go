@@ -32,7 +32,10 @@ var serveCmd = &cobra.Command{
 			CachePath: serveFlags.cache,
 		}
 
-		srv := server.New(cfg).Setup()
+		srv := server.New(cfg)
+		if err := srv.Setup(); err != nil {
+			log.Fatalf("ERROR [serve] %v", err)
+		}
 		if err := srv.Run(ctx); err != nil {
 			log.Fatalf("ERROR [serve] %v", err)
 		}
@@ -45,6 +48,4 @@ func init() {
 	serveCmd.Flags().StringVarP(&serveFlags.music, "music", "M", "./music", "Path to music directory")
 	serveCmd.Flags().StringVarP(&serveFlags.cache, "cache", "c", "/tmp", "Path to cache directory for HLS segments")
 	serveCmd.Flags().IntVarP(&serveFlags.port, "port", "p", 8080, "Port to listen on")
-
-	rootCmd.AddCommand(serveCmd)
 }

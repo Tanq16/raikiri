@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/tanq16/raikiri/cmd/prepare"
 )
 
 // AppVersion is set at build time via ldflags.
@@ -21,9 +23,11 @@ var rootCmd = &cobra.Command{
 func init() {
 	log.SetFlags(log.Ldate | log.Ltime)
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
+
+	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(prepare.Cmd)
 }
 
-// Execute runs the root command.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
