@@ -163,27 +163,38 @@ const Player = {
                 }
 
                 if (Hls.isSupported()) {
-                    this.hls = new Hls({ enableWorker: true });
+                    this.hls = new Hls({
+                        enableWorker: true,
+                        lowLatencyMode: false,
+                        stretchShortVideoTrack: true,
+                        backBufferLength: 60,
+                        maxMaxBufferLength: 120,
+                        nudgeMaxRetry: 5,
+                        manifestLoadingMaxRetry: 2,
+                    });
                     this.hls.loadSource(hlsUrl);
                     this.hls.attachMedia(this.videoEl);
                     this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
                         this.videoEl.play().catch(() => {});
                     });
-                    // Safety net: detect fatal errors near end of video as "ended"
                     this.hls.on(Hls.Events.ERROR, (event, data) => {
                         if (this._advancing) return;
-                        if (data.fatal && this.videoDuration) {
+                        // Near end of video: treat fatal/frag errors as "ended"
+                        if (this.videoDuration) {
                             const remaining = this.videoDuration - this.videoEl.currentTime;
                             if (remaining < 5) {
-                                this.next();
-                                return;
+                                if (data.fatal || (data.type === Hls.ErrorTypes.NETWORK_ERROR && data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR)) {
+                                    this.next();
+                                    return;
+                                }
                             }
                         }
-                        // Non-fatal frag errors near end: also treat as ended
-                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR && this.videoDuration) {
-                            const remaining = this.videoDuration - this.videoEl.currentTime;
-                            if (remaining < 5) {
-                                this.next();
+                        // Mid-playback recovery for fatal errors
+                        if (data.fatal) {
+                            if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                                this.hls.recoverMediaError();
+                            } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                                this.hls.startLoad();
                             }
                         }
                     });
