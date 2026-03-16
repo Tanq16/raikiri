@@ -89,12 +89,6 @@ func GetVideoCodec(filePath string) string {
 	return strings.TrimSpace(string(output))
 }
 
-// IsAudioCompatible returns true if the codec can be played directly in browsers.
-func IsAudioCompatible(codec string) bool {
-	compatible := []string{"aac", "mp3", "opus"}
-	return slices.Contains(compatible, codec)
-}
-
 // IsVideoCompatibleForHLS returns true if the codec can be muxed into HLS without transcoding.
 func IsVideoCompatibleForHLS(codec string) bool {
 	compatible := []string{"h264", "avc", "hevc", "h265"}
