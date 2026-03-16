@@ -41,9 +41,9 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	if selectedAudio != nil {
 		audioArgs = []string{"-map", "0:v:0", "-map", fmt.Sprintf("0:%d", selectedAudio.Index)}
 		log.Printf("INFO [server] selected audio track track=%d codec=%s lang=%s channels=%d file=%s", selectedAudio.Index, selectedAudio.Codec, selectedAudio.Language, selectedAudio.Channels, targetFile)
-		// Always transcode audio to AAC with aresample drift correction;
-		// copying preserves bad source timestamps and causes A/V desync.
-		audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000", "-af", "aresample=async=1000")
+		// Always transcode audio to AAC; re-encoding normalizes timestamps
+		// and prevents A/V drift from bad source timing.
+		audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
 		if selectedAudio.Channels > 2 {
 			log.Printf("INFO [server] downmixing to stereo for browser compatibility channels=%d", selectedAudio.Channels)
 		}
