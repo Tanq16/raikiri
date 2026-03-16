@@ -41,11 +41,18 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	if selectedAudio != nil {
 		audioArgs = []string{"-map", "0:v:0", "-map", fmt.Sprintf("0:%d", selectedAudio.Index)}
 		log.Printf("INFO [server] selected audio track track=%d codec=%s lang=%s channels=%d file=%s", selectedAudio.Index, selectedAudio.Codec, selectedAudio.Language, selectedAudio.Channels, targetFile)
-		// Always transcode audio to AAC; re-encoding normalizes timestamps
-		// and prevents A/V drift from bad source timing.
-		audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
-		if selectedAudio.Channels > 2 {
-			log.Printf("INFO [server] downmixing to stereo for browser compatibility channels=%d", selectedAudio.Channels)
+
+		needsAudioTranscode := !media.IsAudioCompatible(selectedAudio.Codec) || selectedAudio.Channels > 2
+
+		if needsAudioTranscode {
+			audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000", "-af", "aresample=async=1000")
+			if selectedAudio.Channels > 2 {
+				log.Printf("INFO [server] downmixing to stereo for browser compatibility channels=%d", selectedAudio.Channels)
+			} else {
+				log.Printf("INFO [server] audio codec not compatible, transcoding to AAC codec=%s", selectedAudio.Codec)
+			}
+		} else {
+			audioArgs = append(audioArgs, "-c:a", "copy")
 		}
 	} else {
 		log.Printf("INFO [server] no audio tracks found file=%s", targetFile)
@@ -107,9 +114,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		)
 	} else {
 		args = append(args, "-c:v", "copy")
-		if videoCodec == "hevc" || videoCodec == "h265" {
-			args = append(args, "-tag:v", "hvc1")
-		}
 	}
 
 	args = append(args,
@@ -140,9 +144,9 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	s.activeStreams[sessionID] = cmd
 	s.streamMutex.Unlock()
 
-	firstSegReady := media.WaitForFile(initPath, 75, 200*time.Millisecond) &&
-		media.WaitForFile(filepath.Join(sessionDir, "seg_000.m4s"), 75, 200*time.Millisecond) &&
-		media.WaitForFile(playlistPath, 75, 200*time.Millisecond)
+	firstSegReady := media.WaitForFile(initPath, 50, 200*time.Millisecond) &&
+		media.WaitForFile(filepath.Join(sessionDir, "seg_000.m4s"), 50, 200*time.Millisecond) &&
+		media.WaitForFile(playlistPath, 50, 200*time.Millisecond)
 	if !firstSegReady {
 		log.Printf("INFO [server] HLS not ready, killing ffmpeg session=%s", sessionID)
 		s.streamMutex.Lock()
