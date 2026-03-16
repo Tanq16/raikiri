@@ -46,7 +46,7 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		needsAudioTranscode := !media.IsAudioCompatible(selectedAudio.Codec) || selectedAudio.Channels > 2
 
 		if needsAudioTranscode {
-			audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
+			audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000", "-af", "aresample=async=1000")
 			if selectedAudio.Channels > 2 {
 				log.Printf("INFO [server] downmixing to stereo for browser compatibility channels=%d", selectedAudio.Channels)
 			} else {
@@ -98,18 +98,12 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	log.Printf("INFO [server] subtitles found count=%d session=%s", len(subtitleList), sessionID)
 
 	playlistPath := filepath.Join(sessionDir, "index.m3u8")
-	segmentPath := filepath.Join(sessionDir, "seg_%03d.ts")
-
-	const segmentDuration = 6.0
-	if err := media.GenerateHLSPlaylist(playlistPath, duration, segmentDuration); err != nil {
-		log.Printf("ERROR [server] failed to generate playlist: %v", err)
-		http.Error(w, "Failed to generate playlist", 500)
-		return
-	}
-	log.Printf("INFO [server] pre-generated HLS playlist session=%s duration=%.2f segments=%d", sessionID, duration, int(duration/segmentDuration)+1)
+	segmentPath := filepath.Join(sessionDir, "seg_%03d.m4s")
+	initPath := filepath.Join(sessionDir, "init.mp4")
 
 	args := []string{
 		"-loglevel", "warning",
+		"-start_at_zero",
 		"-i", fullPath,
 	}
 	args = append(args, audioArgs...)
@@ -118,18 +112,20 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 			"-c:v", "libx264",
 			"-preset", "fast",
 			"-crf", "23",
-			"-maxrate", "3000k",
-			"-bufsize", "6000k",
 		)
 	} else {
 		args = append(args, "-c:v", "copy")
 	}
 
 	args = append(args,
+		"-avoid_negative_ts", "make_zero",
+		"-max_muxing_queue_size", "4096",
 		"-f", "hls",
 		"-hls_time", "6",
 		"-hls_list_size", "0",
 		"-hls_playlist_type", "vod",
+		"-hls_segment_type", "fmp4",
+		"-hls_fmp4_init_filename", "init.mp4",
 		"-hls_segment_filename", segmentPath,
 		playlistPath,
 	)
@@ -149,10 +145,19 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	s.activeStreams[sessionID] = cmd
 	s.streamMutex.Unlock()
 
-	firstSeg := filepath.Join(sessionDir, "seg_000.ts")
-	firstSegReady := media.WaitForFile(firstSeg, 50, 200*time.Millisecond)
+	firstSegReady := media.WaitForFile(initPath, 50, 200*time.Millisecond) &&
+		media.WaitForFile(filepath.Join(sessionDir, "seg_000.m4s"), 50, 200*time.Millisecond) &&
+		media.WaitForFile(playlistPath, 50, 200*time.Millisecond)
 	if !firstSegReady {
-		log.Printf("WARN [server] HLS not ready: first segment not available")
+		log.Printf("WARN [server] HLS not ready, killing ffmpeg session=%s", sessionID)
+		s.streamMutex.Lock()
+		if cmd, exists := s.activeStreams[sessionID]; exists {
+			cmd.Process.Kill()
+			cmd.Wait()
+			delete(s.activeStreams, sessionID)
+		}
+		s.streamMutex.Unlock()
+		go os.RemoveAll(sessionDir)
 		http.Error(w, "Stream not ready", http.StatusServiceUnavailable)
 		return
 	}
@@ -206,9 +211,14 @@ func (s *Server) makeHLSHandler() http.Handler {
 			return
 		}
 
-		if strings.HasSuffix(fullPath, ".srt") || strings.HasSuffix(fullPath, ".vtt") {
+		switch {
+		case strings.HasSuffix(fullPath, ".srt"), strings.HasSuffix(fullPath, ".vtt"):
 			w.Header().Set("Content-Type", "text/vtt; charset=utf-8")
 			w.Header().Set("Access-Control-Allow-Origin", "*")
+		case strings.HasSuffix(fullPath, ".m4s"):
+			w.Header().Set("Content-Type", "video/iso.segment")
+		case strings.HasSuffix(fullPath, ".mp4"):
+			w.Header().Set("Content-Type", "video/mp4")
 		}
 
 		http.ServeFile(w, r, fullPath)

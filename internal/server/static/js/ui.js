@@ -217,13 +217,13 @@ const UI = {
     
     updatePlayerMeta(item, thumb) {
         const title = item.name;
-        const meta = state.mode === 'music' ? 'Music' : 'File';
-        
+        const meta = state.path.split('/').filter(p => p).pop() || (state.mode === 'music' ? 'Music' : 'Media');
+
         document.getElementById('pb-title').innerText = title;
-        document.getElementById('pb-meta').innerText = '';
-        
+        document.getElementById('pb-meta').innerText = meta;
+
         document.getElementById('ep-title').innerText = title;
-        document.getElementById('ep-meta').innerText = '';
+        document.getElementById('ep-meta').innerText = meta;
 
         // Image Handling with Reset
         const pbThumb = document.getElementById('pb-thumb');
@@ -452,9 +452,10 @@ const UI = {
         
         const fmt = (t) => {
             if (isNaN(t)) return "0:00";
-            const m = Math.floor(t / 60);
+            const h = Math.floor(t / 3600);
+            const m = Math.floor((t % 3600) / 60);
             const s = Math.floor(t % 60).toString().padStart(2, '0');
-            return `${m}:${s}`;
+            return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${s}` : `${m}:${s}`;
         };
         
         const timeStr = fmt(current);

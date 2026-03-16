@@ -17,7 +17,12 @@ import (
 func (s *Server) HandleContent(w http.ResponseWriter, r *http.Request) {
 	mode := r.URL.Query().Get("mode")
 	relPath := strings.TrimPrefix(r.URL.Path, "/content/")
-	fullPath := filepath.Join(s.getRoot(mode), relPath)
+	root := s.getRoot(mode)
+	fullPath := filepath.Join(root, relPath)
+	if !strings.HasPrefix(fullPath, root) {
+		http.NotFound(w, r)
+		return
+	}
 	http.ServeFile(w, r, fullPath)
 }
 

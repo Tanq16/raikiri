@@ -12,24 +12,30 @@ const API = {
     },
 
     async upload(files, path, mode) {
-        const formData = new FormData();
-        for (let i = 0; i < files.length; i++) {
-            formData.append('files', files[i]);
-        }
-        formData.append('path', path);
-        formData.append('mode', mode);
+        try {
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files', files[i]);
+            }
+            formData.append('path', path);
+            formData.append('mode', mode);
 
-        const res = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-        });
-        return res.ok;
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            return res.ok;
+        } catch (e) {
+            console.error('Upload failed', e);
+            return false;
+        }
     },
 
     getContentUrl(path, mode) {
         // Double slash prevention
         const cleanPath = path.startsWith('/') ? path.substring(1) : path;
-        return `/content/${cleanPath}?mode=${mode}`;
+        const encoded = cleanPath.split('/').map(s => encodeURIComponent(s)).join('/');
+        return `/content/${encoded}?mode=${mode}`;
     }
 };
 

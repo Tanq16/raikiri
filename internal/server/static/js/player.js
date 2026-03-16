@@ -14,33 +14,48 @@ const Player = {
     isPlaying: false,
     availableSubtitles: [],
     activeSubtitleIndex: null,
+    _advancing: false,
 
     init() {
         this.videoEl = document.getElementById('ep-video');
-        
+
         this.audioEl.addEventListener('ended', () => this.next());
         this.audioEl.addEventListener('timeupdate', () => {
             UI.updateProgress(this.audioEl.currentTime, this.audioEl.duration);
             this.updateMediaSessionPosition();
         });
-        
+
         this.videoEl.addEventListener('ended', () => this.next());
         this.videoEl.addEventListener('timeupdate', () => {
             const duration = this.videoDuration || this.videoEl.duration;
             UI.updateProgress(this.videoEl.currentTime, duration);
             this.updateMediaSessionPosition();
+            // Safety net: if within 1s of known duration, advance once
+            if (this.videoDuration && this.videoEl.currentTime > 0 && !this._advancing) {
+                const remaining = this.videoDuration - this.videoEl.currentTime;
+                if (remaining < 1 && remaining >= 0) {
+                    this.next();
+                }
+            }
         });
-        
+
         // Update position when duration becomes available
         this.audioEl.addEventListener('loadedmetadata', () => this.updateMediaSessionPosition());
         this.videoEl.addEventListener('loadedmetadata', () => this.updateMediaSessionPosition());
-        
+
         if ('mediaSession' in navigator) {
             navigator.mediaSession.setActionHandler('play', () => this.play());
             navigator.mediaSession.setActionHandler('pause', () => this.pause());
             navigator.mediaSession.setActionHandler('previoustrack', () => this.prev());
             navigator.mediaSession.setActionHandler('nexttrack', () => this.next());
         }
+
+        // Clean up ffmpeg sessions when tab is closed
+        window.addEventListener('beforeunload', () => {
+            if (this.currentSessionId) {
+                navigator.sendBeacon(`/api/stop-stream?session=${this.currentSessionId}`);
+            }
+        });
     },
 
     setQueue(items, startIndex = 0) {
@@ -78,18 +93,19 @@ const Player = {
             this.hls.destroy();
             this.hls = null;
         }
-        
+
         if (this.currentSessionId) {
             fetch(`/api/stop-stream?session=${this.currentSessionId}`);
             this.currentSessionId = null;
         }
-        
+
         this.videoDuration = null;
     },
 
     async load(item) {
         if (!item) return;
-        
+
+        this._advancing = false;
         this.pause();
         clearTimeout(this.imageTimer);
         this.cleanupHLS();
@@ -97,21 +113,24 @@ const Player = {
         this.videoEl.pause();
         document.getElementById('ep-image').classList.add('hidden');
         document.getElementById('ep-audio-art').classList.add('hidden');
-        
+
         this.availableSubtitles = [];
         this.activeSubtitleIndex = null;
         UI.updateSubtitleButton(false);
 
         const thumb = item.thumb ? API.getContentUrl(item.thumb, state.mode) : null;
-        
+
         UI.updatePlayerMeta(item, thumb);
         this.updateMediaSession(item, thumb);
+
+        let loaded = false;
 
         if (item.type === 'audio') {
             const src = API.getContentUrl(item.path, state.mode);
             this.audioEl.src = src;
-            this.audioEl.play();
-            this.isPlaying = true;
+            try { await this.audioEl.play(); } catch (e) { /* autoplay blocked */ }
+            this.isPlaying = !this.audioEl.paused;
+            loaded = true;
             document.getElementById('ep-audio-art').classList.remove('hidden');
         } else if (item.type === 'video') {
             // Store video path in history before starting playback
@@ -127,35 +146,55 @@ const Player = {
             } catch (e) {
                 console.error('Failed to save history', e);
             }
-            
+
             try {
                 const res = await fetch(`/api/stream?file=${encodeURIComponent(item.path)}&mode=${state.mode}`);
+                if (!res.ok) throw new Error(`Stream request failed: ${res.status}`);
                 const data = await res.json();
-                
+
                 this.currentSessionId = data.sessionId;
                 this.videoDuration = data.duration || null;
                 this.availableSubtitles = data.subtitles || [];
                 const hlsUrl = data.url;
                 this.videoEl.classList.remove('hidden');
-                
+
                 while (this.videoEl.firstChild) {
                     this.videoEl.removeChild(this.videoEl.firstChild);
                 }
-                
+
                 if (Hls.isSupported()) {
-                    this.hls = new Hls();
+                    this.hls = new Hls({ enableWorker: true });
                     this.hls.loadSource(hlsUrl);
                     this.hls.attachMedia(this.videoEl);
                     this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        this.videoEl.play();
+                        this.videoEl.play().catch(() => {});
+                    });
+                    // Safety net: detect fatal errors near end of video as "ended"
+                    this.hls.on(Hls.Events.ERROR, (event, data) => {
+                        if (this._advancing) return;
+                        if (data.fatal && this.videoDuration) {
+                            const remaining = this.videoDuration - this.videoEl.currentTime;
+                            if (remaining < 5) {
+                                this.next();
+                                return;
+                            }
+                        }
+                        // Non-fatal frag errors near end: also treat as ended
+                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR && this.videoDuration) {
+                            const remaining = this.videoDuration - this.videoEl.currentTime;
+                            if (remaining < 5) {
+                                this.next();
+                            }
+                        }
                     });
                 } else if (this.videoEl.canPlayType('application/vnd.apple.mpegurl')) {
                     this.videoEl.src = hlsUrl;
-                    this.videoEl.play();
+                    this.videoEl.play().catch(() => {});
                 }
-                
+
                 UI.updateSubtitleButton(this.availableSubtitles.length > 0);
                 this.isPlaying = true;
+                loaded = true;
             } catch (e) {
                 console.error("Stream failed", e);
             }
@@ -164,20 +203,23 @@ const Player = {
             const src = API.getContentUrl(item.path, state.mode);
             img.src = src;
             img.classList.remove('hidden');
-            
+
             const fullscreenImg = document.getElementById('fullscreen-image');
             const fullscreenContainer = document.getElementById('fullscreen-image-container');
             if (fullscreenImg && fullscreenContainer && !fullscreenContainer.classList.contains('hidden')) {
                 fullscreenImg.src = src;
             }
-            
+
             this.isPlaying = true;
             this.imageTimer = setTimeout(() => this.next(), 5000);
+            loaded = true;
         }
-        
-        UI.showPlayerBar();
-        UI.expandPlayer();
-        UI.updatePlayButton(true);
+
+        if (loaded) {
+            UI.showPlayerBar();
+            UI.expandPlayer();
+            UI.updatePlayButton(this.isPlaying);
+        }
     },
 
     toggle() {
@@ -195,7 +237,7 @@ const Player = {
             clearTimeout(this.imageTimer);
             this.imageTimer = setTimeout(() => this.next(), 5000);
         }
-        
+
         this.isPlaying = true;
         UI.updatePlayButton(true);
         this.updatePlaybackState('playing');
@@ -211,11 +253,11 @@ const Player = {
         this.updatePlaybackState('paused');
         this.updateMediaSessionPosition();
     },
-    
+
     seek(percent) {
         if (!this.queue.length) return;
         const item = this.queue[this.currentIndex];
-        
+
         if (item.type === 'audio' && this.audioEl.duration) {
             this.audioEl.currentTime = (percent / 100) * this.audioEl.duration;
             this.updateMediaSessionPosition();
@@ -241,6 +283,8 @@ const Player = {
     },
 
     next() {
+        if (this._advancing) return;
+        this._advancing = true;
         if (this.currentIndex < this.queue.length - 1) {
             this.currentIndex++;
             this.load(this.queue[this.currentIndex]);
@@ -255,7 +299,7 @@ const Player = {
             this.load(this.queue[this.currentIndex]);
         }
     },
-    
+
     playIndex(idx) {
         if (idx >= 0 && idx < this.queue.length) {
             this.currentIndex = parseInt(idx);
@@ -264,12 +308,13 @@ const Player = {
     },
 
     stop() {
+        this._advancing = false;
         this.pause();
         this.cleanupHLS();
         this.queue = [];
         this.currentIndex = -1;
         UI.hidePlayerBar();
-        
+
         this.updatePlaybackState('none');
         if ('mediaSession' in navigator && navigator.mediaSession.setPositionState) {
             try {
@@ -279,7 +324,7 @@ const Player = {
             }
         }
     },
-    
+
     updateMediaSession(item, thumb) {
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
@@ -292,17 +337,17 @@ const Player = {
             this.updateMediaSessionPosition();
         }
     },
-    
+
     updateMediaSessionPosition() {
         if (!('mediaSession' in navigator) || !this.queue.length) return;
-        
+
         const item = this.queue[this.currentIndex];
         if (!item || item.type === 'image') return;
-        
+
         let currentTime = 0;
         let duration = 0;
         let playbackRate = this.isPlaying ? 1.0 : 0;
-        
+
         if (item.type === 'audio' && this.audioEl.duration) {
             currentTime = this.audioEl.currentTime;
             duration = this.audioEl.duration;
@@ -312,7 +357,7 @@ const Player = {
             duration = this.videoDuration || this.videoEl.duration;
             playbackRate = this.isPlaying ? (this.videoEl.playbackRate || 1.0) : 0;
         }
-        
+
         if (duration > 0) {
             try {
                 navigator.mediaSession.setPositionState({
@@ -326,7 +371,7 @@ const Player = {
             }
         }
     },
-    
+
     updatePlaybackState(state) {
         if (!('mediaSession' in navigator)) return;
         const nextState = state || (this.isPlaying ? 'playing' : 'paused');
@@ -358,6 +403,6 @@ const Player = {
     }
 };
 
-window.playQueueIndex = (idx) => Player.playIndex(idx); 
+window.playQueueIndex = (idx) => Player.playIndex(idx);
 
 export default Player;
