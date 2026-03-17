@@ -114,6 +114,7 @@ const Player = {
             this.hls = new Hls({
                 enableWorker: true,
                 lowLatencyMode: false,
+                startPosition: 0,
                 stretchShortVideoTrack: true,
                 backBufferLength: 60,
                 maxMaxBufferLength: 120,
