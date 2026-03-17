@@ -49,7 +49,7 @@ const Elements = {
         //    - If that fails or it's not an image, hide img to show the background icon.
         
         let visual = `
-            <div class="w-full h-full flex items-center justify-center text-overlay0 bg-surface0/50 absolute inset-0 z-0">
+            <div class="w-full h-full flex items-center justify-center text-subtext0 bg-surface0 absolute inset-0 z-0">
                 <i data-lucide="${iconName}" size="32"></i>
             </div>
         `;
@@ -71,7 +71,7 @@ const Elements = {
         }
 
         if (item.type === 'folder' && !item.thumb) {
-             visual = `<div class="w-full h-full bg-surface0/50 flex items-center justify-center text-blue relative z-10"><i data-lucide="${iconName}" size="40"></i></div>`;
+             visual = `<div class="w-full h-full bg-surface0 flex items-center justify-center text-blue relative z-10"><i data-lucide="${iconName}" size="40"></i></div>`;
         }
 
         return `

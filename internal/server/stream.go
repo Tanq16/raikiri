@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -79,7 +80,11 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 			sessionID = ""
 		}
 
-		contentURL := fmt.Sprintf("/content/%s?mode=%s", targetFile, mode)
+		segments := strings.Split(targetFile, "/")
+		for i, seg := range segments {
+			segments[i] = url.PathEscape(seg)
+		}
+		contentURL := fmt.Sprintf("/content/%s?mode=%s", strings.Join(segments, "/"), mode)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{

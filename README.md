@@ -168,7 +168,8 @@ Queue dialog highlights active item; click any item to jump. Shuffle button play
 - History is stored in browser localStorage and shows full file path as most recent first
 
 **Video Playback**
-- HLS auto-segmented to 6s segments via `ffmpeg`
+- Compatible MP4s (H.264/HEVC + AAC 48kHz stereo) are served directly via HTTP range requests for instant playback
+- All other videos are HLS-segmented to 6s fMP4 segments via `ffmpeg`, with audio transcoded to 48kHz AAC to prevent A/V drift
 - Audio is played back directly in HTML5
 - Unplayable files open in new tab as raw GET
 
@@ -180,6 +181,6 @@ Queue dialog highlights active item; click any item to jump. Shuffle button play
 
 #### Quickie on Playback Sync
 
-- Videos are HLS tranmuxed/transcoding via `ffmpeg` (full seekability, format compatibility)
+- Compatible videos are served directly; others are HLS transmuxed/transcoded via `ffmpeg` (full seekability, format compatibility)
 - Fullscreen player with custom overlay with controls (play/pause, +-10s seek, seek bar, exit)
 - Fullscreen disabled for audio (images/videos only)
