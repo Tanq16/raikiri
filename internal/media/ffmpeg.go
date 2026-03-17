@@ -100,3 +100,66 @@ func IsVideoCompatibleForHLS(codec string) bool {
 	compatible := []string{"h264", "avc", "hevc", "h265"}
 	return slices.Contains(compatible, codec)
 }
+
+// GetContainerFormat returns the container format name (e.g. "mov,mp4,m4a,3gp,3g2,mj2").
+func GetContainerFormat(filePath string) string {
+	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=format_name", "-of", "default=noprint_wrappers=1:nokey=1", filePath)
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
+
+// GetAudioSampleRate returns the sample rate in Hz for the given stream index.
+func GetAudioSampleRate(filePath string, streamIndex int) int {
+	cmd := exec.Command("ffprobe", "-v", "error",
+		"-select_streams", fmt.Sprintf("%d", streamIndex),
+		"-show_entries", "stream=sample_rate",
+		"-of", "default=noprint_wrappers=1:nokey=1",
+		filePath)
+	output, err := cmd.Output()
+	if err != nil {
+		return 0
+	}
+	rate, err := strconv.Atoi(strings.TrimSpace(string(output)))
+	if err != nil {
+		return 0
+	}
+	return rate
+}
+
+// IsDirectServable returns true if the file can be served directly without HLS transcoding.
+// Requires: MP4/MOV container, HLS-compatible video, compatible audio codec, stereo, 48kHz.
+func IsDirectServable(filePath string) bool {
+	format := GetContainerFormat(filePath)
+	if !strings.Contains(format, "mp4") && !strings.Contains(format, "mov") {
+		return false
+	}
+
+	videoCodec := GetVideoCodec(filePath)
+	if !IsVideoCompatibleForHLS(videoCodec) {
+		return false
+	}
+
+	tracks := GetAudioTracks(filePath)
+	selected := SelectBestAudioTrack(tracks)
+	if selected == nil {
+		// No audio is fine for direct serve
+		return true
+	}
+
+	if !IsAudioCompatible(selected.Codec) {
+		return false
+	}
+	if selected.Channels > 2 {
+		return false
+	}
+
+	sampleRate := GetAudioSampleRate(filePath, selected.Index)
+	if sampleRate != 48000 {
+		return false
+	}
+
+	return true
+}

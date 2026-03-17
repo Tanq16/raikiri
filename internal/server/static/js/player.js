@@ -15,6 +15,7 @@ const Player = {
     availableSubtitles: [],
     activeSubtitleIndex: null,
     _advancing: false,
+    _directMode: false,
 
     init() {
         this.videoEl = document.getElementById('ep-video');
@@ -50,7 +51,7 @@ const Player = {
             navigator.mediaSession.setActionHandler('nexttrack', () => this.next());
         }
 
-        // Clean up ffmpeg sessions when tab is closed
+        // Clean up sessions when tab is closed
         window.addEventListener('beforeunload', () => {
             if (this.currentSessionId) {
                 navigator.sendBeacon(`/api/stop-stream?session=${this.currentSessionId}`);
@@ -94,12 +95,61 @@ const Player = {
             this.hls = null;
         }
 
+        if (this._directMode) {
+            this.videoEl.removeAttribute('src');
+            this.videoEl.load();
+            this._directMode = false;
+        }
+
         if (this.currentSessionId) {
             fetch(`/api/stop-stream?session=${this.currentSessionId}`);
             this.currentSessionId = null;
         }
 
         this.videoDuration = null;
+    },
+
+    _loadHLS(url) {
+        if (Hls.isSupported()) {
+            this.hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: false,
+                stretchShortVideoTrack: true,
+                backBufferLength: 60,
+                maxMaxBufferLength: 120,
+                nudgeMaxRetry: 5,
+                manifestLoadingMaxRetry: 2,
+            });
+            this.hls.loadSource(url);
+            this.hls.attachMedia(this.videoEl);
+            this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                this.videoEl.play().catch(() => {});
+            });
+            this.hls.on(Hls.Events.ERROR, (event, data) => {
+                if (this._advancing) return;
+                // Near end of video: treat fatal/frag errors as "ended"
+                if (this.videoDuration) {
+                    const remaining = this.videoDuration - this.videoEl.currentTime;
+                    if (remaining < 5) {
+                        if (data.fatal || (data.type === Hls.ErrorTypes.NETWORK_ERROR && data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR)) {
+                            this.next();
+                            return;
+                        }
+                    }
+                }
+                // Mid-playback recovery for fatal errors
+                if (data.fatal) {
+                    if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                        this.hls.recoverMediaError();
+                    } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                        this.hls.startLoad();
+                    }
+                }
+            });
+        } else if (this.videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+            this.videoEl.src = url;
+            this.videoEl.play().catch(() => {});
+        }
     },
 
     async load(item) {
@@ -155,52 +205,33 @@ const Player = {
                 this.currentSessionId = data.sessionId;
                 this.videoDuration = data.duration || null;
                 this.availableSubtitles = data.subtitles || [];
-                const hlsUrl = data.url;
                 this.videoEl.classList.remove('hidden');
 
                 while (this.videoEl.firstChild) {
                     this.videoEl.removeChild(this.videoEl.firstChild);
                 }
 
-                if (Hls.isSupported()) {
-                    this.hls = new Hls({
-                        enableWorker: true,
-                        lowLatencyMode: false,
-                        stretchShortVideoTrack: true,
-                        backBufferLength: 60,
-                        maxMaxBufferLength: 120,
-                        nudgeMaxRetry: 5,
-                        manifestLoadingMaxRetry: 2,
-                    });
-                    this.hls.loadSource(hlsUrl);
-                    this.hls.attachMedia(this.videoEl);
-                    this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        this.videoEl.play().catch(() => {});
-                    });
-                    this.hls.on(Hls.Events.ERROR, (event, data) => {
-                        if (this._advancing) return;
-                        // Near end of video: treat fatal/frag errors as "ended"
-                        if (this.videoDuration) {
-                            const remaining = this.videoDuration - this.videoEl.currentTime;
-                            if (remaining < 5) {
-                                if (data.fatal || (data.type === Hls.ErrorTypes.NETWORK_ERROR && data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR)) {
-                                    this.next();
-                                    return;
-                                }
-                            }
+                if (data.mode === 'direct') {
+                    this._directMode = true;
+                    this.videoEl.src = data.url;
+                    try {
+                        await this.videoEl.play();
+                    } catch (e) {
+                        // Direct play failed, fallback to HLS
+                        console.warn('Direct playback failed, falling back to HLS', e);
+                        this._directMode = false;
+                        this.videoEl.removeAttribute('src');
+                        this.videoEl.load();
+                        const hlsRes = await fetch(`/api/stream?file=${encodeURIComponent(item.path)}&mode=${state.mode}&force=hls`);
+                        if (hlsRes.ok) {
+                            const hlsData = await hlsRes.json();
+                            this.currentSessionId = hlsData.sessionId;
+                            this._loadHLS(hlsData.url);
                         }
-                        // Mid-playback recovery for fatal errors
-                        if (data.fatal) {
-                            if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                                this.hls.recoverMediaError();
-                            } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                                this.hls.startLoad();
-                            }
-                        }
-                    });
-                } else if (this.videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-                    this.videoEl.src = hlsUrl;
-                    this.videoEl.play().catch(() => {});
+                    }
+                } else {
+                    this._directMode = false;
+                    this._loadHLS(data.url);
                 }
 
                 UI.updateSubtitleButton(this.availableSubtitles.length > 0);
