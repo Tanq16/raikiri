@@ -117,22 +117,21 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		needsAudioTranscode := !media.IsAudioCompatible(selectedAudio.Codec) || selectedAudio.Channels > 2
 
 		if needsAudioTranscode {
-			audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000", "-af", "aresample=async=1000")
 			if selectedAudio.Channels > 2 {
 				log.Printf("INFO [server] downmixing to stereo for browser compatibility channels=%d", selectedAudio.Channels)
 			} else {
 				log.Printf("INFO [server] audio codec not compatible, transcoding to AAC codec=%s", selectedAudio.Codec)
 			}
 		} else {
-			// Audio codec is compatible, but check sample rate
 			sampleRate := media.GetAudioSampleRate(fullPath, selectedAudio.Index)
 			if sampleRate != 48000 {
 				log.Printf("INFO [server] audio sample rate %d != 48000, transcoding to 48kHz file=%s", sampleRate, targetFile)
-				audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000", "-af", "aresample=async=1000")
 			} else {
-				audioArgs = append(audioArgs, "-c:a", "copy")
+				log.Printf("INFO [server] audio re-encoding for clean HLS timestamps file=%s", targetFile)
 			}
 		}
+		// Always re-encode audio: single-pass resample to 48kHz with PTS anchored at 0
+		audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-af", "aresample=osr=48000:first_pts=0")
 	} else {
 		log.Printf("INFO [server] no audio tracks found file=%s", targetFile)
 		audioArgs = []string{"-map", "0:v:0"}
@@ -160,6 +159,7 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 
 	args = append(args,
 		"-avoid_negative_ts", "make_zero",
+		"-max_interleave_delta", "0",
 		"-max_muxing_queue_size", "4096",
 		"-f", "hls",
 		"-hls_time", "6",
