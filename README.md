@@ -4,7 +4,7 @@
 
   <a href="https://github.com/tanq16/raikiri/actions/workflows/release.yaml"><img alt="Build Workflow" src="https://github.com/tanq16/raikiri/actions/workflows/release.yaml/badge.svg"></a>&nbsp;<a href="https://github.com/Tanq16/raikiri/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/tanq16/raikiri"></a>&nbsp;<a href="https://hub.docker.com/r/tanq16/raikiri"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/tanq16/raikiri"></a><br><br>
 
-  [Features](#features) &bull; [Screenshots](#screenshots) &bull; [Usage](#usage) &bull; [Thumbnails](#thumbnails) &bull; [Player](#player-and-playlists)
+  <a href="#features">Features</a> &bull; <a href="#screenshots">Screenshots</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#thumbnails">Thumbnails</a> &bull; <a href="#player-and-playlists">Player</a>
 </div>
 
 A fast, simple, self-hosted, no-nonsense media server. Lightweight alternative to Jellyfin/Plex without complex metadata tagging.

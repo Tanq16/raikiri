@@ -3,13 +3,15 @@ package video
 import (
 	"bufio"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
+
+	u "github.com/tanq16/raikiri/utils"
 )
 
 type EncodeOptions struct {
@@ -48,7 +50,7 @@ func RunEncode(inputFile string, opts EncodeOptions) error {
 		return err
 	}
 
-	fmt.Printf("Command: ffmpeg %s\n\n", strings.Join(args, " "))
+	u.PrintGeneric(fmt.Sprintf("Command: ffmpeg %s\n", strings.Join(args, " ")))
 
 	return runEncode(outputFile, data, args)
 }
@@ -75,25 +77,21 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 
 	videoFlags := []string{"-c:v", "libx265", "-crf", crf, "-preset", preset, "-fps_mode", "cfr"}
 
-	// Retain 10-bit pixel format if source is 10-bit
 	if videoStreams[0].stream.PixFmt == "yuv420p10le" {
 		videoFlags = append(videoFlags, "-pix_fmt", "yuv420p10le")
-		fmt.Println("→ 10-bit source detected, retaining pixel format")
+		u.PrintInfo("10-bit source detected, retaining pixel format")
 	}
 
-	// Auto-halve frame rates above 30 fps
 	fpsTarget := computeFPSTarget(videoStreams[0].stream.AvgFrameRate)
 	if fpsTarget != "" {
 		videoFlags = append(videoFlags, "-r", fpsTarget)
-		fmt.Printf("→ FPS auto-halved to %s\n", fpsTarget)
+		u.PrintInfo(fmt.Sprintf("FPS auto-halved to %s", fpsTarget))
 	}
 
-	// hvc1 tag for Safari/iOS compatibility
 	videoFlags = append(videoFlags, "-tag:v", "hvc1")
 
-	fmt.Printf("→ Video: libx265 CRF %s (%s quality, preset %s, CFR)\n", crf, opts.Quality, preset)
+	u.PrintInfo(fmt.Sprintf("Video: libx265 CRF %s (%s quality, preset %s, CFR)", crf, opts.Quality, preset))
 
-	// Audio: always re-encode to AAC stereo 48kHz
 	var audioFlags []string
 	audioStreams := filterStreams(data.Streams, "audio")
 
@@ -109,15 +107,14 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 			lang = "und"
 		}
 		if selected.stream.Tags.Title != "" {
-			fmt.Printf("→ Audio: stream #%d (%s — %s) → AAC stereo 48kHz 192k\n", selected.stream.Index, lang, selected.stream.Tags.Title)
+			u.PrintInfo(fmt.Sprintf("Audio: stream #%d (%s — %s) → AAC stereo 48kHz 192k", selected.stream.Index, lang, selected.stream.Tags.Title))
 		} else {
-			fmt.Printf("→ Audio: stream #%d (%s) → AAC stereo 48kHz 192k\n", selected.stream.Index, lang)
+			u.PrintInfo(fmt.Sprintf("Audio: stream #%d (%s) → AAC stereo 48kHz 192k", selected.stream.Index, lang))
 		}
 	} else {
-		fmt.Println("→ Audio: none")
+		u.PrintInfo("Audio: none")
 	}
 
-	// Subtitles: keep all, pick container based on codec type
 	var subtitleFlags []string
 	subStreams := filterStreams(data.Streams, "subtitle")
 	outputExt := ".mp4"
@@ -138,13 +135,13 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 		if hasBitmap {
 			outputExt = ".mkv"
 			subtitleFlags = append(subtitleFlags, "-c:s", "copy")
-			fmt.Printf("→ Subtitles: %d stream(s) (bitmap detected → MKV, copy)\n", len(subStreams))
+			u.PrintInfo(fmt.Sprintf("Subtitles: %d stream(s) (bitmap detected → MKV, copy)", len(subStreams)))
 		} else {
 			subtitleFlags = append(subtitleFlags, "-c:s", "mov_text")
-			fmt.Printf("→ Subtitles: %d stream(s) (text → MP4, mov_text)\n", len(subStreams))
+			u.PrintInfo(fmt.Sprintf("Subtitles: %d stream(s) (text → MP4, mov_text)", len(subStreams)))
 		}
 	} else {
-		fmt.Println("→ Subtitles: none")
+		u.PrintInfo("Subtitles: none")
 	}
 
 	dir := filepath.Dir(inputFile)
@@ -158,7 +155,7 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 	args = append(args, "-movflags", "+faststart")
 	args = append(args, outputFile)
 
-	fmt.Printf("→ Output: %s\n", outputFile)
+	u.PrintInfo(fmt.Sprintf("Output: %s", outputFile))
 
 	return args, outputFile, nil
 }
@@ -191,7 +188,6 @@ func computeFPSTarget(avgFrameRate string) string {
 		return ""
 	}
 
-	// Normalize to simplest form for lookup
 	g := gcd(num, den)
 	normalized := fmt.Sprintf("%d/%d", num/g, den/g)
 
@@ -275,84 +271,70 @@ func runEncode(outputFile string, data *FFProbeOutput, ffmpegArgs []string) erro
 		return fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
+	var stderrBuf strings.Builder
+	cmd.Stderr = &stderrBuf
 
 	startTime := time.Now()
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start ffmpeg: %w", err)
 	}
 
-	errorChan := make(chan bool, 1)
+	// Display goroutine: ticks every second, overwrites progress line
+	done := make(chan struct{})
+	var currentPercent atomic.Int32
+	var printed atomic.Bool
+	outputName := filepath.Base(outputFile)
+
 	go func() {
-		hasErrors := false
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line != "" && isErrorLine(line) {
-				hasErrors = true
-				fmt.Fprintf(os.Stderr, "\r\033[K%s\n", line)
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		firstTick := true
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				if !firstTick {
+					u.ClearPreviousLine()
+				}
+				firstTick = false
+				printed.Store(true)
+				u.PrintProgress(outputName, int(currentPercent.Load()))
 			}
 		}
-		errorChan <- hasErrors
 	}()
 
-	fmt.Printf("Encoding: %s | Duration: %s\n", outputFile, formatDuration(totalDurationSecs))
+	// Parse ffmpeg progress from stdout
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Split(line, "=")
-
 		if len(parts) == 2 && parts[0] == "out_time_us" {
 			currentUs, _ := strconv.ParseFloat(parts[1], 64)
-			currentSecs := currentUs / 1000000.0
-
 			if totalDurationSecs > 0 {
-				percent := (currentSecs / totalDurationSecs) * 100
-				if percent > 100 {
-					percent = 100
+				pct := int((currentUs / 1000000.0 / totalDurationSecs) * 100)
+				if pct > 100 {
+					pct = 100
 				}
-				drawProgressBar(percent, currentSecs, totalDurationSecs)
-			} else {
-				fmt.Printf("\rEncoding... %.1fs", currentSecs)
+				currentPercent.Store(int32(pct))
 			}
 		}
 	}
 
 	cmdErr := cmd.Wait()
-	errorsDetected := <-errorChan
+	close(done)
+	if printed.Load() {
+		u.ClearPreviousLine()
+	}
 
-	if cmdErr != nil || errorsDetected {
-		fmt.Println()
-		if cmdErr != nil {
-			return fmt.Errorf("ffmpeg encoding failed: %w", cmdErr)
+	stderrContent := strings.TrimSpace(stderrBuf.String())
+	if cmdErr != nil {
+		if stderrContent != "" {
+			return fmt.Errorf("%s: %w", stderrContent, cmdErr)
 		}
-		return fmt.Errorf("encoding completed with errors (see messages above)")
+		return fmt.Errorf("ffmpeg encoding failed: %w", cmdErr)
 	}
 
-	fmt.Printf("\r\033[KEncoding completed in %s\n\n", time.Since(startTime))
+	u.PrintSuccess(fmt.Sprintf("%s: encoded in %s", outputName, time.Since(startTime).Truncate(time.Second)))
 	return nil
-}
-
-func drawProgressBar(percent float64, current, total float64) {
-	width := 40
-	completed := min(int((percent/100)*float64(width)), width)
-
-	filled := strings.Repeat("━", completed)
-	empty := strings.Repeat(" ", width-completed)
-
-	fmt.Printf("\r[%s%s] %.1f%% (%.1fs / %.1fs)", filled, empty, percent, current, total)
-}
-
-func isErrorLine(line string) bool {
-	line = strings.ToLower(line)
-	if strings.Contains(line, "[info]") || strings.Contains(line, "[warning]") {
-		return false
-	}
-	if strings.Contains(line, "error") || strings.Contains(line, "failed") || strings.Contains(line, "cannot") {
-		return true
-	}
-	return false
 }

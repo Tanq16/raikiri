@@ -12,7 +12,7 @@ GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
 # Asset versions - update as needed
-LUCIDE_VERSION := 0.577.0
+LUCIDE_VERSION := 1.0.1
 HLS_VERSION := 1.6.15
 
 # Directories

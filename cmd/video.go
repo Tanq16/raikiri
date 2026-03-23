@@ -1,11 +1,10 @@
 package cmd
 
 import (
-	"log"
-
 	"github.com/spf13/cobra"
 
 	"github.com/tanq16/raikiri/internal/video"
+	u "github.com/tanq16/raikiri/utils"
 )
 
 var videoInfoCmd = &cobra.Command{
@@ -14,7 +13,7 @@ var videoInfoCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := video.RunVideoInfo(args[0]); err != nil {
-			log.Fatalf("ERROR [video-info] %v", err)
+			u.PrintFatal("failed to get video info", err)
 		}
 	},
 }
@@ -42,7 +41,7 @@ Output file is generated automatically as <basename>.h265.<mp4|mkv>.`,
 			Faster:  videoEncodeFlags.faster,
 		}
 		if err := video.RunEncode(args[0], opts); err != nil {
-			log.Fatalf("ERROR [video-encode] %v", err)
+			u.PrintFatal("video encoding failed", err)
 		}
 	},
 }

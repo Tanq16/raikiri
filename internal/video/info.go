@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	u "github.com/tanq16/raikiri/utils"
 )
 
 type FFProbeOutput struct {
@@ -70,8 +72,15 @@ func getVideoInfo(inputFile string) (*FFProbeOutput, error) {
 		inputFile,
 	)
 
+	var stderrBuf strings.Builder
+	cmd.Stderr = &stderrBuf
+
 	output, err := cmd.Output()
 	if err != nil {
+		detail := strings.TrimSpace(stderrBuf.String())
+		if detail != "" {
+			return nil, fmt.Errorf("%s: %w", detail, err)
+		}
 		return nil, fmt.Errorf("failed to run ffprobe: %w", err)
 	}
 
@@ -87,13 +96,13 @@ func printOverview(f Format) {
 	sizeBytes, _ := strconv.ParseFloat(f.Size, 64)
 	durationSec, _ := strconv.ParseFloat(f.Duration, 64)
 	bitrate, _ := strconv.ParseFloat(f.BitRate, 64)
-	fmt.Printf(" Container: %s  |  Size: %s  |  Duration: %s  |  Bitrate: %s\n",
-		f.FormatName, formatSize(sizeBytes), formatDuration(durationSec), formatBitrate(bitrate))
-	fmt.Println("")
+	u.PrintInfo(fmt.Sprintf("Container: %s  |  Size: %s  |  Duration: %s  |  Bitrate: %s",
+		f.FormatName, formatSize(sizeBytes), formatDuration(durationSec), formatBitrate(bitrate)))
+	u.PrintGeneric("")
 }
 
 func printStreams(streams []Stream) {
-	fmt.Println("STREAMS:")
+	u.PrintGeneric("STREAMS:")
 	for _, s := range streams {
 		switch s.CodecType {
 		case "video":
@@ -103,8 +112,8 @@ func printStreams(streams []Stream) {
 				br, _ := strconv.ParseFloat(s.Tags.BPS, 64)
 				bitrate = fmt.Sprintf(" | Bitrate: %s", formatBitrate(br))
 			}
-			fmt.Printf(" [VIDEO #%d] %s\n", s.Index, strings.ToUpper(s.CodecName))
-			fmt.Printf("   %dx%d | %s fps | %s%s\n", s.Width, s.Height, fps, s.PixFmt, bitrate)
+			u.PrintSuccess(fmt.Sprintf("[VIDEO #%d] %s", s.Index, strings.ToUpper(s.CodecName)))
+			u.PrintGeneric(fmt.Sprintf("   %dx%d | %s fps | %s%s", s.Width, s.Height, fps, s.PixFmt, bitrate))
 
 		case "audio":
 			lang := s.Tags.Language
@@ -116,10 +125,10 @@ func printStreams(streams []Stream) {
 				br, _ := strconv.ParseFloat(s.Tags.BPS, 64)
 				bitrate = fmt.Sprintf(" | %s", formatBitrate(br))
 			}
-			fmt.Printf(" [AUDIO #%d] %s | %s\n", s.Index, strings.ToUpper(s.CodecName), strings.ToUpper(lang))
-			fmt.Printf("   %d ch (%s) | %s Hz%s\n", s.Channels, s.ChannelLayout, s.SampleRate, bitrate)
+			u.PrintSuccess(fmt.Sprintf("[AUDIO #%d] %s | %s", s.Index, strings.ToUpper(s.CodecName), strings.ToUpper(lang)))
+			u.PrintGeneric(fmt.Sprintf("   %d ch (%s) | %s Hz%s", s.Channels, s.ChannelLayout, s.SampleRate, bitrate))
 			if s.Tags.Title != "" {
-				fmt.Printf("   %s\n", s.Tags.Title)
+				u.PrintGeneric(fmt.Sprintf("   %s", s.Tags.Title))
 			}
 
 		case "subtitle":
@@ -127,13 +136,13 @@ func printStreams(streams []Stream) {
 			if lang == "" {
 				lang = "und"
 			}
-			fmt.Printf(" [SUB #%d] %s | %s", s.Index, strings.ToUpper(s.CodecName), strings.ToUpper(lang))
+			label := fmt.Sprintf("[SUB #%d] %s | %s", s.Index, strings.ToUpper(s.CodecName), strings.ToUpper(lang))
 			if s.Tags.Title != "" {
-				fmt.Printf(" | %s", s.Tags.Title)
+				label += fmt.Sprintf(" | %s", s.Tags.Title)
 			}
-			fmt.Println()
+			u.PrintInfo(label)
 		}
-		fmt.Println()
+		u.PrintGeneric("")
 	}
 }
 
