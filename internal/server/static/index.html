@@ -234,6 +234,7 @@
                  <button id="pb-cc-btn" onclick="ui.toggleSubtitleDialog()" class="text-subtext0 hover:text-mauve p-2 rounded-lg hover:bg-surface0 transition-colors hidden">
                     <i data-lucide="closed-caption" size="20"></i>
                 </button>
+                 <button id="pb-source-btn" onclick="player.cycleSource()" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface0 text-subtext0 hover:text-mauve transition-colors hidden"><span>HLS</span></button>
                  <button onclick="ui.toggleQueueDialog()" class="text-subtext0 hover:text-mauve relative p-2 rounded-lg hover:bg-surface0 transition-colors">
                     <i data-lucide="list-music" size="20"></i>
                 </button>
@@ -306,10 +307,12 @@
                         </button>
                         <button onclick="player.next()" class="text-text hover:scale-110 transition shrink-0"><i data-lucide="skip-forward" size="24" class="fill-current"></i></button>
                         <button id="ep-cc-btn-mob" onclick="ui.toggleSubtitleDialog()" class="text-subtext0 hover:text-mauve shrink-0 hidden"><i data-lucide="closed-caption" size="20"></i></button>
+                        <button id="ep-source-btn-mob" onclick="player.cycleSource()" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface0 text-subtext0 hover:text-mauve transition-colors shrink-0 hidden"><span>HLS</span></button>
                         <button onclick="ui.toggleQueueDialog()" class="text-subtext0 hover:text-mauve shrink-0"><i data-lucide="list-music" size="20"></i></button>
                     </div>
                     <!-- Desktop: CC and Playlist buttons -->
                     <button id="ep-cc-btn-desktop" onclick="ui.toggleSubtitleDialog()" class="hidden max-md:hidden md:flex text-subtext0 hover:text-mauve shrink-0"><i data-lucide="closed-caption" size="20"></i></button>
+                    <button id="ep-source-btn-desktop" onclick="player.cycleSource()" class="hidden max-md:hidden md:flex text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-surface0 text-subtext0 hover:text-mauve transition-colors shrink-0"><span>HLS</span></button>
                     <button id="ep-desktop-playlist" onclick="ui.toggleQueueDialog()" class="hidden md:block text-subtext0 hover:text-mauve shrink-0"><i data-lucide="list-music" size="20"></i></button>
                 </div>
             </div>

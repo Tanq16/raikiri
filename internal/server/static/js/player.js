@@ -16,6 +16,8 @@ const Player = {
     activeSubtitleIndex: null,
     _advancing: false,
     _directMode: false,
+    _currentSource: null,
+    _availableSources: [],
 
     init() {
         this.videoEl = document.getElementById('ep-video');
@@ -167,7 +169,10 @@ const Player = {
 
         this.availableSubtitles = [];
         this.activeSubtitleIndex = null;
+        this._currentSource = null;
+        this._availableSources = [];
         UI.updateSubtitleButton(false);
+        UI.updateSourceButton(null, false);
 
         const thumb = item.thumb ? API.getContentUrl(item.thumb, state.mode) : null;
 
@@ -199,13 +204,13 @@ const Player = {
             }
 
             try {
-                const res = await fetch(`/api/stream?file=${encodeURIComponent(item.path)}&mode=${state.mode}`);
-                if (!res.ok) throw new Error(`Stream request failed: ${res.status}`);
-                const data = await res.json();
+                const data = await this._requestSource(item);
 
                 this.currentSessionId = data.sessionId;
                 this.videoDuration = data.duration || null;
                 this.availableSubtitles = data.subtitles || [];
+                this._availableSources = data.availableSources || [];
+                this._currentSource = data.source;
                 this.videoEl.classList.remove('hidden');
 
                 while (this.videoEl.firstChild) {
@@ -218,17 +223,12 @@ const Player = {
                     try {
                         await this.videoEl.play();
                     } catch (e) {
-                        // Direct play failed, fallback to HLS
-                        console.warn('Direct playback failed, falling back to HLS', e);
+                        // Direct play failed, auto-fallback to next source
+                        console.warn('Direct playback failed, cycling to next source', e);
                         this._directMode = false;
                         this.videoEl.removeAttribute('src');
                         this.videoEl.load();
-                        const hlsRes = await fetch(`/api/stream?file=${encodeURIComponent(item.path)}&mode=${state.mode}&force=hls`);
-                        if (hlsRes.ok) {
-                            const hlsData = await hlsRes.json();
-                            this.currentSessionId = hlsData.sessionId;
-                            this._loadHLS(hlsData.url);
-                        }
+                        await this._autoFallback(item);
                     }
                 } else {
                     this._directMode = false;
@@ -236,6 +236,7 @@ const Player = {
                 }
 
                 UI.updateSubtitleButton(this.availableSubtitles.length > 0);
+                UI.updateSourceButton(this._currentSource, true);
                 this.isPlaying = true;
                 loaded = true;
             } catch (e) {
@@ -422,6 +423,114 @@ const Player = {
             navigator.mediaSession.playbackState = nextState;
         } catch (e) {
             // Ignore if not supported
+        }
+    },
+
+    async _requestSource(item, source) {
+        const params = new URLSearchParams({
+            file: item.path,
+            mode: state.mode,
+        });
+        if (source) params.set('source', source);
+        const res = await fetch(`/api/stream?${params}`);
+        if (!res.ok) throw new Error(`Stream request failed: ${res.status}`);
+        return res.json();
+    },
+
+    async _autoFallback(item) {
+        const currentIdx = this._availableSources.indexOf(this._currentSource);
+        if (currentIdx < 0 || this._availableSources.length <= 1) return;
+
+        const nextIdx = (currentIdx + 1) % this._availableSources.length;
+        const nextSource = this._availableSources[nextIdx];
+        if (nextSource === this._currentSource) return;
+
+        try {
+            this.cleanupHLS();
+            const data = await this._requestSource(item, nextSource);
+            this.currentSessionId = data.sessionId;
+            this.videoDuration = data.duration || null;
+            this._currentSource = data.source;
+
+            while (this.videoEl.firstChild) {
+                this.videoEl.removeChild(this.videoEl.firstChild);
+            }
+
+            if (data.mode === 'direct') {
+                this._directMode = true;
+                this.videoEl.src = data.url;
+                await this.videoEl.play();
+            } else {
+                this._directMode = false;
+                this._loadHLS(data.url);
+            }
+            UI.updateSourceButton(this._currentSource, true);
+        } catch (e) {
+            console.error('Auto-fallback failed', e);
+        }
+    },
+
+    async cycleSource() {
+        if (!this.queue.length || !this._availableSources.length) return;
+        const item = this.queue[this.currentIndex];
+        if (!item || item.type !== 'video') return;
+
+        const currentIdx = this._availableSources.indexOf(this._currentSource);
+        const nextIdx = (currentIdx + 1) % this._availableSources.length;
+        const nextSource = this._availableSources[nextIdx];
+
+        // Save playback position
+        const savedTime = this.videoEl.currentTime;
+
+        this.cleanupHLS();
+        this.videoEl.removeAttribute('src');
+        this.videoEl.load();
+
+        try {
+            const data = await this._requestSource(item, nextSource);
+            this.currentSessionId = data.sessionId;
+            this.videoDuration = data.duration || null;
+            this.availableSubtitles = data.subtitles || [];
+            this._currentSource = data.source;
+
+            while (this.videoEl.firstChild) {
+                this.videoEl.removeChild(this.videoEl.firstChild);
+            }
+
+            if (data.mode === 'direct') {
+                this._directMode = true;
+                this.videoEl.src = data.url;
+                // Seek to saved position once metadata loads
+                if (savedTime > 0) {
+                    const seekOnce = () => {
+                        this.videoEl.currentTime = savedTime;
+                        this.videoEl.removeEventListener('loadeddata', seekOnce);
+                    };
+                    this.videoEl.addEventListener('loadeddata', seekOnce);
+                }
+                await this.videoEl.play();
+            } else {
+                this._directMode = false;
+                // Seek to saved position once HLS manifest is parsed
+                if (savedTime > 0) {
+                    const seekOnce = () => {
+                        this.videoEl.currentTime = savedTime;
+                        this.videoEl.removeEventListener('loadeddata', seekOnce);
+                    };
+                    this.videoEl.addEventListener('loadeddata', seekOnce);
+                }
+                this._loadHLS(data.url);
+            }
+
+            UI.updateSubtitleButton(this.availableSubtitles.length > 0);
+            UI.updateSourceButton(this._currentSource, true);
+
+            // Re-apply active subtitle
+            if (this.activeSubtitleIndex !== null) {
+                this.setSubtitle(this.activeSubtitleIndex);
+            }
+        } catch (e) {
+            console.error('Source cycle failed', e);
         }
     },
 

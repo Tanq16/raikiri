@@ -53,6 +53,7 @@ func extractSubtitles(fullPath, sessionDir string) []map[string]interface{} {
 func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	targetFile := r.URL.Query().Get("file")
 	mode := r.URL.Query().Get("mode")
+	source := r.URL.Query().Get("source") // "direct", "hls-fmp4", "hls-ts", or "" (auto)
 	forceHLS := r.URL.Query().Get("force") == "hls"
 	root := s.getRoot(mode)
 	fullPath := filepath.Join(root, targetFile)
@@ -70,11 +71,33 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	subtitleList := extractSubtitles(fullPath, sessionDir)
 	log.Printf("INFO [server] subtitles found count=%d session=%s", len(subtitleList), sessionID)
 
-	// Path A: Direct serve for browser-compatible files
-	if !forceHLS && media.IsDirectServable(fullPath) {
+	// Determine available sources
+	isServable := media.IsDirectServable(fullPath)
+	availableSources := []string{"hls-fmp4", "hls-ts"}
+	if isServable {
+		availableSources = append([]string{"direct"}, availableSources...)
+	}
+
+	// Auto-detect source if not specified
+	if source == "" {
+		if forceHLS {
+			source = "hls-fmp4"
+		} else if isServable {
+			source = "direct"
+		} else {
+			source = "hls-fmp4"
+		}
+	}
+
+	// Fallback if direct requested but not available
+	if source == "direct" && !isServable {
+		source = "hls-fmp4"
+	}
+
+	// Path A: Direct serve
+	if source == "direct" {
 		log.Printf("INFO [server] direct serve file=%s", targetFile)
 
-		// If no subtitles, clean up empty session dir
 		if len(subtitleList) == 0 {
 			os.RemoveAll(sessionDir)
 			sessionID = ""
@@ -88,16 +111,20 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"mode":      "direct",
-			"url":       contentURL,
-			"duration":  duration,
-			"sessionId": sessionID,
-			"subtitles": subtitleList,
+			"mode":             "direct",
+			"source":           "direct",
+			"url":              contentURL,
+			"duration":         duration,
+			"sessionId":        sessionID,
+			"subtitles":        subtitleList,
+			"availableSources": availableSources,
 		})
 		return
 	}
 
-	// Path B: HLS with event mode
+	// Path B: HLS (fMP4 or MPEG-TS)
+	isTS := source == "hls-ts"
+
 	videoCodec := media.GetVideoCodec(fullPath)
 	needsVideoTranscode := !media.IsVideoCompatibleForHLS(videoCodec)
 	if needsVideoTranscode {
@@ -112,34 +139,31 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	var audioArgs []string
 	if selectedAudio != nil {
 		audioArgs = []string{"-map", "0:v:0", "-map", fmt.Sprintf("0:%d", selectedAudio.Index)}
-		log.Printf("INFO [server] selected audio track track=%d codec=%s lang=%s channels=%d file=%s", selectedAudio.Index, selectedAudio.Codec, selectedAudio.Language, selectedAudio.Channels, targetFile)
+		log.Printf("INFO [server] selected audio track=%d codec=%s lang=%s channels=%d file=%s", selectedAudio.Index, selectedAudio.Codec, selectedAudio.Language, selectedAudio.Channels, targetFile)
 
-		needsAudioTranscode := !media.IsAudioCompatible(selectedAudio.Codec) || selectedAudio.Channels > 2
-
-		if needsAudioTranscode {
-			if selectedAudio.Channels > 2 {
-				log.Printf("INFO [server] downmixing to stereo for browser compatibility channels=%d", selectedAudio.Channels)
+		if isTS {
+			// MPEG-TS: HLS.js MP4Remuxer handles drift correction per-frame
+			// Copy audio if compatible, otherwise basic re-encode (no aresample)
+			needsAudioTranscode := !media.IsAudioCompatible(selectedAudio.Codec) || selectedAudio.Channels > 2
+			sampleRate := media.GetAudioSampleRate(fullPath, selectedAudio.Index)
+			if needsAudioTranscode || sampleRate != 48000 {
+				log.Printf("INFO [server] HLS-TS: re-encoding audio to AAC 48kHz stereo file=%s", targetFile)
+				audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
 			} else {
-				log.Printf("INFO [server] audio codec not compatible, transcoding to AAC codec=%s", selectedAudio.Codec)
+				log.Printf("INFO [server] HLS-TS: copying compatible audio file=%s", targetFile)
+				audioArgs = append(audioArgs, "-c:a", "copy")
 			}
 		} else {
-			sampleRate := media.GetAudioSampleRate(fullPath, selectedAudio.Index)
-			if sampleRate != 48000 {
-				log.Printf("INFO [server] audio sample rate %d != 48000, transcoding to 48kHz file=%s", sampleRate, targetFile)
-			} else {
-				log.Printf("INFO [server] audio re-encoding for clean HLS timestamps file=%s", targetFile)
-			}
+			// fMP4: PassthroughRemuxer has no drift correction, use aresample
+			log.Printf("INFO [server] HLS-fMP4: re-encoding audio with aresample file=%s", targetFile)
+			audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-af", "aresample=osr=48000:first_pts=0")
 		}
-		// Always re-encode audio: single-pass resample to 48kHz with PTS anchored at 0
-		audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-af", "aresample=osr=48000:first_pts=0")
 	} else {
 		log.Printf("INFO [server] no audio tracks found file=%s", targetFile)
 		audioArgs = []string{"-map", "0:v:0"}
 	}
 
 	playlistPath := filepath.Join(sessionDir, "index.m3u8")
-	segmentPath := filepath.Join(sessionDir, "seg_%03d.m4s")
-	initPath := filepath.Join(sessionDir, "init.mp4")
 
 	args := []string{
 		"-loglevel", "warning",
@@ -165,11 +189,23 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		"-hls_time", "6",
 		"-hls_list_size", "0",
 		"-hls_playlist_type", "event",
-		"-hls_segment_type", "fmp4",
-		"-hls_fmp4_init_filename", "init.mp4",
-		"-hls_segment_filename", segmentPath,
-		playlistPath,
 	)
+
+	if isTS {
+		segmentPath := filepath.Join(sessionDir, "seg_%03d.ts")
+		args = append(args,
+			"-hls_segment_type", "mpegts",
+			"-hls_segment_filename", segmentPath,
+		)
+	} else {
+		segmentPath := filepath.Join(sessionDir, "seg_%03d.m4s")
+		args = append(args,
+			"-hls_segment_type", "fmp4",
+			"-hls_fmp4_init_filename", "init.mp4",
+			"-hls_segment_filename", segmentPath,
+		)
+	}
+	args = append(args, playlistPath)
 
 	cmd := exec.Command("ffmpeg", args...)
 	cmd.Stderr = os.Stderr
@@ -180,15 +216,21 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("INFO [server] started HLS stream session=%s file=%s", sessionID, targetFile)
+	log.Printf("INFO [server] started HLS stream session=%s source=%s file=%s", sessionID, source, targetFile)
 
 	s.streamMutex.Lock()
 	s.activeStreams[sessionID] = cmd
 	s.streamMutex.Unlock()
 
-	firstSegReady := media.WaitForFile(initPath, 50, 200*time.Millisecond) &&
-		media.WaitForFile(filepath.Join(sessionDir, "seg_000.m4s"), 50, 200*time.Millisecond) &&
-		media.WaitForFile(playlistPath, 50, 200*time.Millisecond)
+	var firstSegReady bool
+	if isTS {
+		firstSegReady = media.WaitForFile(filepath.Join(sessionDir, "seg_000.ts"), 50, 200*time.Millisecond) &&
+			media.WaitForFile(playlistPath, 50, 200*time.Millisecond)
+	} else {
+		firstSegReady = media.WaitForFile(filepath.Join(sessionDir, "init.mp4"), 50, 200*time.Millisecond) &&
+			media.WaitForFile(filepath.Join(sessionDir, "seg_000.m4s"), 50, 200*time.Millisecond) &&
+			media.WaitForFile(playlistPath, 50, 200*time.Millisecond)
+	}
 	if !firstSegReady {
 		log.Printf("INFO [server] HLS not ready, killing ffmpeg session=%s", sessionID)
 		s.streamMutex.Lock()
@@ -203,16 +245,18 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("INFO [server] HLS ready session=%s", sessionID)
+	log.Printf("INFO [server] HLS ready session=%s source=%s", sessionID, source)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"mode":      "hls",
-		"url":       fmt.Sprintf("/api/hls/%s/index.m3u8", sessionID),
-		"altUrl":    fmt.Sprintf("/hls/%s/index.m3u8", sessionID),
-		"sessionId": sessionID,
-		"duration":  duration,
-		"subtitles": subtitleList,
+		"mode":             "hls",
+		"source":           source,
+		"url":              fmt.Sprintf("/api/hls/%s/index.m3u8", sessionID),
+		"altUrl":           fmt.Sprintf("/hls/%s/index.m3u8", sessionID),
+		"sessionId":        sessionID,
+		"duration":         duration,
+		"subtitles":        subtitleList,
+		"availableSources": availableSources,
 	})
 }
 
@@ -261,6 +305,8 @@ func (s *Server) makeHLSHandler() http.Handler {
 			w.Header().Set("Content-Type", "video/iso.segment")
 		case strings.HasSuffix(fullPath, ".mp4"):
 			w.Header().Set("Content-Type", "video/mp4")
+		case strings.HasSuffix(fullPath, ".ts"):
+			w.Header().Set("Content-Type", "video/mp2t")
 		}
 
 		http.ServeFile(w, r, fullPath)

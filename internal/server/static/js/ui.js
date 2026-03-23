@@ -434,6 +434,24 @@ const UI = {
         });
     },
 
+    updateSourceButton(source, visible) {
+        const labels = { 'direct': 'Direct', 'hls-fmp4': 'HLS', 'hls-ts': 'HLS-TS' };
+        const label = labels[source] || '';
+
+        const ids = ['ep-source-btn-mob', 'ep-source-btn-desktop', 'pb-source-btn'];
+        ids.forEach(id => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            if (visible && label) {
+                btn.classList.remove('hidden');
+                const span = btn.querySelector('span');
+                if (span) span.textContent = label;
+            } else {
+                btn.classList.add('hidden');
+            }
+        });
+    },
+
     updateSubtitleButton(visible) {
         const epCcMob = document.getElementById('ep-cc-btn-mob');
         const epCcDesktop = document.getElementById('ep-cc-btn-desktop');
