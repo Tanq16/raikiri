@@ -89,19 +89,16 @@ func GetVideoCodec(filePath string) string {
 	return strings.TrimSpace(string(output))
 }
 
-// IsAudioCompatible returns true if the codec can be played directly in browsers.
 func IsAudioCompatible(codec string) bool {
 	compatible := []string{"aac", "mp3", "opus"}
 	return slices.Contains(compatible, codec)
 }
 
-// IsVideoCompatibleForHLS returns true if the codec can be muxed into HLS without transcoding.
 func IsVideoCompatibleForHLS(codec string) bool {
 	compatible := []string{"h264", "avc", "hevc", "h265"}
 	return slices.Contains(compatible, codec)
 }
 
-// GetContainerFormat returns the container format name (e.g. "mov,mp4,m4a,3gp,3g2,mj2").
 func GetContainerFormat(filePath string) string {
 	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=format_name", "-of", "default=noprint_wrappers=1:nokey=1", filePath)
 	output, err := cmd.Output()
@@ -111,7 +108,6 @@ func GetContainerFormat(filePath string) string {
 	return strings.TrimSpace(string(output))
 }
 
-// GetAudioSampleRate returns the sample rate in Hz for the given stream index.
 func GetAudioSampleRate(filePath string, streamIndex int) int {
 	cmd := exec.Command("ffprobe", "-v", "error",
 		"-select_streams", fmt.Sprintf("%d", streamIndex),
@@ -129,8 +125,7 @@ func GetAudioSampleRate(filePath string, streamIndex int) int {
 	return rate
 }
 
-// IsDirectServable returns true if the file can be served directly without HLS transcoding.
-// Requires: MP4/MOV container, HLS-compatible video, compatible audio codec, stereo, 48kHz.
+// Requires: MP4/MOV container, HLS-compatible video, compatible audio, stereo, 48kHz.
 func IsDirectServable(filePath string) bool {
 	format := GetContainerFormat(filePath)
 	if !strings.Contains(format, "mp4") && !strings.Contains(format, "mov") {
@@ -145,8 +140,7 @@ func IsDirectServable(filePath string) bool {
 	tracks := GetAudioTracks(filePath)
 	selected := SelectBestAudioTrack(tracks)
 	if selected == nil {
-		// No audio is fine for direct serve
-		return true
+		return true // no audio is fine
 	}
 
 	if !IsAudioCompatible(selected.Codec) {

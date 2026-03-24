@@ -9,7 +9,6 @@ import (
 
 var VideoExtensions = []string{".mp4", ".mkv", ".webm", ".mov", ".avi"}
 
-// GetFileType classifies a file/directory into a UI type string.
 func GetFileType(name string, isDir bool) string {
 	if isDir {
 		return "folder"

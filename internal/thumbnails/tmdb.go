@@ -15,7 +15,6 @@ import (
 const tmdbBaseURL = "https://api.themoviedb.org/3"
 const imageBaseURL = "https://image.tmdb.org/t/p/w500"
 
-// TmdbAPIKey is set from the TMDB_API_KEY environment variable.
 var TmdbAPIKey string
 
 type tmdbSearchResponse struct {

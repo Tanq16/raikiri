@@ -96,54 +96,57 @@ func printOverview(f Format) {
 	sizeBytes, _ := strconv.ParseFloat(f.Size, 64)
 	durationSec, _ := strconv.ParseFloat(f.Duration, 64)
 	bitrate, _ := strconv.ParseFloat(f.BitRate, 64)
-	u.PrintInfo(fmt.Sprintf("Container: %s  |  Size: %s  |  Duration: %s  |  Bitrate: %s",
-		f.FormatName, formatSize(sizeBytes), formatDuration(durationSec), formatBitrate(bitrate)))
+
+	u.PrintTable(
+		[]string{"Container", "Size", "Duration", "Bitrate"},
+		[][]string{{f.FormatName, formatSize(sizeBytes), formatDuration(durationSec), formatBitrate(bitrate)}},
+	)
 	u.PrintGeneric("")
 }
 
 func printStreams(streams []Stream) {
-	u.PrintGeneric("STREAMS:")
+	headers := []string{"#", "Type", "Codec", "Details", "Language", "Title"}
+	var rows [][]string
+
 	for _, s := range streams {
 		switch s.CodecType {
 		case "video":
 			fps := parseFrameRate(s.AvgFrameRate)
-			bitrate := ""
+			details := fmt.Sprintf("%dx%d, %s fps, %s", s.Width, s.Height, fps, s.PixFmt)
 			if s.Tags.BPS != "" {
 				br, _ := strconv.ParseFloat(s.Tags.BPS, 64)
-				bitrate = fmt.Sprintf(" | Bitrate: %s", formatBitrate(br))
+				details += fmt.Sprintf(", %s", formatBitrate(br))
 			}
-			u.PrintSuccess(fmt.Sprintf("[VIDEO #%d] %s", s.Index, strings.ToUpper(s.CodecName)))
-			u.PrintGeneric(fmt.Sprintf("   %dx%d | %s fps | %s%s", s.Width, s.Height, fps, s.PixFmt, bitrate))
+			rows = append(rows, []string{
+				fmt.Sprintf("%d", s.Index), "VIDEO", strings.ToUpper(s.CodecName), details, "", "",
+			})
 
 		case "audio":
-			lang := s.Tags.Language
+			lang := strings.ToUpper(s.Tags.Language)
 			if lang == "" {
-				lang = "und"
+				lang = "UND"
 			}
-			bitrate := ""
+			details := fmt.Sprintf("%d ch (%s), %s Hz", s.Channels, s.ChannelLayout, s.SampleRate)
 			if s.Tags.BPS != "" {
 				br, _ := strconv.ParseFloat(s.Tags.BPS, 64)
-				bitrate = fmt.Sprintf(" | %s", formatBitrate(br))
+				details += fmt.Sprintf(", %s", formatBitrate(br))
 			}
-			u.PrintSuccess(fmt.Sprintf("[AUDIO #%d] %s | %s", s.Index, strings.ToUpper(s.CodecName), strings.ToUpper(lang)))
-			u.PrintGeneric(fmt.Sprintf("   %d ch (%s) | %s Hz%s", s.Channels, s.ChannelLayout, s.SampleRate, bitrate))
-			if s.Tags.Title != "" {
-				u.PrintGeneric(fmt.Sprintf("   %s", s.Tags.Title))
-			}
+			rows = append(rows, []string{
+				fmt.Sprintf("%d", s.Index), "AUDIO", strings.ToUpper(s.CodecName), details, lang, s.Tags.Title,
+			})
 
 		case "subtitle":
-			lang := s.Tags.Language
+			lang := strings.ToUpper(s.Tags.Language)
 			if lang == "" {
-				lang = "und"
+				lang = "UND"
 			}
-			label := fmt.Sprintf("[SUB #%d] %s | %s", s.Index, strings.ToUpper(s.CodecName), strings.ToUpper(lang))
-			if s.Tags.Title != "" {
-				label += fmt.Sprintf(" | %s", s.Tags.Title)
-			}
-			u.PrintInfo(label)
+			rows = append(rows, []string{
+				fmt.Sprintf("%d", s.Index), "SUB", strings.ToUpper(s.CodecName), "", lang, s.Tags.Title,
+			})
 		}
-		u.PrintGeneric("")
 	}
+
+	u.PrintTable(headers, rows)
 }
 
 func formatSize(bytes float64) string {

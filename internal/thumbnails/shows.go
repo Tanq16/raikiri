@@ -2,19 +2,20 @@ package thumbnails
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+
+	u "github.com/tanq16/raikiri/utils"
 )
 
 func ProcessShowsAuto(rootDir string) {
 	entries, err := os.ReadDir(rootDir)
 	if err != nil {
-		log.Fatalf("ERROR [thumbnails] %v", err)
+		u.PrintFatal("error reading directory", err)
 	}
 
 	regexNameYear := regexp.MustCompile(`^(.*) \((\d{4})\)?$`)
@@ -26,7 +27,7 @@ func ProcessShowsAuto(rootDir string) {
 
 		folderName := entry.Name()
 		fullPath := filepath.Join(rootDir, folderName)
-		log.Printf("INFO [thumbnails] processing folder: %s", folderName)
+		u.PrintInfo(fmt.Sprintf("processing folder: %s", folderName))
 
 		match := regexNameYear.FindStringSubmatch(folderName)
 		var queryName, queryYear string
@@ -39,7 +40,7 @@ func ProcessShowsAuto(rootDir string) {
 
 		results, err := searchTV(queryName, queryYear)
 		if err != nil {
-			log.Printf("ERROR [thumbnails] TMDB error: %v", err)
+			u.PrintError("TMDB error", err)
 			continue
 		}
 		if len(results) == 0 {
@@ -47,17 +48,17 @@ func ProcessShowsAuto(rootDir string) {
 				results, _ = searchTV(queryName, "")
 			}
 			if len(results) == 0 {
-				log.Printf("INFO [thumbnails] no matches found")
+				u.PrintWarn("no matches found", nil)
 				continue
 			}
 		}
 
 		best := results[0]
-		log.Printf("INFO [thumbnails] match: %s (%s) [ID:%d]", best.Name, best.FirstAirDate, best.ID)
+		u.PrintInfo(fmt.Sprintf("match: %s (%s) [ID:%d]", best.Name, best.FirstAirDate, best.ID))
 
 		details, err := getTVDetails(best.ID)
 		if err != nil {
-			log.Printf("ERROR [thumbnails] failed to get details: %v", err)
+			u.PrintError("failed to get details", err)
 			continue
 		}
 
@@ -65,7 +66,7 @@ func ProcessShowsAuto(rootDir string) {
 			url := imageBaseURL + details.PosterPath
 			dest := filepath.Join(fullPath, ".thumbnail.jpg")
 			if err := downloadFile(url, dest); err == nil {
-				log.Printf("INFO [thumbnails] show poster: OK")
+				u.PrintSuccess("show poster: OK")
 			}
 		}
 
@@ -86,7 +87,7 @@ func ProcessShowsAuto(rootDir string) {
 					sUrl := imageBaseURL + ts.PosterPath
 					sDest := filepath.Join(fullPath, ls.Name(), ".thumbnail.jpg")
 					if err := downloadFile(sUrl, sDest); err == nil {
-						log.Printf("INFO [thumbnails] season %d poster: OK", sNum)
+						u.PrintSuccess(fmt.Sprintf("season %d poster: OK", sNum))
 					}
 					break
 				}
@@ -97,14 +98,14 @@ func ProcessShowsAuto(rootDir string) {
 
 func ProcessShowManual(currentDir string) {
 	dirName := filepath.Base(currentDir)
-	log.Printf("INFO [thumbnails] processing directory: %s", dirName)
+	u.PrintInfo(fmt.Sprintf("processing directory: %s", dirName))
 
 	cleanName := strings.ReplaceAll(dirName, "-", " ")
 	cleanName = strings.ReplaceAll(cleanName, ".", " ")
 
 	results, err := searchTV(cleanName, "")
 	if err != nil {
-		log.Fatalf("ERROR [thumbnails] search failed: %v", err)
+		u.PrintFatal("search failed", err)
 	}
 
 	fmt.Println("\n--- Possible Matches ---")
@@ -140,17 +141,17 @@ func ProcessShowManual(currentDir string) {
 		manualInput, _ := reader.ReadString('\n')
 		tmdbID, err = strconv.Atoi(strings.TrimSpace(manualInput))
 		if err != nil {
-			log.Printf("ERROR [thumbnails] invalid ID")
+			u.PrintError("invalid ID", nil)
 			return
 		}
 	} else {
-		log.Printf("ERROR [thumbnails] invalid selection")
+		u.PrintError("invalid selection", nil)
 		return
 	}
 
 	details, err := getTVDetails(tmdbID)
 	if err != nil {
-		log.Fatalf("ERROR [thumbnails] failed to get details: %v", err)
+		u.PrintFatal("failed to get details", err)
 	}
 
 	fmt.Printf("\nSelected: %s\n", details.Name)
@@ -160,9 +161,9 @@ func ProcessShowManual(currentDir string) {
 		if details.PosterPath != "" {
 			err := downloadFile(imageBaseURL+details.PosterPath, filepath.Join(currentDir, ".thumbnail.jpg"))
 			if err != nil {
-				log.Printf("ERROR [thumbnails] error downloading show poster: %v", err)
+				u.PrintError("error downloading show poster", err)
 			} else {
-				log.Printf("INFO [thumbnails] show poster applied")
+				u.PrintSuccess("show poster applied")
 			}
 		}
 	}
@@ -182,7 +183,7 @@ func ProcessShowManual(currentDir string) {
 	}
 	sort.Strings(localFolders)
 
-	log.Printf("INFO [thumbnails] found %d local folders, attempting to map to TMDB seasons", len(localFolders))
+	u.PrintInfo(fmt.Sprintf("found %d local folders, attempting to map to TMDB seasons", len(localFolders)))
 
 	for _, folder := range localFolders {
 		reNum := regexp.MustCompile(`(\d+)`)
@@ -197,7 +198,7 @@ func ProcessShowManual(currentDir string) {
 				dest := filepath.Join(currentDir, folder, ".thumbnail.jpg")
 				err := downloadFile(imageBaseURL+ts.PosterPath, dest)
 				if err == nil {
-					log.Printf("INFO [thumbnails] season %d (%s): done", sNum, folder)
+					u.PrintSuccess(fmt.Sprintf("season %d (%s): done", sNum, folder))
 				}
 				break
 			}

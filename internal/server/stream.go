@@ -71,14 +71,12 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	subtitleList := extractSubtitles(fullPath, sessionDir)
 	log.Printf("INFO [server] subtitles found count=%d session=%s", len(subtitleList), sessionID)
 
-	// Determine available sources
 	isServable := media.IsDirectServable(fullPath)
 	availableSources := []string{"hls-fmp4", "hls-ts"}
 	if isServable {
 		availableSources = append([]string{"direct"}, availableSources...)
 	}
 
-	// Auto-detect source if not specified
 	if source == "" {
 		if forceHLS {
 			source = "hls-fmp4"
@@ -89,7 +87,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fallback if direct requested but not available
 	if source == "direct" && !isServable {
 		source = "hls-fmp4"
 	}
@@ -240,7 +237,11 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 			delete(s.activeStreams, sessionID)
 		}
 		s.streamMutex.Unlock()
-		go os.RemoveAll(sessionDir)
+		go func() {
+			if err := os.RemoveAll(sessionDir); err != nil {
+				log.Printf("ERROR [server] failed to remove session dir=%s: %v", sessionDir, err)
+			}
+		}()
 		http.Error(w, "Stream not ready", http.StatusServiceUnavailable)
 		return
 	}
@@ -275,8 +276,12 @@ func (s *Server) HandleStreamStop(w http.ResponseWriter, r *http.Request) {
 	}
 	s.streamMutex.Unlock()
 
-	// Clean up session dir for both HLS and direct mode (subtitle files)
-	go os.RemoveAll(filepath.Join(s.config.CachePath, sessionID))
+	go func() {
+		sessionDir := filepath.Join(s.config.CachePath, sessionID)
+		if err := os.RemoveAll(sessionDir); err != nil {
+			log.Printf("ERROR [server] failed to remove session dir=%s: %v", sessionDir, err)
+		}
+	}()
 
 	w.WriteHeader(200)
 }

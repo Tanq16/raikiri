@@ -76,8 +76,6 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-// Run starts the HTTP server and the cache cleanup goroutine.
-// It blocks until ctx is cancelled, then shuts down gracefully.
 func (s *Server) Run(ctx context.Context) error {
 	if err := os.MkdirAll(s.config.CachePath, 0755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)

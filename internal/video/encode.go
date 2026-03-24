@@ -2,6 +2,7 @@ package video
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -16,7 +17,7 @@ import (
 
 type EncodeOptions struct {
 	Quality string
-	Faster  bool
+	Slower  bool
 }
 
 var qualityCRF = map[string]string{
@@ -39,7 +40,7 @@ type indexedStream struct {
 	stream Stream
 }
 
-func RunEncode(inputFile string, opts EncodeOptions) error {
+func RunEncode(ctx context.Context, inputFile string, opts EncodeOptions) error {
 	data, err := getVideoInfo(inputFile)
 	if err != nil {
 		return err
@@ -52,7 +53,7 @@ func RunEncode(inputFile string, opts EncodeOptions) error {
 
 	u.PrintGeneric(fmt.Sprintf("Command: ffmpeg %s\n", strings.Join(args, " ")))
 
-	return runEncode(outputFile, data, args)
+	return runEncode(ctx, outputFile, data, args)
 }
 
 func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) ([]string, string, error) {
@@ -70,9 +71,9 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 		crf = qualityCRF["medium"]
 	}
 
-	preset := "slow"
-	if opts.Faster {
-		preset = "medium"
+	preset := "medium"
+	if opts.Slower {
+		preset = "slow"
 	}
 
 	videoFlags := []string{"-c:v", "libx265", "-crf", crf, "-preset", preset, "-fps_mode", "cfr"}
@@ -83,6 +84,9 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 	}
 
 	fpsTarget := computeFPSTarget(videoStreams[0].stream.AvgFrameRate)
+	if fpsTarget == "" {
+		fpsTarget = computeFPSTarget(videoStreams[0].stream.RFrameRate)
+	}
 	if fpsTarget != "" {
 		videoFlags = append(videoFlags, "-r", fpsTarget)
 		u.PrintInfo(fmt.Sprintf("FPS auto-halved to %s", fpsTarget))
@@ -161,8 +165,7 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 }
 
 // Standard high frame rates and their halved targets.
-// Only these are auto-halved to avoid introducing non-standard rates.
-// Map key is "num/den" rational form, value is the halved target.
+// Map key is "num/den" rational form for exact matching.
 var standardFPSHalving = map[string]string{
 	"60/1":       "30/1",       // 60 → 30
 	"60000/1001": "30000/1001", // 59.94 → 29.97
@@ -171,10 +174,29 @@ var standardFPSHalving = map[string]string{
 	"48000/1001": "24000/1001", // 47.95 → 23.976
 }
 
+// Float-based fallback for containers that report imprecise frame rates
+// (e.g. 1293975/21566 ≈ 60.0007 instead of 60/1). Epsilon of 0.002 is
+// tight enough to never confuse adjacent standards (nearest gap is 0.06
+// between 59.94 and 60.0) while catching container metadata noise.
+var fpsFloatHalving = []struct {
+	fps    float64
+	target string
+}{
+	{60.0, "30/1"},
+	{59.94005994, "30000/1001"}, // 60000/1001
+	{50.0, "25/1"},
+	{48.0, "24/1"},
+	{47.95204796, "24000/1001"}, // 48000/1001
+}
+
+const fpsMatchEpsilon = 0.002
+
 // computeFPSTarget returns the halved frame rate for known standard high frame rates.
-// Returns empty string if the source is not a recognized standard rate above 30 fps.
-func computeFPSTarget(avgFrameRate string) string {
-	parts := strings.Split(avgFrameRate, "/")
+// Tries exact rational match first, then falls back to float comparison within
+// 0.002 fps tolerance for imprecise container metadata.
+// Returns empty string if the source is not a recognized rate above 30 fps.
+func computeFPSTarget(frameRate string) string {
+	parts := strings.Split(frameRate, "/")
 	if len(parts) != 2 {
 		return ""
 	}
@@ -190,9 +212,19 @@ func computeFPSTarget(avgFrameRate string) string {
 
 	g := gcd(num, den)
 	normalized := fmt.Sprintf("%d/%d", num/g, den/g)
-
 	if target, ok := standardFPSHalving[normalized]; ok {
 		return target
+	}
+
+	fps := float64(num) / float64(den)
+	for _, entry := range fpsFloatHalving {
+		diff := fps - entry.fps
+		if diff < 0 {
+			diff = -diff
+		}
+		if diff < fpsMatchEpsilon {
+			return entry.target
+		}
 	}
 
 	return ""
@@ -256,7 +288,7 @@ func isRejectedAudio(s Stream) bool {
 	return false
 }
 
-func runEncode(outputFile string, data *FFProbeOutput, ffmpegArgs []string) error {
+func runEncode(ctx context.Context, outputFile string, data *FFProbeOutput, ffmpegArgs []string) error {
 	totalDurationSecs := 0.0
 	if data.Format.Duration != "" {
 		totalDurationSecs, _ = strconv.ParseFloat(data.Format.Duration, 64)
@@ -279,7 +311,6 @@ func runEncode(outputFile string, data *FFProbeOutput, ffmpegArgs []string) erro
 		return fmt.Errorf("failed to start ffmpeg: %w", err)
 	}
 
-	// Display goroutine: ticks every second, overwrites progress line
 	done := make(chan struct{})
 	var currentPercent atomic.Int32
 	var printed atomic.Bool
@@ -293,6 +324,9 @@ func runEncode(outputFile string, data *FFProbeOutput, ffmpegArgs []string) erro
 			select {
 			case <-done:
 				return
+			case <-ctx.Done():
+				cmd.Process.Kill()
+				return
 			case <-ticker.C:
 				if !firstTick {
 					u.ClearPreviousLine()
@@ -304,7 +338,6 @@ func runEncode(outputFile string, data *FFProbeOutput, ffmpegArgs []string) erro
 		}
 	}()
 
-	// Parse ffmpeg progress from stdout
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
 		line := scanner.Text()

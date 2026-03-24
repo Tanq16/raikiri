@@ -2,7 +2,6 @@ package thumbnails
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/tanq16/raikiri/internal/media"
+	u "github.com/tanq16/raikiri/utils"
 )
 
 func CreateVideoThumbnail(filePath string) error {
@@ -36,7 +36,16 @@ func CreateVideoThumbnail(filePath string) error {
 	seekTimeStr := media.FormatDuration(seekTime)
 
 	cmd := exec.Command("ffmpeg", "-ss", seekTimeStr, "-i", filePath, "-vframes", "1", "-vf", "scale=400:-1", "-q:v", "3", "-y", thumbPath)
-	return cmd.Run()
+	var stderrBuf strings.Builder
+	cmd.Stderr = &stderrBuf
+	if err := cmd.Run(); err != nil {
+		stderrContent := strings.TrimSpace(stderrBuf.String())
+		if stderrContent != "" {
+			return fmt.Errorf("%s: %w", stderrContent, err)
+		}
+		return err
+	}
+	return nil
 }
 
 func ProcessVideos(rootDir string) {
@@ -55,16 +64,16 @@ func ProcessVideos(rootDir string) {
 		return nil
 	})
 	if err != nil {
-		log.Printf("ERROR [thumbnails] error walking directory: %v", err)
+		u.PrintError("error walking directory", err)
 		return
 	}
 
-	log.Printf("INFO [thumbnails] found %d video files in '%s'", len(filesToProcess), rootDir)
+	u.PrintInfo(fmt.Sprintf("found %d video files in '%s'", len(filesToProcess), rootDir))
 	for i, filePath := range filesToProcess {
-		log.Printf("INFO [thumbnails] [%d/%d] processing: %s", i+1, len(filesToProcess), filepath.Base(filePath))
+		u.PrintInfo(fmt.Sprintf("[%d/%d] processing: %s", i+1, len(filesToProcess), filepath.Base(filePath)))
 		err := CreateVideoThumbnail(filePath)
 		if err != nil {
-			log.Printf("ERROR [thumbnails] %v", err)
+			u.PrintError("thumbnail creation failed", err)
 		}
 	}
 }
@@ -74,7 +83,7 @@ func ProcessVideo(currentDir string) {
 
 	entries, err := os.ReadDir(currentDir)
 	if err != nil {
-		log.Printf("ERROR [thumbnails] error reading directory: %v", err)
+		u.PrintError("error reading directory", err)
 		return
 	}
 
@@ -89,12 +98,12 @@ func ProcessVideo(currentDir string) {
 		}
 	}
 
-	log.Printf("INFO [thumbnails] found %d video files in '%s'", len(filesToProcess), currentDir)
+	u.PrintInfo(fmt.Sprintf("found %d video files in '%s'", len(filesToProcess), currentDir))
 	for i, filePath := range filesToProcess {
-		log.Printf("INFO [thumbnails] [%d/%d] processing: %s", i+1, len(filesToProcess), filepath.Base(filePath))
+		u.PrintInfo(fmt.Sprintf("[%d/%d] processing: %s", i+1, len(filesToProcess), filepath.Base(filePath)))
 		err := CreateVideoThumbnail(filePath)
 		if err != nil {
-			log.Printf("ERROR [thumbnails] %v", err)
+			u.PrintError("thumbnail creation failed", err)
 		}
 	}
 }

@@ -11,8 +11,6 @@ import (
 	"strings"
 )
 
-// FindExternalSubtitles looks for .srt files in the same directory,
-// plus "subs/" and "Subs/" subdirectories.
 func FindExternalSubtitles(videoPath string) []string {
 	var subtitles []string
 	dir := filepath.Dir(videoPath)

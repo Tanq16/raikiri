@@ -58,6 +58,7 @@ verify-assets: ## Verify required assets exist
 	@test -f $(JS_DIR)/tailwindcss.js || (echo "$(YELLOW)tailwindcss.js missing. Run 'make assets'$(NC)" && exit 1)
 	@test -f $(JS_DIR)/lucide.min.js || (echo "$(YELLOW)lucide.min.js missing. Run 'make assets'$(NC)" && exit 1)
 	@test -f $(JS_DIR)/hls.min.js || (echo "$(YELLOW)hls.min.js missing. Run 'make assets'$(NC)" && exit 1)
+	@test -f $(CSS_DIR)/inter.css || (echo "$(YELLOW)inter.css missing. Run 'make assets'$(NC)" && exit 1)
 	@echo "$(GREEN)Assets verified$(NC)"
 
 clean: ## Remove built artifacts and downloaded assets

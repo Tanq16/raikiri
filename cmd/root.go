@@ -14,7 +14,6 @@ import (
 	"github.com/tanq16/raikiri/utils"
 )
 
-// AppVersion is set at build time via ldflags.
 var AppVersion = "dev-build"
 
 var debugFlag bool
@@ -28,10 +27,7 @@ var rootCmd = &cobra.Command{
 }
 
 func setupLogs() {
-	// Standard log for serve command (web server logging)
 	log.SetFlags(log.Ldate | log.Ltime)
-
-	// Zerolog for CLI commands via utils
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	output := zerolog.ConsoleWriter{
 		Out:        os.Stdout,
@@ -53,7 +49,6 @@ func setupLogs() {
 func init() {
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
-	// Global flags (mutually exclusive)
 	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().BoolVar(&forAIFlag, "for-ai", false, "AI-friendly output (plain text, piped input)")
 	rootCmd.MarkFlagsMutuallyExclusive("debug", "for-ai")
