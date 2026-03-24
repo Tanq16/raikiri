@@ -98,8 +98,6 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 		details = append(details, fmt.Sprintf("FPS auto-halved to %s", fpsTarget))
 	}
 
-	videoFlags = append(videoFlags, "-tag:v", "hvc1")
-
 	details = append(details, fmt.Sprintf("Video: libx265 CRF %s (%s quality, preset %s, CFR)", crf, opts.Quality, preset))
 
 	var audioFlags []string
@@ -109,7 +107,7 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 		selectedIdx := selectAudioStream(audioStreams)
 		args = append(args, "-map", fmt.Sprintf("0:a:%d", selectedIdx))
 
-		audioFlags = append(audioFlags, "-c:a", "aac", "-ac", "2", "-ar", "48000", "-b:a", "192k")
+		audioFlags = append(audioFlags, "-c:a", "aac", "-ac", "2", "-ar", "48000")
 
 		selected := audioStreams[selectedIdx]
 		lang := selected.stream.Tags.Language
@@ -117,9 +115,9 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 			lang = "und"
 		}
 		if selected.stream.Tags.Title != "" {
-			details = append(details, fmt.Sprintf("Audio: stream #%d (%s — %s) → AAC stereo 48kHz 192k", selected.stream.Index, lang, selected.stream.Tags.Title))
+			details = append(details, fmt.Sprintf("Audio: stream #%d (%s — %s) → AAC stereo 48kHz", selected.stream.Index, lang, selected.stream.Tags.Title))
 		} else {
-			details = append(details, fmt.Sprintf("Audio: stream #%d (%s) → AAC stereo 48kHz 192k", selected.stream.Index, lang))
+			details = append(details, fmt.Sprintf("Audio: stream #%d (%s) → AAC stereo 48kHz", selected.stream.Index, lang))
 		}
 	} else {
 		details = append(details, "Audio: none")
