@@ -9,7 +9,7 @@
 
 A fast, simple, self-hosted, no-nonsense media server. Lightweight alternative to Jellyfin/Plex without complex metadata tagging.
 
-The aim is to provide an elegant directory listing for images, videos, and audio. It uses folder navigation and predictable thumbail paths for cover art, thumbnails, etc. Other files are also available to browse and can be directly downloaded.
+The aim is to provide an elegant directory listing for images, videos, and audio. It uses folder navigation and predictable thumbnail paths for cover art, thumbnails, etc. Other files are also available to browse and can be directly downloaded.
 
 ## Features
 
@@ -100,7 +100,7 @@ Storing cache in your SSD will yield faster performance (or instant seeks anywhe
 
 ### Local Development
 
-Install with Go 1.24+:
+Install with Go 1.25+:
 
 ```bash
 go install github.com/tanq16/raikiri@latest
@@ -152,6 +152,27 @@ raikiri prepare movies --manual
 
 > [!TIP]
 > In Music mode, album art is considered as the directory thumbnail (`.thumbnail.jpg`), artist cover is considered from artist directory thumbnail. Tracks use list view (no thumbnails).
+
+#### Video Tools
+
+The `video-info` and `video-encode` commands are standalone CLI tools for inspecting and re-encoding video files.
+
+```bash
+raikiri video-info path/to/video.mkv
+raikiri video-encode path/to/video.mkv
+raikiri video-encode --quality high path/to/video.mkv
+raikiri video-encode --slower path/to/video.mkv
+```
+
+`video-info` displays a table with container info, video/audio/subtitle streams, codecs, resolution, frame rate, bitrate, and languages.
+
+`video-encode` smart-encodes to H.265 with automatic stream selection:
+- Selects the best audio stream (rejects commentary/descriptive tracks)
+- Keeps all subtitle streams, picks MP4 or MKV container based on subtitle type
+- Auto-halves high frame rates to their standard lower counterpart (60→30, 59.94→29.97, 50→25, 48→24)
+- Quality tiers via `--quality`: `very-high`, `high`, `medium` (default), `low`
+- Default preset is `medium`; use `--slower` for preset `slow` (better compression, longer encode)
+- Output file is auto-named as `<basename>.h265.<mp4|mkv>`
 
 #### Player and Playlists
 
