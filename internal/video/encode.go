@@ -340,7 +340,7 @@ func runEncode(ctx context.Context, result *encodeResult, data *FFProbeOutput) e
 
 	// Print video information phase
 	lineCount := 0
-	u.PrintInfo("Video Information")
+	u.PrintRunning("Video Information")
 	lineCount++
 	for _, detail := range result.details {
 		u.PrintIndentedSuccess(detail)
@@ -349,7 +349,7 @@ func runEncode(ctx context.Context, result *encodeResult, data *FFProbeOutput) e
 
 	// Print command phase
 	cmdLines, _ := formatCommand(result.args)
-	u.PrintInfo("Command")
+	u.PrintRunning("Command")
 	lineCount++
 	for _, line := range cmdLines {
 		u.PrintGeneric(line)

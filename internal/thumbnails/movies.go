@@ -99,20 +99,29 @@ func ProcessMovieManual(currentDir string) {
 	manualOptionNum := maxDisplay + 1
 	u.PrintGeneric(fmt.Sprintf("  %d. Enter TMDB ID Manually", manualOptionNum))
 
-	input := u.PromptInput("\nSelect option (or 'q' to quit)", "")
+	u.PrintGeneric("")
+	input, err := u.PromptInput("Select option (or 'q' to quit)", "")
+	if err != nil {
+		u.PrintError("input error", err)
+		return
+	}
 
 	if input == "q" {
 		return
 	}
 
 	var tmdbID int
-	choice, err := strconv.Atoi(input)
-	if err == nil && choice > 0 && choice <= maxDisplay {
+	choice, atoiErr := strconv.Atoi(input)
+	if atoiErr == nil && choice > 0 && choice <= maxDisplay {
 		tmdbID = results[choice-1].ID
-	} else if err == nil && choice == manualOptionNum {
-		manualInput := u.PromptInput("Enter TMDB ID", "")
-		tmdbID, err = strconv.Atoi(manualInput)
+	} else if atoiErr == nil && choice == manualOptionNum {
+		manualInput, err := u.PromptInput("Enter TMDB ID", "")
 		if err != nil {
+			u.PrintError("input error", err)
+			return
+		}
+		tmdbID, atoiErr = strconv.Atoi(manualInput)
+		if atoiErr != nil {
 			u.PrintError("invalid ID", nil)
 			return
 		}
@@ -127,7 +136,11 @@ func ProcessMovieManual(currentDir string) {
 	}
 
 	u.PrintInfo(fmt.Sprintf("selected: %s", details.Title))
-	ans := u.PromptInput("Apply Movie Poster?", "Y/n")
+	ans, err := u.PromptInput("Apply Movie Poster?", "Y/n")
+	if err != nil {
+		u.PrintError("input error", err)
+		return
+	}
 	if strings.ToLower(ans) != "n" {
 		if details.PosterPath != "" {
 			err := downloadFile(imageBaseURL+details.PosterPath, filepath.Join(currentDir, ".thumbnail.jpg"))

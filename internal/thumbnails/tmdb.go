@@ -60,7 +60,10 @@ type tmdbMovieDetails struct {
 }
 
 func askToOverwrite(path string) bool {
-	input := u.PromptInput(fmt.Sprintf("Thumbnail exists: %s. Overwrite?", filepath.Base(path)), "y/N")
+	input, err := u.PromptInput(fmt.Sprintf("Thumbnail exists: %s. Overwrite?", filepath.Base(path)), "y/N")
+	if err != nil {
+		return false
+	}
 	input = strings.ToLower(input)
 	return input == "y" || input == "yes"
 }
