@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
 )
 
 var (
@@ -27,49 +28,19 @@ func PrintTable(headers []string, rows [][]string) {
 		return
 	}
 
-	if len(headers) == 0 {
-		return
-	}
-
-	widths := make([]int, len(headers))
-	for i, h := range headers {
-		widths[i] = len(h)
-	}
-	for _, row := range rows {
-		for i, cell := range row {
-			if i < len(widths) && len(cell) > widths[i] {
-				widths[i] = len(cell)
+	t := table.New().
+		Border(lipgloss.NormalBorder()).
+		BorderStyle(borderStyle).
+		Headers(headers...).
+		Rows(rows...).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return headerStyle
 			}
-		}
-	}
+			return cellStyle
+		})
 
-	sepParts := make([]string, len(widths))
-	for i, w := range widths {
-		sepParts[i] = strings.Repeat("─", w+2)
-	}
-	sep := "├" + strings.Join(sepParts, "┼") + "┤"
-	top := "┌" + strings.Join(sepParts, "┬") + "┐"
-	bottom := "└" + strings.Join(sepParts, "┴") + "┘"
-
-	formatRow := func(cells []string, style lipgloss.Style) string {
-		parts := make([]string, len(widths))
-		for i, w := range widths {
-			cell := ""
-			if i < len(cells) {
-				cell = cells[i]
-			}
-			parts[i] = style.Render(fmt.Sprintf(" %-*s ", w, cell))
-		}
-		return borderStyle.Render("│") + strings.Join(parts, borderStyle.Render("│")) + borderStyle.Render("│")
-	}
-
-	fmt.Println(borderStyle.Render(top))
-	fmt.Println(formatRow(headers, headerStyle))
-	fmt.Println(borderStyle.Render(sep))
-	for _, row := range rows {
-		fmt.Println(formatRow(row, cellStyle))
-	}
-	fmt.Println(borderStyle.Render(bottom))
+	PrintGeneric(t.Render())
 }
 
 func printMarkdownTable(headers []string, rows [][]string) {

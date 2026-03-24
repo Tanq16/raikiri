@@ -83,7 +83,8 @@ func ProcessMovieManual(currentDir string) {
 		u.PrintFatal("search failed", err)
 	}
 
-	fmt.Println("\n--- Possible Matches ---")
+	u.PrintGeneric("")
+	u.PrintInfo("Possible Matches")
 	maxDisplay := min(5, len(results))
 	for i, r := range results {
 		if i >= maxDisplay {
@@ -93,15 +94,12 @@ func ProcessMovieManual(currentDir string) {
 		if len(r.ReleaseDate) >= 4 {
 			date = r.ReleaseDate[:4]
 		}
-		fmt.Printf("%d. %s (%s) - ID: %d\n", i+1, r.Title, date, r.ID)
+		u.PrintGeneric(fmt.Sprintf("  %d. %s (%s) - ID: %d", i+1, r.Title, date, r.ID))
 	}
 	manualOptionNum := maxDisplay + 1
-	fmt.Printf("%d. Enter TMDB ID Manually\n", manualOptionNum)
+	u.PrintGeneric(fmt.Sprintf("  %d. Enter TMDB ID Manually", manualOptionNum))
 
-	reader := getReader()
-	fmt.Print("\nSelect option (or 'q' to quit): ")
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
+	input := u.PromptInput("\nSelect option (or 'q' to quit)", "")
 
 	if input == "q" {
 		return
@@ -112,9 +110,8 @@ func ProcessMovieManual(currentDir string) {
 	if err == nil && choice > 0 && choice <= maxDisplay {
 		tmdbID = results[choice-1].ID
 	} else if err == nil && choice == manualOptionNum {
-		fmt.Print("Enter TMDB ID: ")
-		manualInput, _ := reader.ReadString('\n')
-		tmdbID, err = strconv.Atoi(strings.TrimSpace(manualInput))
+		manualInput := u.PromptInput("Enter TMDB ID", "")
+		tmdbID, err = strconv.Atoi(manualInput)
 		if err != nil {
 			u.PrintError("invalid ID", nil)
 			return
@@ -129,10 +126,9 @@ func ProcessMovieManual(currentDir string) {
 		u.PrintFatal("failed to get details", err)
 	}
 
-	fmt.Printf("\nSelected: %s\n", details.Title)
-	fmt.Print("Apply Movie Poster? [Y/n]: ")
-	ans, _ := reader.ReadString('\n')
-	if strings.TrimSpace(strings.ToLower(ans)) != "n" {
+	u.PrintInfo(fmt.Sprintf("selected: %s", details.Title))
+	ans := u.PromptInput("Apply Movie Poster?", "Y/n")
+	if strings.ToLower(ans) != "n" {
 		if details.PosterPath != "" {
 			err := downloadFile(imageBaseURL+details.PosterPath, filepath.Join(currentDir, ".thumbnail.jpg"))
 			if err != nil {

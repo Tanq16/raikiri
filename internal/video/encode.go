@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -40,28 +41,33 @@ type indexedStream struct {
 	stream Stream
 }
 
+type encodeResult struct {
+	args       []string
+	outputFile string
+	details    []string // indented detail lines for video info
+}
+
 func RunEncode(ctx context.Context, inputFile string, opts EncodeOptions) error {
 	data, err := getVideoInfo(inputFile)
 	if err != nil {
 		return err
 	}
 
-	args, outputFile, err := buildFFmpegArgs(inputFile, data, opts)
+	result, err := buildFFmpegArgs(inputFile, data, opts)
 	if err != nil {
 		return err
 	}
 
-	u.PrintGeneric(fmt.Sprintf("Command: ffmpeg %s\n", strings.Join(args, " ")))
-
-	return runEncode(ctx, outputFile, data, args)
+	return runEncode(ctx, result, data)
 }
 
-func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) ([]string, string, error) {
+func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) (*encodeResult, error) {
 	args := []string{"-i", inputFile}
+	var details []string
 
 	videoStreams := filterStreams(data.Streams, "video")
 	if len(videoStreams) == 0 {
-		return nil, "", fmt.Errorf("no video streams found in input")
+		return nil, fmt.Errorf("no video streams found in input")
 	}
 
 	args = append(args, "-map", "0:v:0")
@@ -80,7 +86,7 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 
 	if videoStreams[0].stream.PixFmt == "yuv420p10le" {
 		videoFlags = append(videoFlags, "-pix_fmt", "yuv420p10le")
-		u.PrintInfo("10-bit source detected, retaining pixel format")
+		details = append(details, "10-bit source detected, retaining pixel format")
 	}
 
 	fpsTarget := computeFPSTarget(videoStreams[0].stream.AvgFrameRate)
@@ -89,12 +95,12 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 	}
 	if fpsTarget != "" {
 		videoFlags = append(videoFlags, "-r", fpsTarget)
-		u.PrintInfo(fmt.Sprintf("FPS auto-halved to %s", fpsTarget))
+		details = append(details, fmt.Sprintf("FPS auto-halved to %s", fpsTarget))
 	}
 
 	videoFlags = append(videoFlags, "-tag:v", "hvc1")
 
-	u.PrintInfo(fmt.Sprintf("Video: libx265 CRF %s (%s quality, preset %s, CFR)", crf, opts.Quality, preset))
+	details = append(details, fmt.Sprintf("Video: libx265 CRF %s (%s quality, preset %s, CFR)", crf, opts.Quality, preset))
 
 	var audioFlags []string
 	audioStreams := filterStreams(data.Streams, "audio")
@@ -111,12 +117,12 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 			lang = "und"
 		}
 		if selected.stream.Tags.Title != "" {
-			u.PrintInfo(fmt.Sprintf("Audio: stream #%d (%s — %s) → AAC stereo 48kHz 192k", selected.stream.Index, lang, selected.stream.Tags.Title))
+			details = append(details, fmt.Sprintf("Audio: stream #%d (%s — %s) → AAC stereo 48kHz 192k", selected.stream.Index, lang, selected.stream.Tags.Title))
 		} else {
-			u.PrintInfo(fmt.Sprintf("Audio: stream #%d (%s) → AAC stereo 48kHz 192k", selected.stream.Index, lang))
+			details = append(details, fmt.Sprintf("Audio: stream #%d (%s) → AAC stereo 48kHz 192k", selected.stream.Index, lang))
 		}
 	} else {
-		u.PrintInfo("Audio: none")
+		details = append(details, "Audio: none")
 	}
 
 	var subtitleFlags []string
@@ -139,13 +145,13 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 		if hasBitmap {
 			outputExt = ".mkv"
 			subtitleFlags = append(subtitleFlags, "-c:s", "copy")
-			u.PrintInfo(fmt.Sprintf("Subtitles: %d stream(s) (bitmap detected → MKV, copy)", len(subStreams)))
+			details = append(details, fmt.Sprintf("Subtitles: %d stream(s) (bitmap detected → MKV, copy)", len(subStreams)))
 		} else {
 			subtitleFlags = append(subtitleFlags, "-c:s", "mov_text")
-			u.PrintInfo(fmt.Sprintf("Subtitles: %d stream(s) (text → MP4, mov_text)", len(subStreams)))
+			details = append(details, fmt.Sprintf("Subtitles: %d stream(s) (text → MP4, mov_text)", len(subStreams)))
 		}
 	} else {
-		u.PrintInfo("Subtitles: none")
+		details = append(details, "Subtitles: none")
 	}
 
 	dir := filepath.Dir(inputFile)
@@ -159,9 +165,47 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 	args = append(args, "-movflags", "+faststart")
 	args = append(args, outputFile)
 
-	u.PrintInfo(fmt.Sprintf("Output: %s", outputFile))
+	details = append(details, fmt.Sprintf("Output: %s", outputFile))
 
-	return args, outputFile, nil
+	return &encodeResult{args: args, outputFile: outputFile, details: details}, nil
+}
+
+// formatCommand splits the ffmpeg arg list into logical multi-line groups.
+// Returns the formatted lines (each ending with \) and the line count.
+func formatCommand(args []string) ([]string, int) {
+	var lines []string
+	var current []string
+
+	// Group args: start a new line at each -map, -c:v, -c:a, -c:s, -avoid_negative_ts, -f,
+	// or when current line gets the output file (last arg with no dash prefix)
+	breakBefore := map[string]bool{
+		"-map": true, "-c:v": true, "-c:a": true, "-c:s": true,
+		"-avoid_negative_ts": true, "-hls_time": true, "-f": true,
+	}
+
+	// First line always starts with "ffmpeg"
+	current = append(current, "ffmpeg")
+
+	for i, arg := range args {
+		isLast := i == len(args)-1
+
+		if breakBefore[arg] && len(current) > 1 {
+			lines = append(lines, "  "+strings.Join(current, " ")+" \\")
+			current = nil
+		}
+
+		current = append(current, arg)
+
+		if isLast {
+			lines = append(lines, "  "+strings.Join(current, " "))
+		}
+	}
+
+	if len(lines) == 0 && len(current) > 0 {
+		lines = append(lines, "  "+strings.Join(current, " "))
+	}
+
+	return lines, len(lines)
 }
 
 // Standard high frame rates and their halved targets.
@@ -288,14 +332,32 @@ func isRejectedAudio(s Stream) bool {
 	return false
 }
 
-func runEncode(ctx context.Context, outputFile string, data *FFProbeOutput, ffmpegArgs []string) error {
+func runEncode(ctx context.Context, result *encodeResult, data *FFProbeOutput) error {
 	totalDurationSecs := 0.0
 	if data.Format.Duration != "" {
 		totalDurationSecs, _ = strconv.ParseFloat(data.Format.Duration, 64)
 	}
 
-	ffmpegArgs = append(ffmpegArgs, "-progress", "pipe:1", "-nostats", "-loglevel", "error", "-y")
+	// Print video information phase
+	lineCount := 0
+	u.PrintInfo("Video Information")
+	lineCount++
+	for _, detail := range result.details {
+		u.PrintIndentedSuccess(detail)
+		lineCount++
+	}
 
+	// Print command phase
+	cmdLines, _ := formatCommand(result.args)
+	u.PrintInfo("Command")
+	lineCount++
+	for _, line := range cmdLines {
+		u.PrintGeneric(line)
+		lineCount++
+	}
+
+	// Run ffmpeg
+	ffmpegArgs := append(result.args, "-progress", "pipe:1", "-nostats", "-loglevel", "error", "-y")
 	cmd := exec.Command("ffmpeg", ffmpegArgs...)
 
 	stdout, err := cmd.StdoutPipe()
@@ -314,7 +376,10 @@ func runEncode(ctx context.Context, outputFile string, data *FFProbeOutput, ffmp
 	done := make(chan struct{})
 	var currentPercent atomic.Int32
 	var printed atomic.Bool
-	outputName := filepath.Base(outputFile)
+	outputName := filepath.Base(result.outputFile)
+
+	// +1 for the progress line itself when clearing
+	totalClearLines := lineCount + 1
 
 	go func() {
 		ticker := time.NewTicker(1 * time.Second)
@@ -356,8 +421,13 @@ func runEncode(ctx context.Context, outputFile string, data *FFProbeOutput, ffmp
 
 	cmdErr := cmd.Wait()
 	close(done)
+
+	// Clear all output: video info + command + progress line
 	if printed.Load() {
-		u.ClearPreviousLine()
+		u.ClearLines(totalClearLines)
+	} else {
+		// Progress never printed, just clear video info + command (no progress line)
+		u.ClearLines(lineCount)
 	}
 
 	stderrContent := strings.TrimSpace(stderrBuf.String())
@@ -368,6 +438,17 @@ func runEncode(ctx context.Context, outputFile string, data *FFProbeOutput, ffmp
 		return fmt.Errorf("ffmpeg encoding failed: %w", cmdErr)
 	}
 
-	u.PrintSuccess(fmt.Sprintf("%s: encoded in %s", outputName, time.Since(startTime).Truncate(time.Second)))
+	fileInfo, _ := os.Stat(result.outputFile)
+	sizeStr := ""
+	if fileInfo != nil {
+		sizeMB := float64(fileInfo.Size()) / 1024 / 1024
+		if sizeMB >= 1024 {
+			sizeStr = fmt.Sprintf(" (%.2f GB)", sizeMB/1024)
+		} else {
+			sizeStr = fmt.Sprintf(" (%.1f MB)", sizeMB)
+		}
+	}
+
+	u.PrintSuccess(fmt.Sprintf("%s: encoded in %s%s", outputName, time.Since(startTime).Truncate(time.Second), sizeStr))
 	return nil
 }

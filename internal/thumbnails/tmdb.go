@@ -1,7 +1,6 @@
 package thumbnails
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	u "github.com/tanq16/raikiri/utils"
 )
 
 const tmdbBaseURL = "https://api.themoviedb.org/3"
@@ -58,15 +59,9 @@ type tmdbMovieDetails struct {
 	PosterPath string `json:"poster_path"`
 }
 
-func getReader() *bufio.Reader {
-	return bufio.NewReader(os.Stdin)
-}
-
 func askToOverwrite(path string) bool {
-	fmt.Printf("Thumbnail already exists at: %s\nOverwrite? [y/N]: ", filepath.Base(path))
-	reader := getReader()
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(strings.ToLower(input))
+	input := u.PromptInput(fmt.Sprintf("Thumbnail exists: %s. Overwrite?", filepath.Base(path)), "y/N")
+	input = strings.ToLower(input)
 	return input == "y" || input == "yes"
 }
 
@@ -77,7 +72,7 @@ func downloadFile(url string, destPath string) error {
 
 	if _, err := os.Stat(destPath); err == nil {
 		if !askToOverwrite(destPath) {
-			fmt.Println("Skipped.")
+			u.PrintInfo("skipped")
 			return nil
 		}
 	}
