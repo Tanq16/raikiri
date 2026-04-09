@@ -159,10 +159,8 @@ const Player = {
         if (!item) return;
 
         this._advancing = false;
-        this.audioEl.pause();
-        this.videoEl.pause();
+        this.pause();
         clearTimeout(this.imageTimer);
-        this.isPlaying = false;
         this.cleanupHLS();
         this.videoEl.classList.add('hidden');
         this.videoEl.pause();
@@ -186,8 +184,12 @@ const Player = {
         if (item.type === 'audio') {
             const src = API.getContentUrl(item.path, state.mode);
             this.audioEl.src = src;
-            try { await this.audioEl.play(); } catch (e) { /* autoplay blocked */ }
-            this.isPlaying = !this.audioEl.paused;
+            this.audioEl.play().catch(() => {
+                this.isPlaying = false;
+                UI.updatePlayButton(false);
+                this.updatePlaybackState('paused');
+            });
+            this.isPlaying = true;
             loaded = true;
             document.getElementById('ep-audio-art').classList.remove('hidden');
         } else if (item.type === 'video') {
