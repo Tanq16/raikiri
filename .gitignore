@@ -9,3 +9,10 @@ internal/server/static/js/lucide.min.js
 internal/server/static/js/hls.min.js
 internal/server/static/css/
 internal/server/static/fonts/
+
+# Android build artifacts
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/app/keystore.p12

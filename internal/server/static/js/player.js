@@ -372,14 +372,17 @@ const Player = {
 
     updateMediaSession(item, thumb) {
         if ('mediaSession' in navigator) {
+            const artist = state.mode === 'music' ? 'Raikiri Music' : 'Media';
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: item.name,
-                artist: state.mode === 'music' ? 'Raikiri Music' : 'Media',
+                artist: artist,
                 album: state.path,
                 artwork: thumb ? [{ src: thumb, sizes: '512x512', type: 'image/jpeg' }] : []
             });
-            // Update position state after metadata is set
             this.updateMediaSessionPosition();
+            if (window.Android && window.Android.updateMetadata) {
+                window.Android.updateMetadata(item.name, artist, state.path, thumb || '');
+            }
         }
     },
 
@@ -424,6 +427,9 @@ const Player = {
             navigator.mediaSession.playbackState = nextState;
         } catch (e) {
             // Ignore if not supported
+        }
+        if (window.Android && window.Android.updatePlaybackState) {
+            window.Android.updatePlaybackState(nextState === 'playing');
         }
     },
 
