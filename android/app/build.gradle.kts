@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace = "dev.tanq16.raikiri"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "dev.tanq16.raikiri"
