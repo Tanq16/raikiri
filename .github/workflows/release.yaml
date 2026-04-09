@@ -164,6 +164,8 @@ jobs:
     if: always() && (needs.docker.result == 'failure' || needs.binaries.result == 'failure' || needs.android.result == 'failure' || needs.publish.result == 'failure') && needs.create-release.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Delete Draft Release
         run: |
           echo "Cleaning up draft release due to workflow failure"
