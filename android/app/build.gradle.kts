@@ -47,6 +47,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.media:media:1.7.1")
 }

@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import androidx.activity.OnBackPressedCallback
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
@@ -20,7 +21,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 
-class MainActivity : android.app.Activity() {
+class MainActivity : androidx.activity.ComponentActivity() {
     private lateinit var webView: WebView
     private lateinit var setupContainer: LinearLayout
     private var mediaService: MediaService? = null
@@ -62,6 +63,13 @@ class MainActivity : android.app.Activity() {
 
         webView = findViewById(R.id.webview)
         setupContainer = findViewById(R.id.setup_container)
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) webView.goBack()
+                else finish()
+            }
+        })
 
         setupWebView()
 
@@ -142,11 +150,6 @@ class MainActivity : android.app.Activity() {
                 .remove("server_url").apply()
             runOnUiThread { showSetup() }
         }
-    }
-
-    override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack()
-        else super.onBackPressed()
     }
 
     override fun onDestroy() {

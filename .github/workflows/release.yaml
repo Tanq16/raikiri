@@ -18,7 +18,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       release_created: ${{ steps.create_release.outputs.release_created }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -48,22 +48,22 @@ jobs:
     needs: create-release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: tanq16
           password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -83,10 +83,10 @@ jobs:
         os: [linux, darwin]
         arch: [amd64, arm64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.25'
 
@@ -111,16 +111,16 @@ jobs:
     needs: create-release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '9.4.1'
 
@@ -149,7 +149,7 @@ jobs:
     needs: [create-release, docker, binaries, android]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Publish Release
         run: gh release edit "${{ needs.create-release.outputs.version }}" --draft=false
@@ -161,14 +161,12 @@ jobs:
   # ===========================================================================
   cleanup-on-failure:
     needs: [create-release, docker, binaries, android, publish]
-    if: always() && (needs.docker.result == 'failure' || needs.binaries.result == 'failure' || needs.android.result == 'failure' || needs.publish.result == 'failure') && needs.create-release.outputs.release_created == 'true'
+    if: always() && needs.create-release.outputs.release_created == 'true' && (needs.docker.result != 'success' || needs.binaries.result != 'success' || needs.android.result != 'success' || needs.publish.result != 'success')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - name: Delete Draft Release
         run: |
           echo "Cleaning up draft release due to workflow failure"
-          gh release delete "${{ needs.create-release.outputs.version }}" --yes
+          gh release delete "${{ needs.create-release.outputs.version }}" --repo "$GITHUB_REPOSITORY" --yes
         env:
           GH_TOKEN: ${{ github.token }}
