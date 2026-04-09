@@ -159,8 +159,10 @@ const Player = {
         if (!item) return;
 
         this._advancing = false;
-        this.pause();
+        this.audioEl.pause();
+        this.videoEl.pause();
         clearTimeout(this.imageTimer);
+        this.isPlaying = false;
         this.cleanupHLS();
         this.videoEl.classList.add('hidden');
         this.videoEl.pause();
@@ -263,6 +265,7 @@ const Player = {
             UI.showPlayerBar();
             UI.expandPlayer();
             UI.updatePlayButton(this.isPlaying);
+            if (this.isPlaying) this.updatePlaybackState('playing');
         }
     },
 

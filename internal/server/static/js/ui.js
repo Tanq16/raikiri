@@ -438,8 +438,8 @@ const UI = {
         const labels = { 'direct': 'Direct', 'hls-fmp4': 'HLS', 'hls-ts': 'HLS-TS' };
         const label = labels[source] || '';
 
-        const ids = ['ep-source-btn-mob', 'ep-source-btn-desktop', 'pb-source-btn'];
-        ids.forEach(id => {
+        const desktopBtn = document.getElementById('ep-source-btn-desktop');
+        ['ep-source-btn-mob', 'ep-source-btn-desktop', 'pb-source-btn'].forEach(id => {
             const btn = document.getElementById(id);
             if (!btn) return;
             if (visible && label) {
@@ -450,20 +450,24 @@ const UI = {
                 btn.classList.add('hidden');
             }
         });
+        if (desktopBtn) {
+            if (visible && label) desktopBtn.classList.add('max-md:hidden', 'md:flex');
+            else desktopBtn.classList.remove('max-md:hidden', 'md:flex');
+        }
     },
 
     updateSubtitleButton(visible) {
         const epCcMob = document.getElementById('ep-cc-btn-mob');
         const epCcDesktop = document.getElementById('ep-cc-btn-desktop');
         const pbCc = document.getElementById('pb-cc-btn');
-        
+
         if (visible) {
             if (epCcMob) epCcMob.classList.remove('hidden');
-            if (epCcDesktop) epCcDesktop.classList.remove('hidden');
+            if (epCcDesktop) { epCcDesktop.classList.remove('hidden'); epCcDesktop.classList.add('max-md:hidden', 'md:flex'); }
             if (pbCc) pbCc.classList.remove('hidden');
         } else {
             if (epCcMob) epCcMob.classList.add('hidden');
-            if (epCcDesktop) epCcDesktop.classList.add('hidden');
+            if (epCcDesktop) { epCcDesktop.classList.add('hidden'); epCcDesktop.classList.remove('max-md:hidden', 'md:flex'); }
             if (pbCc) pbCc.classList.add('hidden');
         }
     },
