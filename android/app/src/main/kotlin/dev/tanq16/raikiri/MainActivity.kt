@@ -11,7 +11,9 @@ import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.webkit.WebViewClient
+
+import android.webkit.WebView
+Client
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout

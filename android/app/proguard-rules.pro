@@ -6,3 +6,4 @@
 
 -keep class dev.tanq16.raikiri.PlaybackService { *; }
 -keep class dev.tanq16.raikiri.WebViewPlayer { *; }
+-keep class dev.tanq16.raikiri.MediaWebView { *; }
