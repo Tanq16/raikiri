@@ -56,7 +56,6 @@ class PlaybackService : MediaSessionService() {
 
         val player = WebViewPlayer(this)
         mediaSession = MediaSession.Builder(this, player).build()
-        addSession(mediaSession!!)
 
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider.Builder(this)

@@ -2,6 +2,7 @@ package dev.tanq16.raikiri
 
 import android.Manifest
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -24,6 +25,10 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.updatePadding
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
 
 class MainActivity : androidx.activity.ComponentActivity() {
     private lateinit var webView: WebView
@@ -32,6 +37,7 @@ class MainActivity : androidx.activity.ComponentActivity() {
     private lateinit var rootView: View
     private var fullscreenView: View? = null
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
+    private var controllerFuture: ListenableFuture<MediaController>? = null
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) {}
@@ -89,7 +95,7 @@ class MainActivity : androidx.activity.ComponentActivity() {
         val savedUrl = prefs.getString("server_url", null)
 
         if (savedUrl != null) {
-            startService()
+            connectToService()
             showWebView(savedUrl)
         } else {
             showSetup()
@@ -148,7 +154,7 @@ class MainActivity : androidx.activity.ComponentActivity() {
             url = url.trimEnd('/')
             getSharedPreferences("raikiri", MODE_PRIVATE).edit()
                 .putString("server_url", url).apply()
-            startService()
+            connectToService()
             showWebView(url)
         }
     }
@@ -159,8 +165,10 @@ class MainActivity : androidx.activity.ComponentActivity() {
         webView.loadUrl(url)
     }
 
-    private fun startService() {
-        startService(Intent(this, PlaybackService::class.java))
+    private fun connectToService() {
+        val token = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+        controllerFuture = MediaController.Builder(this, token).buildAsync()
+        controllerFuture?.addListener({}, MoreExecutors.directExecutor())
     }
 
     inner class WebBridge {
@@ -195,6 +203,7 @@ class MainActivity : androidx.activity.ComponentActivity() {
     }
 
     override fun onDestroy() {
+        controllerFuture?.let { MediaController.releaseFuture(it) }
         unregisterReceiver(jsCommandReceiver)
         super.onDestroy()
     }

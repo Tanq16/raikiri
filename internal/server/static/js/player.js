@@ -184,7 +184,7 @@ const Player = {
         if (item.type === 'audio') {
             const src = API.getContentUrl(item.path, state.mode);
             this.audioEl.src = src;
-            this.audioEl.play().catch(() => {});
+            this.audioEl.play();
             this.isPlaying = true;
             loaded = true;
             document.getElementById('ep-audio-art').classList.remove('hidden');
