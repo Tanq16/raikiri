@@ -2,26 +2,23 @@ package dev.tanq16.raikiri
 
 import android.Manifest
 import android.content.BroadcastReceiver
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.ServiceConnection
 import android.os.Bundle
-import android.os.IBinder
-import androidx.activity.OnBackPressedCallback
-import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.FrameLayout
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -35,8 +32,6 @@ class MainActivity : androidx.activity.ComponentActivity() {
     private lateinit var rootView: View
     private var fullscreenView: View? = null
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
-    private var mediaService: MediaService? = null
-    private var serviceBound = false
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) {}
@@ -44,18 +39,7 @@ class MainActivity : androidx.activity.ComponentActivity() {
     private val jsCommandReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val command = intent?.getStringExtra("command") ?: return
-            executeJs(command)
-        }
-    }
-
-    private val serviceConnection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-            mediaService = (binder as MediaService.LocalBinder).getService()
-            serviceBound = true
-        }
-        override fun onServiceDisconnected(name: ComponentName?) {
-            mediaService = null
-            serviceBound = false
+            runOnUiThread { webView.evaluateJavascript(command, null) }
         }
     }
 
@@ -105,7 +89,7 @@ class MainActivity : androidx.activity.ComponentActivity() {
         val savedUrl = prefs.getString("server_url", null)
 
         if (savedUrl != null) {
-            startMediaService()
+            startService()
             showWebView(savedUrl)
         } else {
             showSetup()
@@ -164,7 +148,7 @@ class MainActivity : androidx.activity.ComponentActivity() {
             url = url.trimEnd('/')
             getSharedPreferences("raikiri", MODE_PRIVATE).edit()
                 .putString("server_url", url).apply()
-            startMediaService()
+            startService()
             showWebView(url)
         }
     }
@@ -175,33 +159,25 @@ class MainActivity : androidx.activity.ComponentActivity() {
         webView.loadUrl(url)
     }
 
-    private fun startMediaService() {
-        val intent = Intent(this, MediaService::class.java)
-        startForegroundService(intent)
-        bindService(intent, serviceConnection, BIND_AUTO_CREATE)
-    }
-
-    fun executeJs(js: String) {
-        runOnUiThread { webView.evaluateJavascript(js, null) }
+    private fun startService() {
+        startForegroundService(Intent(this, PlaybackService::class.java))
     }
 
     inner class WebBridge {
         @JavascriptInterface
         fun updateMetadata(title: String, artist: String, album: String, thumbUrl: String) {
-            mediaService?.updateMetadata(title, artist, album)
+            PlaybackService.instance?.getPlayer()?.onJsMetadata(title, artist, album)
         }
 
         @JavascriptInterface
         fun updatePlaybackState(isPlaying: Boolean) {
-            if (isPlaying && mediaService?.isServiceIdle() == true) {
-                startForegroundService(Intent(this@MainActivity, MediaService::class.java))
-            }
-            mediaService?.updatePlaybackState(isPlaying)
+            val player = PlaybackService.instance?.getPlayer() ?: return
+            if (isPlaying) player.onJsPlaying() else player.onJsPaused()
         }
 
         @JavascriptInterface
         fun clearMedia() {
-            mediaService?.clearMedia()
+            PlaybackService.instance?.getPlayer()?.onJsStopped()
         }
 
         @JavascriptInterface
@@ -214,10 +190,6 @@ class MainActivity : androidx.activity.ComponentActivity() {
 
     override fun onDestroy() {
         unregisterReceiver(jsCommandReceiver)
-        if (serviceBound) {
-            unbindService(serviceConnection)
-            serviceBound = false
-        }
         super.onDestroy()
     }
 }
