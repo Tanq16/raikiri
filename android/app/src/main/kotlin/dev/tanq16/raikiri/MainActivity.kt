@@ -193,7 +193,15 @@ class MainActivity : androidx.activity.ComponentActivity() {
 
         @JavascriptInterface
         fun updatePlaybackState(isPlaying: Boolean) {
+            if (isPlaying && mediaService?.isServiceIdle() == true) {
+                startForegroundService(Intent(this@MainActivity, MediaService::class.java))
+            }
             mediaService?.updatePlaybackState(isPlaying)
+        }
+
+        @JavascriptInterface
+        fun clearMedia() {
+            mediaService?.clearMedia()
         }
 
         @JavascriptInterface

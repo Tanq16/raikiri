@@ -361,6 +361,9 @@ const Player = {
         UI.hidePlayerBar();
 
         this.updatePlaybackState('none');
+        if (window.Android && window.Android.clearMedia) {
+            window.Android.clearMedia();
+        }
         if ('mediaSession' in navigator && navigator.mediaSession.setPositionState) {
             try {
                 navigator.mediaSession.setPositionState(null);
