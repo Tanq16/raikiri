@@ -25,16 +25,16 @@ class PlaybackService : MediaSessionService() {
     }
 
     private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
-        val player = mediaSession?.player as? WebViewPlayer ?: return@OnAudioFocusChangeListener
+        val player = mediaSession?.player ?: return@OnAudioFocusChangeListener
         when (focusChange) {
             AudioManager.AUDIOFOCUS_LOSS -> {
                 pausedByFocusLoss = false
-                player.handleSetPlayWhenReady(false)
+                sendJsCommand("Player.pause()")
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 if (player.playWhenReady) {
                     pausedByFocusLoss = true
-                    player.handleSetPlayWhenReady(false)
+                    sendJsCommand("Player.pause()")
                 }
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
@@ -44,7 +44,7 @@ class PlaybackService : MediaSessionService() {
                 sendJsCommand("document.querySelector('audio').volume=1.0")
                 if (pausedByFocusLoss) {
                     pausedByFocusLoss = false
-                    player.handleSetPlayWhenReady(true)
+                    sendJsCommand("Player.play()")
                 }
             }
         }

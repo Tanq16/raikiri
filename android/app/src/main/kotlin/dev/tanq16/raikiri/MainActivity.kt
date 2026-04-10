@@ -160,24 +160,30 @@ class MainActivity : androidx.activity.ComponentActivity() {
     }
 
     private fun startService() {
-        startForegroundService(Intent(this, PlaybackService::class.java))
+        startService(Intent(this, PlaybackService::class.java))
     }
 
     inner class WebBridge {
         @JavascriptInterface
         fun updateMetadata(title: String, artist: String, album: String, thumbUrl: String) {
-            PlaybackService.instance?.getPlayer()?.onJsMetadata(title, artist, album)
+            runOnUiThread {
+                PlaybackService.instance?.getPlayer()?.onJsMetadata(title, artist, album)
+            }
         }
 
         @JavascriptInterface
         fun updatePlaybackState(isPlaying: Boolean) {
-            val player = PlaybackService.instance?.getPlayer() ?: return
-            if (isPlaying) player.onJsPlaying() else player.onJsPaused()
+            runOnUiThread {
+                val player = PlaybackService.instance?.getPlayer() ?: return@runOnUiThread
+                if (isPlaying) player.onJsPlaying() else player.onJsPaused()
+            }
         }
 
         @JavascriptInterface
         fun clearMedia() {
-            PlaybackService.instance?.getPlayer()?.onJsStopped()
+            runOnUiThread {
+                PlaybackService.instance?.getPlayer()?.onJsStopped()
+            }
         }
 
         @JavascriptInterface
