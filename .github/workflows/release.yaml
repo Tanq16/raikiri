@@ -132,7 +132,7 @@ jobs:
         env:
           KEYSTORE_PATH: keystore.p12
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: gradle :app:assembleRelease
+        run: gradle :app:assembleRelease -PappVersion=${{ needs.create-release.outputs.version }}
 
       - name: Upload APK to Release
         run: |

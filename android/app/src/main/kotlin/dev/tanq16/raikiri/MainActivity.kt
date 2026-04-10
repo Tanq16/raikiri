@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.enableEdgeToEdge
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
@@ -51,6 +52,7 @@ class MainActivity : androidx.activity.ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -67,7 +69,7 @@ class MainActivity : androidx.activity.ComponentActivity() {
 
         val rootView = findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             view.updatePadding(top = bars.top, bottom = bars.bottom, left = bars.left, right = bars.right)
             WindowInsetsCompat.CONSUMED
         }

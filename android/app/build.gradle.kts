@@ -10,8 +10,12 @@ android {
         applicationId = "dev.tanq16.raikiri"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        val ver = (project.findProperty("appVersion") as? String)?.removePrefix("v") ?: "0.0.0"
+        val parts = ver.split(".")
+        versionCode = (parts.getOrElse(0) { "0" }.toIntOrNull() ?: 0) * 10000 +
+                       (parts.getOrElse(1) { "0" }.toIntOrNull() ?: 0) * 100 +
+                       (parts.getOrElse(2) { "0" }.toIntOrNull() ?: 0)
+        versionName = ver
     }
 
     signingConfigs {
