@@ -105,48 +105,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   # ===========================================================================
-  # Step 2c: Build Android APK (parallel)
-  # ===========================================================================
-  android:
-    needs: create-release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Java 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: '9.4.1'
-
-      - name: Decode Keystore
-        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/keystore.p12
-
-      - name: Build Release APK
-        working-directory: android
-        env:
-          KEYSTORE_PATH: keystore.p12
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: gradle :app:assembleRelease -PappVersion=${{ needs.create-release.outputs.version }}
-
-      - name: Upload APK to Release
-        run: |
-          gh release upload "${{ needs.create-release.outputs.version }}" \
-            "android/app/build/outputs/apk/release/app-release.apk#raikiri-android.apk" \
-            --clobber
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-  # ===========================================================================
   # Step 3: Publish release
   # ===========================================================================
   publish:
-    needs: [create-release, docker, binaries, android]
+    needs: [create-release, docker, binaries]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -160,8 +122,8 @@ jobs:
   # Cleanup on failure
   # ===========================================================================
   cleanup-on-failure:
-    needs: [create-release, docker, binaries, android, publish]
-    if: always() && needs.create-release.outputs.release_created == 'true' && (needs.docker.result != 'success' || needs.binaries.result != 'success' || needs.android.result != 'success' || needs.publish.result != 'success')
+    needs: [create-release, docker, binaries, publish]
+    if: always() && needs.create-release.outputs.release_created == 'true' && (needs.docker.result != 'success' || needs.binaries.result != 'success' || needs.publish.result != 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Delete Draft Release

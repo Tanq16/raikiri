@@ -361,9 +361,6 @@ const Player = {
         UI.hidePlayerBar();
 
         this.updatePlaybackState('none');
-        if (window.Android && window.Android.clearMedia) {
-            window.Android.clearMedia();
-        }
         if ('mediaSession' in navigator && navigator.mediaSession.setPositionState) {
             try {
                 navigator.mediaSession.setPositionState(null);
@@ -383,9 +380,6 @@ const Player = {
                 artwork: thumb ? [{ src: thumb, sizes: '512x512', type: 'image/jpeg' }] : []
             });
             this.updateMediaSessionPosition();
-            if (window.Android && window.Android.updateMetadata) {
-                window.Android.updateMetadata(item.name, artist, state.path, thumb || '');
-            }
         }
     },
 
@@ -430,9 +424,6 @@ const Player = {
             navigator.mediaSession.playbackState = nextState;
         } catch (e) {
             // Ignore if not supported
-        }
-        if (window.Android && window.Android.updatePlaybackState) {
-            window.Android.updatePlaybackState(nextState === 'playing');
         }
     },
 
