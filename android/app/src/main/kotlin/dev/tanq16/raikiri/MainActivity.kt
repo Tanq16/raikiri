@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.IBinder
 import androidx.activity.OnBackPressedCallback
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -20,6 +21,9 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 
 class MainActivity : androidx.activity.ComponentActivity() {
     private lateinit var webView: WebView
@@ -60,6 +64,13 @@ class MainActivity : androidx.activity.ComponentActivity() {
             IntentFilter("dev.tanq16.raikiri.JS_COMMAND"),
             RECEIVER_NOT_EXPORTED
         )
+
+        val rootView = findViewById<ViewGroup>(android.R.id.content).getChildAt(0)
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.updatePadding(top = bars.top, bottom = bars.bottom, left = bars.left, right = bars.right)
+            WindowInsetsCompat.CONSUMED
+        }
 
         webView = findViewById(R.id.webview)
         setupContainer = findViewById(R.id.setup_container)
