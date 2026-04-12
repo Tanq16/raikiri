@@ -5,7 +5,7 @@ import UI from './ui.js';
 const Player = {
     queue: [],
     currentIndex: -1,
-    audioEl: new Audio(),
+    audioEl: null,
     videoEl: null,
     imageTimer: null,
     hls: null,
@@ -18,14 +18,20 @@ const Player = {
     _directMode: false,
     _currentSource: null,
     _availableSources: [],
+    _preloadAudio: null,
+    _preloadedIndex: -1,
 
     init() {
+        this.audioEl = document.getElementById('ep-audio');
         this.videoEl = document.getElementById('ep-video');
+        this._preloadAudio = new Audio();
+        this._preloadAudio.preload = 'auto';
 
         this.audioEl.addEventListener('ended', () => this.next());
         this.audioEl.addEventListener('timeupdate', () => {
             UI.updateProgress(this.audioEl.currentTime, this.audioEl.duration);
             this.updateMediaSessionPosition();
+            this._maybePreloadNext();
         });
 
         this.videoEl.addEventListener('ended', () => this.next());
@@ -64,6 +70,7 @@ const Player = {
     setQueue(items, startIndex = 0) {
         this.queue = items.map((item) => ({ ...item }));
         this.currentIndex = startIndex;
+        this._preloadedIndex = -1;
         this.load(this.queue[this.currentIndex]);
     },
 
@@ -159,13 +166,8 @@ const Player = {
         if (!item) return;
 
         this._advancing = false;
-        // Pause current media without signaling 'paused' to media session —
-        // setting playbackState='paused' between tracks lets Chrome Android
-        // freeze the tab during the silence gap.
-        this.audioEl.pause();
-        this.videoEl.pause();
+        this.pause();
         clearTimeout(this.imageTimer);
-        this.isPlaying = false;
         this.cleanupHLS();
         this.videoEl.classList.add('hidden');
         document.getElementById('ep-image').classList.add('hidden');
@@ -358,6 +360,7 @@ const Player = {
 
     stop() {
         this._advancing = false;
+        this._preloadedIndex = -1;
         this.pause();
         this.cleanupHLS();
         this.queue = [];
@@ -429,6 +432,19 @@ const Player = {
         } catch (e) {
             // Ignore if not supported
         }
+    },
+
+    _maybePreloadNext() {
+        if (!this.audioEl.duration || this.currentIndex >= this.queue.length - 1) return;
+        const remaining = this.audioEl.duration - this.audioEl.currentTime;
+        if (remaining > 15 || remaining <= 0) return;
+        const nextIndex = this.currentIndex + 1;
+        if (this._preloadedIndex === nextIndex) return;
+        const nextItem = this.queue[nextIndex];
+        if (!nextItem || nextItem.type !== 'audio') return;
+        const src = API.getContentUrl(nextItem.path, state.mode);
+        this._preloadAudio.src = src;
+        this._preloadedIndex = nextIndex;
     },
 
     async _requestSource(item, source) {
