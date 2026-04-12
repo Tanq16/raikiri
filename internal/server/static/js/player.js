@@ -159,11 +159,15 @@ const Player = {
         if (!item) return;
 
         this._advancing = false;
-        this.pause();
+        // Pause current media without signaling 'paused' to media session —
+        // setting playbackState='paused' between tracks lets Chrome Android
+        // freeze the tab during the silence gap.
+        this.audioEl.pause();
+        this.videoEl.pause();
         clearTimeout(this.imageTimer);
+        this.isPlaying = false;
         this.cleanupHLS();
         this.videoEl.classList.add('hidden');
-        this.videoEl.pause();
         document.getElementById('ep-image').classList.add('hidden');
         document.getElementById('ep-audio-art').classList.add('hidden');
 
