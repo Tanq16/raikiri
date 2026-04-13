@@ -45,6 +45,8 @@ func (s *Server) Setup() error {
 	s.mux.HandleFunc("/api/list", s.HandleList)
 	s.mux.HandleFunc("/api/stream", s.HandleStreamStart)
 	s.mux.HandleFunc("/api/stop-stream", s.HandleStreamStop)
+	s.mux.HandleFunc("/api/queue.m3u8", s.HandleQueueManifest)
+	s.mux.HandleFunc("/api/queue-meta", s.HandleQueueMeta)
 	s.mux.HandleFunc("/api/upload", s.HandleUpload)
 	s.mux.HandleFunc("/content/", s.HandleContent)
 

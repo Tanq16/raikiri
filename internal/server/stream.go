@@ -261,6 +261,141 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// HandleQueueManifest emits a single HLS manifest that concatenates an entire
+// queue of audio tracks via #EXT-X-DISCONTINUITY between tracks. Supports only
+// HLS-passthrough formats (MP3) in this phase; transcoded formats land in a
+// follow-up phase.
+func (s *Server) HandleQueueManifest(w http.ResponseWriter, r *http.Request) {
+	tracksParam := r.URL.Query().Get("tracks")
+	mode := r.URL.Query().Get("mode")
+	if tracksParam == "" {
+		http.Error(w, "missing tracks parameter", http.StatusBadRequest)
+		return
+	}
+
+	var tracks []string
+	if err := json.Unmarshal([]byte(tracksParam), &tracks); err != nil {
+		http.Error(w, "invalid tracks parameter", http.StatusBadRequest)
+		return
+	}
+	if len(tracks) == 0 {
+		http.Error(w, "empty tracks list", http.StatusBadRequest)
+		return
+	}
+
+	root := s.getRoot(mode)
+
+	type trackInfo struct {
+		rel      string
+		fullPath string
+		duration float64
+	}
+
+	infos := make([]trackInfo, 0, len(tracks))
+	var maxDuration float64
+	for _, rel := range tracks {
+		fullPath := filepath.Join(root, rel)
+		if !strings.HasPrefix(fullPath, root) {
+			http.Error(w, "invalid track path", http.StatusBadRequest)
+			return
+		}
+		if !media.IsAudioHLSPassthrough(fullPath) {
+			http.Error(w, "queue contains non-passthrough tracks (not supported yet)", http.StatusBadRequest)
+			return
+		}
+		dur, err := media.GetAudioDuration(fullPath)
+		if err != nil {
+			log.Printf("ERROR [server] queue manifest duration file=%s: %v", rel, err)
+			http.Error(w, "failed to probe track duration", http.StatusInternalServerError)
+			return
+		}
+		if dur > maxDuration {
+			maxDuration = dur
+		}
+		infos = append(infos, trackInfo{rel: rel, fullPath: fullPath, duration: dur})
+	}
+
+	var b strings.Builder
+	b.WriteString("#EXTM3U\n")
+	b.WriteString("#EXT-X-VERSION:3\n")
+	fmt.Fprintf(&b, "#EXT-X-TARGETDURATION:%d\n", int(maxDuration)+1)
+	b.WriteString("#EXT-X-MEDIA-SEQUENCE:0\n")
+	b.WriteString("#EXT-X-PLAYLIST-TYPE:VOD\n")
+	for i, info := range infos {
+		if i > 0 {
+			b.WriteString("#EXT-X-DISCONTINUITY\n")
+		}
+		name := filepath.Base(info.rel)
+		fmt.Fprintf(&b, "#EXTINF:%.3f,%s\n", info.duration, name)
+		segments := strings.Split(info.rel, "/")
+		for j, seg := range segments {
+			segments[j] = url.PathEscape(seg)
+		}
+		fmt.Fprintf(&b, "/content/%s?mode=%s\n", strings.Join(segments, "/"), url.QueryEscape(mode))
+	}
+	b.WriteString("#EXT-X-ENDLIST\n")
+
+	w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write([]byte(b.String()))
+}
+
+// HandleQueueMeta returns per-track metadata (name, duration, startOffset) for
+// a queue of tracks so the frontend can derive the currently-playing track
+// from the single media element's currentTime.
+func (s *Server) HandleQueueMeta(w http.ResponseWriter, r *http.Request) {
+	tracksParam := r.URL.Query().Get("tracks")
+	mode := r.URL.Query().Get("mode")
+	if tracksParam == "" {
+		http.Error(w, "missing tracks parameter", http.StatusBadRequest)
+		return
+	}
+
+	var tracks []string
+	if err := json.Unmarshal([]byte(tracksParam), &tracks); err != nil {
+		http.Error(w, "invalid tracks parameter", http.StatusBadRequest)
+		return
+	}
+
+	root := s.getRoot(mode)
+
+	type trackMeta struct {
+		Path        string  `json:"path"`
+		Name        string  `json:"name"`
+		Duration    float64 `json:"duration"`
+		StartOffset float64 `json:"startOffset"`
+	}
+
+	result := make([]trackMeta, 0, len(tracks))
+	var offset float64
+	for _, rel := range tracks {
+		fullPath := filepath.Join(root, rel)
+		if !strings.HasPrefix(fullPath, root) {
+			http.Error(w, "invalid track path", http.StatusBadRequest)
+			return
+		}
+		dur, err := media.GetAudioDuration(fullPath)
+		if err != nil {
+			log.Printf("ERROR [server] queue meta duration file=%s: %v", rel, err)
+			http.Error(w, "failed to probe track duration", http.StatusInternalServerError)
+			return
+		}
+		result = append(result, trackMeta{
+			Path:        rel,
+			Name:        filepath.Base(rel),
+			Duration:    dur,
+			StartOffset: offset,
+		})
+		offset += dur
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"tracks":        result,
+		"totalDuration": offset,
+	})
+}
+
 func (s *Server) HandleStreamStop(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("session")
 	if sessionID == "" {
