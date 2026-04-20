@@ -287,11 +287,19 @@ const Player = {
 
     // ── Queue Management ────────────────────────────────────────────────
 
+    // MSE SourceBuffer only works with AAC fMP4. M4A (already AAC) and MP3
+    // (fast transcode) are fine. WAV/FLAC/OGG need heavy transcoding — play
+    // those directly via the browser's native audio decoder instead.
+    _canUseMSE(items) {
+        if (!items.length) return false;
+        const mseExts = /\.(m4a|mp3|aac)$/i;
+        return items.every(it => it.type === 'audio' && mseExts.test(it.path));
+    },
+
     setQueue(items, startIndex = 0) {
         this.queue = items.map((item) => ({ ...item }));
-        const allAudio = this.queue.length > 0 && this.queue.every(it => it.type === 'audio');
 
-        if (allAudio) {
+        if (this._canUseMSE(this.queue)) {
             this._startMSEQueue(startIndex).catch(e => {
                 console.warn('MSE queue failed, falling back to direct:', e);
                 this._teardownMSE();
