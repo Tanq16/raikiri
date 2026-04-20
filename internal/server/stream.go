@@ -112,7 +112,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		source = "hls-fmp4"
 	}
 
-	// Path A: Direct serve
 	if source == "direct" {
 		log.Printf("INFO [server] direct serve file=%s", targetFile)
 
@@ -140,7 +139,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Path B: HLS (remux, fMP4, or MPEG-TS)
 	isRemux := source == "remux"
 	isTS := source == "hls-ts"
 
@@ -162,7 +160,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		log.Printf("INFO [server] selected audio track=%d codec=%s lang=%s channels=%d file=%s", selectedAudio.Index, selectedAudio.Codec, selectedAudio.Language, selectedAudio.Channels, targetFile)
 
 		if isRemux {
-			// Remux: copy audio when safe (AAC stereo), re-encode otherwise
 			canCopyAudio := selectedAudio.Codec == "aac" && selectedAudio.Channels <= 2
 			if canCopyAudio {
 				log.Printf("INFO [server] remux: copying compatible audio file=%s", targetFile)
@@ -172,8 +169,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 				audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
 			}
 		} else if isTS {
-			// MPEG-TS: HLS.js MP4Remuxer handles drift correction per-frame
-			// Copy audio if compatible, otherwise basic re-encode (no aresample)
 			needsAudioTranscode := !media.IsAudioCompatible(selectedAudio.Codec) || selectedAudio.Channels > 2
 			sampleRate := media.GetAudioSampleRate(fullPath, selectedAudio.Index)
 			if needsAudioTranscode || sampleRate != 48000 {
@@ -184,7 +179,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 				audioArgs = append(audioArgs, "-c:a", "copy")
 			}
 		} else {
-			// fMP4: PassthroughRemuxer has no drift correction, use aresample
 			log.Printf("INFO [server] HLS-fMP4: re-encoding audio with aresample file=%s", targetFile)
 			audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-af", "aresample=osr=48000:first_pts=0")
 		}
@@ -228,7 +222,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 			"-hls_segment_filename", segmentPath,
 		)
 	} else {
-		// Both remux and hls-fmp4 use fMP4 segments
 		segmentPath := filepath.Join(sessionDir, "seg_%03d.m4s")
 		args = append(args,
 			"-hls_segment_type", "fmp4",
