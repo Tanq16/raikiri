@@ -9,10 +9,8 @@ const Player = {
     videoEl: null,
     imageTimer: null,
     hls: null,
-    audioHls: null,
     currentSessionId: null,
     videoDuration: null,
-    audioDuration: null,
     isPlaying: false,
     availableSubtitles: [],
     activeSubtitleIndex: null,
@@ -27,8 +25,7 @@ const Player = {
 
         this.audioEl.addEventListener('ended', () => this.next());
         this.audioEl.addEventListener('timeupdate', () => {
-            const duration = this.audioDuration || this.audioEl.duration;
-            UI.updateProgress(this.audioEl.currentTime, duration);
+            UI.updateProgress(this.audioEl.currentTime, this.audioEl.duration);
             this.updateMediaSessionPosition();
         });
 
@@ -37,7 +34,6 @@ const Player = {
             const duration = this.videoDuration || this.videoEl.duration;
             UI.updateProgress(this.videoEl.currentTime, duration);
             this.updateMediaSessionPosition();
-            // Safety net: if within 1s of known duration, advance once
             if (this.videoDuration && this.videoEl.currentTime > 0 && !this._advancing) {
                 const remaining = this.videoDuration - this.videoEl.currentTime;
                 if (remaining < 1 && remaining >= 0) {
@@ -46,7 +42,6 @@ const Player = {
             }
         });
 
-        // Update position when duration becomes available
         this.audioEl.addEventListener('loadedmetadata', () => this.updateMediaSessionPosition());
         this.videoEl.addEventListener('loadedmetadata', () => this.updateMediaSessionPosition());
 
@@ -57,7 +52,6 @@ const Player = {
             navigator.mediaSession.setActionHandler('nexttrack', () => this.next());
         }
 
-        // Clean up sessions when tab is closed
         window.addEventListener('beforeunload', () => {
             if (this.currentSessionId) {
                 navigator.sendBeacon(`/api/stop-stream?session=${this.currentSessionId}`);
@@ -95,29 +89,24 @@ const Player = {
         UI.renderQueueList();
     },
 
-    cleanupHLS() {
+    _cleanupVideo() {
         if (this.hls) {
             this.hls.destroy();
             this.hls = null;
         }
-        if (this.audioHls) {
-            this.audioHls.destroy();
-            this.audioHls = null;
-        }
-
         if (this._directMode) {
             this.videoEl.removeAttribute('src');
             this.videoEl.load();
             this._directMode = false;
         }
+        this.videoEl.pause();
+        this.videoEl.classList.add('hidden');
 
         if (this.currentSessionId) {
             fetch(`/api/stop-stream?session=${this.currentSessionId}`);
             this.currentSessionId = null;
         }
-
         this.videoDuration = null;
-        this.audioDuration = null;
     },
 
     _loadVideoHLS(url) {
@@ -139,7 +128,6 @@ const Player = {
             });
             this.hls.on(Hls.Events.ERROR, (event, data) => {
                 if (this._advancing) return;
-                // Near end of video: treat fatal/frag errors as "ended"
                 if (this.videoDuration) {
                     const remaining = this.videoDuration - this.videoEl.currentTime;
                     if (remaining < 5) {
@@ -149,7 +137,6 @@ const Player = {
                         }
                     }
                 }
-                // Mid-playback recovery for fatal errors
                 if (data.fatal) {
                     if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
                         this.hls.recoverMediaError();
@@ -164,54 +151,25 @@ const Player = {
         }
     },
 
-    _loadAudioHLS(url) {
-        if (Hls.isSupported()) {
-            this.audioHls = new Hls({
-                enableWorker: true,
-                backBufferLength: 60,
-                maxMaxBufferLength: 120,
-            });
-            this.audioHls.loadSource(url);
-            this.audioHls.attachMedia(this.audioEl);
-            this.audioHls.on(Hls.Events.MANIFEST_PARSED, () => {
-                this.audioEl.play().catch(() => {});
-            });
-            this.audioHls.on(Hls.Events.ERROR, (event, data) => {
-                if (this._advancing) return;
-                if (this.audioDuration) {
-                    const remaining = this.audioDuration - this.audioEl.currentTime;
-                    if (remaining < 5) {
-                        if (data.fatal || (data.type === Hls.ErrorTypes.NETWORK_ERROR && data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR)) {
-                            this.next();
-                            return;
-                        }
-                    }
-                }
-                if (data.fatal) {
-                    if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                        this.audioHls.recoverMediaError();
-                    } else if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                        this.audioHls.startLoad();
-                    }
-                }
-            });
-        } else if (this.audioEl.canPlayType('application/vnd.apple.mpegurl')) {
-            // Safari native HLS
-            this.audioEl.src = url;
-            this.audioEl.play().catch(() => {});
-        }
-    },
-
     async load(item) {
         if (!item) return;
 
         this._advancing = false;
-        this.pause();
         clearTimeout(this.imageTimer);
-        this.cleanupHLS();
-        this.videoEl.classList.add('hidden');
+
+        // Always clean up video resources (doesn't touch audio element)
+        this._cleanupVideo();
         document.getElementById('ep-image').classList.add('hidden');
         document.getElementById('ep-audio-art').classList.add('hidden');
+
+        // Only pause audio when switching to non-audio content.
+        // CRITICAL: Do NOT pause audio during audio→audio transitions.
+        // Chrome Android revokes audio focus on pause, killing background playback.
+        if (item.type !== 'audio') {
+            this.audioEl.pause();
+            this.audioEl.removeAttribute('src');
+            this.audioEl.load();
+        }
 
         this.availableSubtitles = [];
         this.activeSubtitleIndex = null;
@@ -229,23 +187,20 @@ const Player = {
 
         if (item.type === 'audio') {
             document.getElementById('ep-audio-art').classList.remove('hidden');
-            try {
-                const data = await this._requestSource(item);
-                this.currentSessionId = data.sessionId;
-                this.audioDuration = data.duration || null;
-                this._currentSource = data.source;
-                this._availableSources = data.availableSources || [];
 
-                this._loadAudioHLS(data.url);
-
-                UI.updateSourceButton(this._currentSource, this._availableSources.length > 1);
-                this.isPlaying = true;
-                loaded = true;
-            } catch (e) {
-                console.error("Audio stream failed", e);
-            }
+            // Direct audio playback — no HLS, no server roundtrip.
+            // Setting src automatically stops old playback without explicit pause.
+            // This keeps Chrome's audio focus alive during track transitions.
+            const src = API.getContentUrl(item.path, state.mode);
+            this.audioEl.src = src;
+            this.audioEl.play().catch((e) => {
+                if (e.name !== 'AbortError') {
+                    console.warn('Audio play failed:', e.name, e.message);
+                }
+            });
+            this.isPlaying = true;
+            loaded = true;
         } else if (item.type === 'video') {
-            // Store video path in history before starting playback
             const fullPath = item.path;
             try {
                 const history = JSON.parse(localStorage.getItem('raikiri_history') || '[]');
@@ -316,7 +271,9 @@ const Player = {
             UI.showPlayerBar();
             UI.expandPlayer();
             UI.updatePlayButton(this.isPlaying);
-            if (this.isPlaying) this.updatePlaybackState('playing');
+            // Keep playbackState as 'playing' during transitions — never signal
+            // 'paused' here. Chrome Android uses this to decide audio focus.
+            this.updatePlaybackState('playing');
         }
     },
 
@@ -356,12 +313,9 @@ const Player = {
         if (!this.queue.length) return;
         const item = this.queue[this.currentIndex];
 
-        if (item.type === 'audio') {
-            const duration = this.audioDuration || this.audioEl.duration;
-            if (duration) {
-                this.audioEl.currentTime = (percent / 100) * duration;
-                this.updateMediaSessionPosition();
-            }
+        if (item.type === 'audio' && this.audioEl.duration) {
+            this.audioEl.currentTime = (percent / 100) * this.audioEl.duration;
+            this.updateMediaSessionPosition();
         } else if (item.type === 'video') {
             const duration = this.videoDuration || this.videoEl.duration;
             if (duration) {
@@ -375,11 +329,10 @@ const Player = {
         if (!this.queue.length) return;
         const item = this.queue[this.currentIndex];
         let media = null;
-        let duration = 0;
-        if (item.type === 'audio') { media = this.audioEl; duration = this.audioDuration || this.audioEl.duration; }
-        else if (item.type === 'video') { media = this.videoEl; duration = this.videoDuration || this.videoEl.duration; }
-        if (!media || !duration || Number.isNaN(duration)) return;
-        const next = Math.min(Math.max(0, media.currentTime + seconds), Math.max(duration - 0.01, 0));
+        if (item.type === 'audio') media = this.audioEl;
+        else if (item.type === 'video') media = this.videoEl;
+        if (!media || !media.duration || Number.isNaN(media.duration)) return;
+        const next = Math.min(Math.max(0, media.currentTime + seconds), Math.max(media.duration - 0.01, 0));
         media.currentTime = next;
         this.updateMediaSessionPosition();
     },
@@ -411,19 +364,22 @@ const Player = {
 
     stop() {
         this._advancing = false;
-        this.pause();
-        this.cleanupHLS();
+        this.audioEl.pause();
+        this.audioEl.removeAttribute('src');
+        this.audioEl.load();
+        this._cleanupVideo();
+        clearTimeout(this.imageTimer);
         this.queue = [];
         this.currentIndex = -1;
+        this.isPlaying = false;
+        UI.updatePlayButton(false);
         UI.hidePlayerBar();
 
         this.updatePlaybackState('none');
         if ('mediaSession' in navigator && navigator.mediaSession.setPositionState) {
             try {
                 navigator.mediaSession.setPositionState(null);
-            } catch (e) {
-                // Ignore errors when clearing position state
-            }
+            } catch (e) {}
         }
     },
 
@@ -450,9 +406,9 @@ const Player = {
         let duration = 0;
         let playbackRate = this.isPlaying ? 1.0 : 0;
 
-        if (item.type === 'audio') {
+        if (item.type === 'audio' && this.audioEl.duration) {
             currentTime = this.audioEl.currentTime;
-            duration = this.audioDuration || this.audioEl.duration;
+            duration = this.audioEl.duration;
             playbackRate = this.isPlaying ? (this.audioEl.playbackRate || 1.0) : 0;
         } else if (item.type === 'video') {
             currentTime = this.videoEl.currentTime;
@@ -467,9 +423,7 @@ const Player = {
                     playbackRate: playbackRate,
                     position: Math.min(currentTime, duration)
                 });
-            } catch (e) {
-                console.debug('MediaSession setPositionState not supported:', e);
-            }
+            } catch (e) {}
         }
     },
 
@@ -478,9 +432,7 @@ const Player = {
         const nextState = state || (this.isPlaying ? 'playing' : 'paused');
         try {
             navigator.mediaSession.playbackState = nextState;
-        } catch (e) {
-            // Ignore if not supported
-        }
+        } catch (e) {}
     },
 
     async _requestSource(item, source) {
@@ -503,7 +455,7 @@ const Player = {
         if (nextSource === this._currentSource) return;
 
         try {
-            this.cleanupHLS();
+            this._cleanupVideo();
             const data = await this._requestSource(item, nextSource);
             this.currentSessionId = data.sessionId;
             this.videoDuration = data.duration || null;
@@ -530,78 +482,58 @@ const Player = {
     async cycleSource() {
         if (!this.queue.length || !this._availableSources.length) return;
         const item = this.queue[this.currentIndex];
-        if (!item || (item.type !== 'video' && item.type !== 'audio')) return;
+        if (!item || item.type !== 'video') return;
 
         const currentIdx = this._availableSources.indexOf(this._currentSource);
         const nextIdx = (currentIdx + 1) % this._availableSources.length;
         const nextSource = this._availableSources[nextIdx];
 
-        const isAudio = item.type === 'audio';
-        const mediaEl = isAudio ? this.audioEl : this.videoEl;
-        const savedTime = mediaEl.currentTime;
+        const savedTime = this.videoEl.currentTime;
 
-        this.cleanupHLS();
-        if (!isAudio) {
-            this.videoEl.removeAttribute('src');
-            this.videoEl.load();
-        }
+        this._cleanupVideo();
+        this.videoEl.removeAttribute('src');
+        this.videoEl.load();
 
         try {
             const data = await this._requestSource(item, nextSource);
             this.currentSessionId = data.sessionId;
+            this.videoDuration = data.duration || null;
+            this.availableSubtitles = data.subtitles || [];
             this._currentSource = data.source;
 
-            if (isAudio) {
-                this.audioDuration = data.duration || null;
-                // Seek to saved position once loaded
-                if (savedTime > 0) {
-                    const seekOnce = () => {
-                        this.audioEl.currentTime = savedTime;
-                        this.audioEl.removeEventListener('loadeddata', seekOnce);
-                    };
-                    this.audioEl.addEventListener('loadeddata', seekOnce);
-                }
-                this._loadAudioHLS(data.url);
-            } else {
-                this.videoDuration = data.duration || null;
-                this.availableSubtitles = data.subtitles || [];
-
-                while (this.videoEl.firstChild) {
-                    this.videoEl.removeChild(this.videoEl.firstChild);
-                }
-
-                if (data.mode === 'direct') {
-                    this._directMode = true;
-                    this.videoEl.src = data.url;
-                    if (savedTime > 0) {
-                        const seekOnce = () => {
-                            this.videoEl.currentTime = savedTime;
-                            this.videoEl.removeEventListener('loadeddata', seekOnce);
-                        };
-                        this.videoEl.addEventListener('loadeddata', seekOnce);
-                    }
-                    await this.videoEl.play();
-                } else {
-                    this._directMode = false;
-                    if (savedTime > 0) {
-                        const seekOnce = () => {
-                            this.videoEl.currentTime = savedTime;
-                            this.videoEl.removeEventListener('loadeddata', seekOnce);
-                        };
-                        this.videoEl.addEventListener('loadeddata', seekOnce);
-                    }
-                    this._loadVideoHLS(data.url);
-                }
-
-                UI.updateSubtitleButton(this.availableSubtitles.length > 0);
-
-                // Re-apply active subtitle
-                if (this.activeSubtitleIndex !== null) {
-                    this.setSubtitle(this.activeSubtitleIndex);
-                }
+            while (this.videoEl.firstChild) {
+                this.videoEl.removeChild(this.videoEl.firstChild);
             }
 
+            if (data.mode === 'direct') {
+                this._directMode = true;
+                this.videoEl.src = data.url;
+                if (savedTime > 0) {
+                    const seekOnce = () => {
+                        this.videoEl.currentTime = savedTime;
+                        this.videoEl.removeEventListener('loadeddata', seekOnce);
+                    };
+                    this.videoEl.addEventListener('loadeddata', seekOnce);
+                }
+                await this.videoEl.play();
+            } else {
+                this._directMode = false;
+                if (savedTime > 0) {
+                    const seekOnce = () => {
+                        this.videoEl.currentTime = savedTime;
+                        this.videoEl.removeEventListener('loadeddata', seekOnce);
+                    };
+                    this.videoEl.addEventListener('loadeddata', seekOnce);
+                }
+                this._loadVideoHLS(data.url);
+            }
+
+            UI.updateSubtitleButton(this.availableSubtitles.length > 0);
             UI.updateSourceButton(this._currentSource, true);
+
+            if (this.activeSubtitleIndex !== null) {
+                this.setSubtitle(this.activeSubtitleIndex);
+            }
         } catch (e) {
             console.error('Source cycle failed', e);
         }
