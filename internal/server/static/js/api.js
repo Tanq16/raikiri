@@ -36,18 +36,6 @@ const API = {
         const cleanPath = path.startsWith('/') ? path.substring(1) : path;
         const encoded = cleanPath.split('/').map(s => encodeURIComponent(s)).join('/');
         return `/content/${encoded}?mode=${mode}`;
-    },
-
-    getQueueManifestUrl(tracks, mode) {
-        const tracksParam = encodeURIComponent(JSON.stringify(tracks));
-        return `/api/queue.m3u8?tracks=${tracksParam}&mode=${encodeURIComponent(mode)}`;
-    },
-
-    async getQueueMeta(tracks, mode) {
-        const tracksParam = encodeURIComponent(JSON.stringify(tracks));
-        const res = await fetch(`/api/queue-meta?tracks=${tracksParam}&mode=${encodeURIComponent(mode)}`);
-        if (!res.ok) throw new Error(`queue-meta failed: ${res.status}`);
-        return res.json();
     }
 };
 

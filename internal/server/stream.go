@@ -58,6 +58,13 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	root := s.getRoot(mode)
 	fullPath := filepath.Join(root, targetFile)
 
+	// Route audio files to the audio-specific handler
+	fileType := media.GetFileType(filepath.Base(targetFile), false)
+	if fileType == "audio" {
+		s.handleAudioStream(w, targetFile, mode, source, fullPath)
+		return
+	}
+
 	duration, err := media.GetVideoDuration(fullPath)
 	if err != nil {
 		http.Error(w, "Failed to get video duration", 500)
@@ -294,138 +301,96 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HandleQueueManifest emits a single HLS manifest that concatenates an entire
-// queue of audio tracks via #EXT-X-DISCONTINUITY between tracks. Supports only
-// HLS-passthrough formats (MP3) in this phase; transcoded formats land in a
-// follow-up phase.
-func (s *Server) HandleQueueManifest(w http.ResponseWriter, r *http.Request) {
-	tracksParam := r.URL.Query().Get("tracks")
-	mode := r.URL.Query().Get("mode")
-	if tracksParam == "" {
-		http.Error(w, "missing tracks parameter", http.StatusBadRequest)
+func (s *Server) handleAudioStream(w http.ResponseWriter, targetFile, mode, source, fullPath string) {
+	duration, err := media.GetAudioDuration(fullPath)
+	if err != nil {
+		http.Error(w, "Failed to get audio duration", 500)
 		return
 	}
 
-	var tracks []string
-	if err := json.Unmarshal([]byte(tracksParam), &tracks); err != nil {
-		http.Error(w, "invalid tracks parameter", http.StatusBadRequest)
-		return
-	}
-	if len(tracks) == 0 {
-		http.Error(w, "empty tracks list", http.StatusBadRequest)
-		return
-	}
+	audioTracks := media.GetAudioTracks(fullPath)
+	selectedAudio := media.SelectBestAudioTrack(audioTracks)
+	canCopyAudio := selectedAudio != nil && (selectedAudio.Codec == "aac" || selectedAudio.Codec == "mp3")
 
-	root := s.getRoot(mode)
-
-	type trackInfo struct {
-		rel      string
-		fullPath string
-		duration float64
+	availableSources := []string{"remux", "hls-ts"}
+	if source == "" || source == "direct" || source == "hls-fmp4" {
+		source = "remux"
+	}
+	if source == "remux" && !canCopyAudio {
+		source = "hls-ts"
 	}
 
-	infos := make([]trackInfo, 0, len(tracks))
-	var maxDuration float64
-	for _, rel := range tracks {
-		fullPath := filepath.Join(root, rel)
-		if !strings.HasPrefix(fullPath, root) {
-			http.Error(w, "invalid track path", http.StatusBadRequest)
-			return
+	sessionID := fmt.Sprintf("s_%d", time.Now().UnixNano())
+	sessionDir := filepath.Join(s.config.CachePath, sessionID)
+	os.MkdirAll(sessionDir, 0755)
+
+	playlistPath := filepath.Join(sessionDir, "index.m3u8")
+	segmentPath := filepath.Join(sessionDir, "seg_%03d.ts")
+
+	args := []string{"-loglevel", "warning", "-i", fullPath, "-vn"}
+	if source == "remux" && canCopyAudio {
+		log.Printf("INFO [server] audio remux: copying audio codec=%s file=%s", selectedAudio.Codec, targetFile)
+		args = append(args, "-c:a", "copy")
+	} else {
+		codec := ""
+		if selectedAudio != nil {
+			codec = selectedAudio.Codec
 		}
-		if !media.IsAudioHLSPassthrough(fullPath) {
-			http.Error(w, "queue contains non-passthrough tracks (not supported yet)", http.StatusBadRequest)
-			return
-		}
-		dur, err := media.GetAudioDuration(fullPath)
-		if err != nil {
-			log.Printf("ERROR [server] queue manifest duration file=%s: %v", rel, err)
-			http.Error(w, "failed to probe track duration", http.StatusInternalServerError)
-			return
-		}
-		if dur > maxDuration {
-			maxDuration = dur
-		}
-		infos = append(infos, trackInfo{rel: rel, fullPath: fullPath, duration: dur})
+		log.Printf("INFO [server] audio HLS-TS: transcoding to AAC codec=%s file=%s", codec, targetFile)
+		args = append(args, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
 	}
+	args = append(args,
+		"-f", "hls",
+		"-hls_time", "10",
+		"-hls_list_size", "0",
+		"-hls_playlist_type", "event",
+		"-hls_segment_type", "mpegts",
+		"-hls_segment_filename", segmentPath,
+		playlistPath,
+	)
 
-	var b strings.Builder
-	b.WriteString("#EXTM3U\n")
-	b.WriteString("#EXT-X-VERSION:3\n")
-	fmt.Fprintf(&b, "#EXT-X-TARGETDURATION:%d\n", int(maxDuration)+1)
-	b.WriteString("#EXT-X-MEDIA-SEQUENCE:0\n")
-	b.WriteString("#EXT-X-PLAYLIST-TYPE:VOD\n")
-	for i, info := range infos {
-		if i > 0 {
-			b.WriteString("#EXT-X-DISCONTINUITY\n")
-		}
-		name := filepath.Base(info.rel)
-		fmt.Fprintf(&b, "#EXTINF:%.3f,%s\n", info.duration, name)
-		segments := strings.Split(info.rel, "/")
-		for j, seg := range segments {
-			segments[j] = url.PathEscape(seg)
-		}
-		fmt.Fprintf(&b, "/content/%s?mode=%s\n", strings.Join(segments, "/"), url.QueryEscape(mode))
-	}
-	b.WriteString("#EXT-X-ENDLIST\n")
-
-	w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
-	w.Header().Set("Cache-Control", "no-store")
-	w.Write([]byte(b.String()))
-}
-
-// HandleQueueMeta returns per-track metadata (name, duration, startOffset) for
-// a queue of tracks so the frontend can derive the currently-playing track
-// from the single media element's currentTime.
-func (s *Server) HandleQueueMeta(w http.ResponseWriter, r *http.Request) {
-	tracksParam := r.URL.Query().Get("tracks")
-	mode := r.URL.Query().Get("mode")
-	if tracksParam == "" {
-		http.Error(w, "missing tracks parameter", http.StatusBadRequest)
+	cmd := exec.Command("ffmpeg", args...)
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		log.Printf("ERROR [server] failed to start ffmpeg for audio: %v", err)
+		os.RemoveAll(sessionDir)
+		http.Error(w, "Failed to start stream", 500)
 		return
 	}
 
-	var tracks []string
-	if err := json.Unmarshal([]byte(tracksParam), &tracks); err != nil {
-		http.Error(w, "invalid tracks parameter", http.StatusBadRequest)
+	log.Printf("INFO [server] started audio HLS session=%s source=%s file=%s", sessionID, source, targetFile)
+
+	s.streamMutex.Lock()
+	s.activeStreams[sessionID] = cmd
+	s.streamMutex.Unlock()
+
+	firstSegReady := media.WaitForFile(filepath.Join(sessionDir, "seg_000.ts"), 50, 200*time.Millisecond) &&
+		media.WaitForFile(playlistPath, 50, 200*time.Millisecond)
+	if !firstSegReady {
+		log.Printf("INFO [server] audio HLS not ready, killing ffmpeg session=%s", sessionID)
+		s.streamMutex.Lock()
+		if cmd, exists := s.activeStreams[sessionID]; exists {
+			cmd.Process.Kill()
+			cmd.Wait()
+			delete(s.activeStreams, sessionID)
+		}
+		s.streamMutex.Unlock()
+		go func() { os.RemoveAll(sessionDir) }()
+		http.Error(w, "Stream not ready", http.StatusServiceUnavailable)
 		return
 	}
 
-	root := s.getRoot(mode)
-
-	type trackMeta struct {
-		Path        string  `json:"path"`
-		Name        string  `json:"name"`
-		Duration    float64 `json:"duration"`
-		StartOffset float64 `json:"startOffset"`
-	}
-
-	result := make([]trackMeta, 0, len(tracks))
-	var offset float64
-	for _, rel := range tracks {
-		fullPath := filepath.Join(root, rel)
-		if !strings.HasPrefix(fullPath, root) {
-			http.Error(w, "invalid track path", http.StatusBadRequest)
-			return
-		}
-		dur, err := media.GetAudioDuration(fullPath)
-		if err != nil {
-			log.Printf("ERROR [server] queue meta duration file=%s: %v", rel, err)
-			http.Error(w, "failed to probe track duration", http.StatusInternalServerError)
-			return
-		}
-		result = append(result, trackMeta{
-			Path:        rel,
-			Name:        filepath.Base(rel),
-			Duration:    dur,
-			StartOffset: offset,
-		})
-		offset += dur
-	}
+	log.Printf("INFO [server] audio HLS ready session=%s source=%s", sessionID, source)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"tracks":        result,
-		"totalDuration": offset,
+		"mode":             "hls",
+		"source":           source,
+		"url":              fmt.Sprintf("/api/hls/%s/index.m3u8", sessionID),
+		"sessionId":        sessionID,
+		"duration":         duration,
+		"subtitles":        []map[string]interface{}{},
+		"availableSources": availableSources,
 	})
 }
 
@@ -471,6 +436,8 @@ func (s *Server) makeHLSHandler() http.Handler {
 		}
 
 		switch {
+		case strings.HasSuffix(fullPath, ".m3u8"):
+			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 		case strings.HasSuffix(fullPath, ".srt"), strings.HasSuffix(fullPath, ".vtt"):
 			w.Header().Set("Content-Type", "text/vtt; charset=utf-8")
 			w.Header().Set("Access-Control-Allow-Origin", "*")
