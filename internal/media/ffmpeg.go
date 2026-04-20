@@ -3,7 +3,6 @@ package media
 import (
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,14 +12,6 @@ import (
 // ffprobe's format=duration works for audio and video, so this aliases GetVideoDuration.
 func GetAudioDuration(filePath string) (float64, error) {
 	return GetVideoDuration(filePath)
-}
-
-// IsAudioHLSPassthrough reports whether a file can be included verbatim as an
-// HLS media segment without repackaging. Only MP3 works this way; M4A/FLAC/OGG/WAV
-// require transcoding before inclusion in an HLS manifest.
-func IsAudioHLSPassthrough(filePath string) bool {
-	ext := strings.ToLower(filepath.Ext(filePath))
-	return ext == ".mp3"
 }
 
 func GetVideoDuration(filePath string) (float64, error) {

@@ -59,13 +59,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	root := s.getRoot(mode)
 	fullPath := filepath.Join(root, targetFile)
 
-	// Route audio files to the audio-specific handler
-	fileType := media.GetFileType(filepath.Base(targetFile), false)
-	if fileType == "audio" {
-		s.handleAudioStream(w, targetFile, mode, source, fullPath)
-		return
-	}
-
 	duration, err := media.GetVideoDuration(fullPath)
 	if err != nil {
 		http.Error(w, "Failed to get video duration", 500)
@@ -298,99 +291,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		"sessionId":        sessionID,
 		"duration":         duration,
 		"subtitles":        subtitleList,
-		"availableSources": availableSources,
-	})
-}
-
-func (s *Server) handleAudioStream(w http.ResponseWriter, targetFile, mode, source, fullPath string) {
-	duration, err := media.GetAudioDuration(fullPath)
-	if err != nil {
-		http.Error(w, "Failed to get audio duration", 500)
-		return
-	}
-
-	audioTracks := media.GetAudioTracks(fullPath)
-	selectedAudio := media.SelectBestAudioTrack(audioTracks)
-	canCopyAudio := selectedAudio != nil && (selectedAudio.Codec == "aac" || selectedAudio.Codec == "mp3")
-
-	availableSources := []string{"remux", "hls-ts"}
-	if source == "" || source == "direct" || source == "hls-fmp4" {
-		source = "remux"
-	}
-	if source == "remux" && !canCopyAudio {
-		source = "hls-ts"
-	}
-
-	sessionID := fmt.Sprintf("s_%d", time.Now().UnixNano())
-	sessionDir := filepath.Join(s.config.CachePath, sessionID)
-	os.MkdirAll(sessionDir, 0755)
-
-	playlistPath := filepath.Join(sessionDir, "index.m3u8")
-	segmentPath := filepath.Join(sessionDir, "seg_%03d.ts")
-
-	args := []string{"-loglevel", "warning", "-i", fullPath, "-vn"}
-	if source == "remux" && canCopyAudio {
-		log.Printf("INFO [server] audio remux: copying audio codec=%s file=%s", selectedAudio.Codec, targetFile)
-		args = append(args, "-c:a", "copy")
-	} else {
-		codec := ""
-		if selectedAudio != nil {
-			codec = selectedAudio.Codec
-		}
-		log.Printf("INFO [server] audio HLS-TS: transcoding to AAC codec=%s file=%s", codec, targetFile)
-		args = append(args, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
-	}
-	args = append(args,
-		"-f", "hls",
-		"-hls_time", "10",
-		"-hls_list_size", "0",
-		"-hls_playlist_type", "event",
-		"-hls_segment_type", "mpegts",
-		"-hls_segment_filename", segmentPath,
-		playlistPath,
-	)
-
-	cmd := exec.Command("ffmpeg", args...)
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		log.Printf("ERROR [server] failed to start ffmpeg for audio: %v", err)
-		os.RemoveAll(sessionDir)
-		http.Error(w, "Failed to start stream", 500)
-		return
-	}
-
-	log.Printf("INFO [server] started audio HLS session=%s source=%s file=%s", sessionID, source, targetFile)
-
-	s.streamMutex.Lock()
-	s.activeStreams[sessionID] = cmd
-	s.streamMutex.Unlock()
-
-	firstSegReady := media.WaitForFile(filepath.Join(sessionDir, "seg_000.ts"), 50, 200*time.Millisecond) &&
-		media.WaitForFile(playlistPath, 50, 200*time.Millisecond)
-	if !firstSegReady {
-		log.Printf("INFO [server] audio HLS not ready, killing ffmpeg session=%s", sessionID)
-		s.streamMutex.Lock()
-		if cmd, exists := s.activeStreams[sessionID]; exists {
-			cmd.Process.Kill()
-			cmd.Wait()
-			delete(s.activeStreams, sessionID)
-		}
-		s.streamMutex.Unlock()
-		go func() { os.RemoveAll(sessionDir) }()
-		http.Error(w, "Stream not ready", http.StatusServiceUnavailable)
-		return
-	}
-
-	log.Printf("INFO [server] audio HLS ready session=%s source=%s", sessionID, source)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"mode":             "hls",
-		"source":           source,
-		"url":              fmt.Sprintf("/api/hls/%s/index.m3u8", sessionID),
-		"sessionId":        sessionID,
-		"duration":         duration,
-		"subtitles":        []map[string]interface{}{},
 		"availableSources": availableSources,
 	})
 }
