@@ -36,6 +36,12 @@ const API = {
         const cleanPath = path.startsWith('/') ? path.substring(1) : path;
         const encoded = cleanPath.split('/').map(s => encodeURIComponent(s)).join('/');
         return `/content/${encoded}?mode=${mode}`;
+    },
+
+    getAudioFMP4Url(path, mode) {
+        const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+        const encoded = cleanPath.split('/').map(s => encodeURIComponent(s)).join('/');
+        return `/api/audio-fmp4?file=${encoded}&mode=${encodeURIComponent(mode)}`;
     }
 };
 
