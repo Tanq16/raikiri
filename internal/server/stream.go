@@ -53,7 +53,7 @@ func extractSubtitles(fullPath, sessionDir string) []map[string]interface{} {
 func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	targetFile := r.URL.Query().Get("file")
 	mode := r.URL.Query().Get("mode")
-	source := r.URL.Query().Get("source") // "direct", "hls-fmp4", "hls-ts", or "" (auto)
+	source := r.URL.Query().Get("source") // "direct", "remux", "hls-fmp4", "hls-ts", or "" (auto)
 	forceHLS := r.URL.Query().Get("force") == "hls"
 	root := s.getRoot(mode)
 	fullPath := filepath.Join(root, targetFile)
@@ -72,22 +72,42 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	log.Printf("INFO [server] subtitles found count=%d session=%s", len(subtitleList), sessionID)
 
 	isServable := media.IsDirectServable(fullPath)
-	availableSources := []string{"hls-fmp4", "hls-ts"}
+	videoCodec := media.GetVideoCodec(fullPath)
+	canRemux := media.IsVideoCompatibleForHLS(videoCodec)
+
+	availableSources := []string{}
 	if isServable {
-		availableSources = append([]string{"direct"}, availableSources...)
+		availableSources = append(availableSources, "direct")
 	}
+	if canRemux {
+		availableSources = append(availableSources, "remux")
+	}
+	availableSources = append(availableSources, "hls-fmp4", "hls-ts")
 
 	if source == "" {
 		if forceHLS {
-			source = "hls-fmp4"
+			if canRemux {
+				source = "remux"
+			} else {
+				source = "hls-fmp4"
+			}
 		} else if isServable {
 			source = "direct"
+		} else if canRemux {
+			source = "remux"
 		} else {
 			source = "hls-fmp4"
 		}
 	}
 
 	if source == "direct" && !isServable {
+		if canRemux {
+			source = "remux"
+		} else {
+			source = "hls-fmp4"
+		}
+	}
+	if source == "remux" && !canRemux {
 		source = "hls-fmp4"
 	}
 
@@ -119,12 +139,14 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Path B: HLS (fMP4 or MPEG-TS)
+	// Path B: HLS (remux, fMP4, or MPEG-TS)
+	isRemux := source == "remux"
 	isTS := source == "hls-ts"
 
-	videoCodec := media.GetVideoCodec(fullPath)
 	needsVideoTranscode := !media.IsVideoCompatibleForHLS(videoCodec)
-	if needsVideoTranscode {
+	if isRemux {
+		log.Printf("INFO [server] remux mode: copying video codec=%s file=%s", videoCodec, targetFile)
+	} else if needsVideoTranscode {
 		log.Printf("INFO [server] video codec not HLS-compatible, will transcode to H.264 codec=%s file=%s", videoCodec, targetFile)
 	} else {
 		log.Printf("INFO [server] video codec HLS-compatible, will copy codec=%s file=%s", videoCodec, targetFile)
@@ -138,7 +160,17 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		audioArgs = []string{"-map", "0:v:0", "-map", fmt.Sprintf("0:%d", selectedAudio.Index)}
 		log.Printf("INFO [server] selected audio track=%d codec=%s lang=%s channels=%d file=%s", selectedAudio.Index, selectedAudio.Codec, selectedAudio.Language, selectedAudio.Channels, targetFile)
 
-		if isTS {
+		if isRemux {
+			// Remux: copy audio when safe (AAC stereo), re-encode otherwise
+			canCopyAudio := selectedAudio.Codec == "aac" && selectedAudio.Channels <= 2
+			if canCopyAudio {
+				log.Printf("INFO [server] remux: copying compatible audio file=%s", targetFile)
+				audioArgs = append(audioArgs, "-c:a", "copy")
+			} else {
+				log.Printf("INFO [server] remux: re-encoding audio to AAC stereo file=%s", targetFile)
+				audioArgs = append(audioArgs, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
+			}
+		} else if isTS {
 			// MPEG-TS: HLS.js MP4Remuxer handles drift correction per-frame
 			// Copy audio if compatible, otherwise basic re-encode (no aresample)
 			needsAudioTranscode := !media.IsAudioCompatible(selectedAudio.Codec) || selectedAudio.Channels > 2
@@ -168,14 +200,14 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		"-i", fullPath,
 	}
 	args = append(args, audioArgs...)
-	if needsVideoTranscode {
+	if isRemux || !needsVideoTranscode {
+		args = append(args, "-c:v", "copy")
+	} else {
 		args = append(args,
 			"-c:v", "libx264",
 			"-preset", "fast",
 			"-crf", "23",
 		)
-	} else {
-		args = append(args, "-c:v", "copy")
 	}
 
 	args = append(args,
@@ -195,6 +227,7 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 			"-hls_segment_filename", segmentPath,
 		)
 	} else {
+		// Both remux and hls-fmp4 use fMP4 segments
 		segmentPath := filepath.Join(sessionDir, "seg_%03d.m4s")
 		args = append(args,
 			"-hls_segment_type", "fmp4",

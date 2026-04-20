@@ -435,7 +435,7 @@ const UI = {
     },
 
     updateSourceButton(source, visible) {
-        const labels = { 'direct': 'Direct', 'hls-fmp4': 'HLS', 'hls-ts': 'HLS-TS' };
+        const labels = { 'direct': 'Direct', 'remux': 'Remux', 'hls-fmp4': 'HLS', 'hls-ts': 'HLS-TS' };
         const label = labels[source] || '';
 
         const desktopBtn = document.getElementById('ep-source-btn-desktop');
