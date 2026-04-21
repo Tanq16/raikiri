@@ -750,6 +750,7 @@ const Player = {
             this.currentSessionId = data.sessionId;
             this.videoDuration = data.duration || null;
             this._currentSource = data.source;
+            this.videoEl.classList.remove('hidden');
             while (this.videoEl.firstChild) this.videoEl.removeChild(this.videoEl.firstChild);
             if (data.mode === 'direct') {
                 this._directMode = true;
@@ -784,6 +785,7 @@ const Player = {
             this.videoDuration = data.duration || null;
             this.availableSubtitles = data.subtitles || [];
             this._currentSource = data.source;
+            this.videoEl.classList.remove('hidden');
             while (this.videoEl.firstChild) this.videoEl.removeChild(this.videoEl.firstChild);
 
             const seekOnce = () => { this.videoEl.currentTime = savedTime; this.videoEl.removeEventListener('loadeddata', seekOnce); };
