@@ -167,18 +167,15 @@ const Player = {
 
             if (!this._mseActive || !this._sourceBuffer) return;
 
-            // Wait for any pending SourceBuffer operation
             await this._waitForSB();
             this._sourceBuffer.appendBuffer(data);
             await this._waitForSB();
 
-            // Record track metadata
             const startOffset = this._trackDurations.reduce((a, b) => a + b, 0);
             this._trackDurations[trackIndex] = duration;
             this._trackStartOffsets[trackIndex] = startOffset;
             this._prefetchedIndex = trackIndex;
 
-            // If this is the last track, signal end of stream
             if (trackIndex >= this.queue.length - 1 && this._mediaSource.readyState === 'open') {
                 this._mediaSource.endOfStream();
             }
@@ -203,17 +200,21 @@ const Player = {
         if (this._prefetchedIndex >= this.queue.length - 1) return;
 
         const nextIdx = this._prefetchedIndex + 1;
+        const tracksAhead = this._prefetchedIndex - this.currentIndex;
 
-        // Start pre-fetching when we're past 50% of the current track,
-        // or if there's less than 30 seconds of buffered audio remaining
-        const trackStart = this._trackStartOffsets[this.currentIndex] || 0;
-        const trackDur = this._trackDurations[this.currentIndex] || 0;
-        const trackTime = this.audioEl.currentTime - trackStart;
-        const totalBuffered = this._trackStartOffsets[this._prefetchedIndex] + (this._trackDurations[this._prefetchedIndex] || 0);
-        const bufferedAhead = totalBuffered - this.audioEl.currentTime;
+        // Keep at least 3 tracks buffered ahead for background playback resilience
+        let shouldPrefetch = tracksAhead < 3;
 
-        if (trackDur > 0 && (trackTime > trackDur * 0.5 || bufferedAhead < 30)) {
-            this._appendTrackData(nextIdx).catch(e => {
+        if (!shouldPrefetch) {
+            const totalBuffered = (this._trackStartOffsets[this._prefetchedIndex] || 0) + (this._trackDurations[this._prefetchedIndex] || 0);
+            const bufferedAhead = totalBuffered - this.audioEl.currentTime;
+            shouldPrefetch = bufferedAhead < 60;
+        }
+
+        if (shouldPrefetch) {
+            this._appendTrackData(nextIdx).then(() => {
+                this._maybePrefetchNext();
+            }).catch(e => {
                 console.warn('Prefetch failed:', e);
             });
         }

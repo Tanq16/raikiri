@@ -12,6 +12,7 @@ type FileEntry struct {
 type AudioTrack struct {
 	Index    int    `json:"index"`
 	Codec    string `json:"codec"`
+	Profile  string `json:"profile"`
 	Language string `json:"language"`
 	Channels int    `json:"channels"`
 }

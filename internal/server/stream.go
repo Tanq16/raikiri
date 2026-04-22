@@ -315,9 +315,18 @@ func (s *Server) HandleAudioFMP4(w http.ResponseWriter, r *http.Request) {
 
 	if selectedAudio != nil {
 		args = append(args, "-map", fmt.Sprintf("0:%d", selectedAudio.Index))
-		log.Printf("INFO [server] audio-fmp4: encoding to AAC-LC 48kHz codec=%s file=%s", selectedAudio.Codec, targetFile)
+		sampleRate := media.GetAudioSampleRate(fullPath, selectedAudio.Index)
+		canCopy := selectedAudio.Codec == "aac" && selectedAudio.Profile == "LC" && selectedAudio.Channels <= 2 && sampleRate == 48000
+		if canCopy {
+			log.Printf("INFO [server] audio-fmp4: copying AAC-LC file=%s", targetFile)
+			args = append(args, "-c:a", "copy")
+		} else {
+			log.Printf("INFO [server] audio-fmp4: transcoding to AAC-LC 48kHz codec=%s profile=%s rate=%d file=%s", selectedAudio.Codec, selectedAudio.Profile, sampleRate, targetFile)
+			args = append(args, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
+		}
+	} else {
+		args = append(args, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
 	}
-	args = append(args, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
 
 	args = append(args,
 		"-f", "mp4",

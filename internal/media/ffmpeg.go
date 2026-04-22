@@ -32,7 +32,7 @@ func GetAudioTracks(filePath string) []AudioTrack {
 	cmd := exec.Command("ffprobe",
 		"-v", "error",
 		"-select_streams", "a",
-		"-show_entries", "stream=index,codec_name,channels:stream_tags=language",
+		"-show_entries", "stream=index,codec_name,profile,channels:stream_tags=language",
 		"-of", "csv=p=0",
 		filePath)
 
@@ -48,23 +48,25 @@ func GetAudioTracks(filePath string) []AudioTrack {
 			continue
 		}
 		parts := strings.Split(line, ",")
-		if len(parts) >= 3 {
+		if len(parts) >= 4 {
 			index, err := strconv.Atoi(parts[0])
 			if err != nil {
 				continue
 			}
 			codec := parts[1]
-			channels, err := strconv.Atoi(parts[2])
+			profile := parts[2]
+			channels, err := strconv.Atoi(parts[3])
 			if err != nil {
 				channels = 2
 			}
 			language := "und"
-			if len(parts) >= 4 {
-				language = parts[3]
+			if len(parts) >= 5 {
+				language = parts[4]
 			}
 			tracks = append(tracks, AudioTrack{
 				Index:    index,
 				Codec:    codec,
+				Profile:  profile,
 				Language: language,
 				Channels: channels,
 			})
