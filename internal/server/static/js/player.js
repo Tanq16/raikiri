@@ -60,7 +60,7 @@ const Player = {
         // If MSE buffer runs dry mid-playback (JS was frozen), resume prefetch
         this.audioEl.addEventListener('waiting', () => {
             if (this._mseActive && !this._prefetching && this._prefetchedIndex < this.queue.length - 1) {
-                this._appendTrackData(this._prefetchedIndex + 1).catch(() => {});
+                this._appendTrackData(this._prefetchedIndex + 1).catch(e => console.warn('MSE prefetch on waiting:', e));
             }
         });
 
@@ -117,9 +117,12 @@ const Player = {
         this._prefetchedIndex = -1;
         this._prefetching = false;
 
-        // Create MediaSource and SourceBuffer
         this._mediaSource = new MediaSource();
         this.audioEl.src = URL.createObjectURL(this._mediaSource);
+
+        // play() must be called before any await to preserve user gesture token
+        this.audioEl.play().catch(e => console.warn('MSE play():', e));
+        this.isPlaying = true;
 
         await new Promise((resolve, reject) => {
             this._mediaSource.addEventListener('sourceopen', resolve, { once: true });
@@ -130,17 +133,11 @@ const Player = {
         this._sourceBuffer.mode = 'sequence';
         this._mseActive = true;
 
-        // Append and play the first track
         await this._appendTrackData(startIndex);
 
-        // Seek to start of the requested track (in case startIndex > 0 and we
-        // appended tracks 0..startIndex, though currently we start from startIndex)
         if (this._trackStartOffsets[startIndex]) {
             this.audioEl.currentTime = this._trackStartOffsets[startIndex];
         }
-
-        this.audioEl.play().catch(() => {});
-        this.isPlaying = true;
 
         const item = this.queue[startIndex];
         const thumb = item.thumb ? API.getContentUrl(item.thumb, state.mode) : null;
@@ -151,7 +148,6 @@ const Player = {
         UI.updatePlayButton(true);
         this.updatePlaybackState('playing');
 
-        // Start pre-fetching the next track
         this._maybePrefetchNext();
     },
 
@@ -192,12 +188,13 @@ const Player = {
     },
 
     _waitForSB() {
-        return new Promise(resolve => {
+        return new Promise((resolve, reject) => {
             if (!this._sourceBuffer || !this._sourceBuffer.updating) {
                 resolve();
                 return;
             }
             this._sourceBuffer.addEventListener('updateend', resolve, { once: true });
+            this._sourceBuffer.addEventListener('error', () => reject(new Error('SourceBuffer error')), { once: true });
         });
     },
 
