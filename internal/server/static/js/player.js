@@ -33,9 +33,7 @@ const Player = {
 
         this.audioEl.addEventListener('ended', () => {
             if (this._mseActive) {
-                // All buffered data consumed. If there are unfetched tracks,
-                // they'll be appended when JS resumes and 'waiting' fires.
-                // If we're past the last track, stop.
+                console.log(`MSE ended: prefetched=${this._prefetchedIndex}, queueLen=${this.queue.length}, time=${this.audioEl.currentTime.toFixed(1)}`);
                 if (this._prefetchedIndex >= this.queue.length - 1) {
                     this.stop();
                 }
@@ -59,8 +57,11 @@ const Player = {
 
         // If MSE buffer runs dry mid-playback (JS was frozen), resume prefetch
         this.audioEl.addEventListener('waiting', () => {
-            if (this._mseActive && !this._prefetching && this._prefetchedIndex < this.queue.length - 1) {
-                this._appendTrackData(this._prefetchedIndex + 1).catch(e => console.warn('MSE prefetch on waiting:', e));
+            if (this._mseActive) {
+                console.log(`MSE waiting: prefetched=${this._prefetchedIndex}, time=${this.audioEl.currentTime.toFixed(1)}, prefetching=${this._prefetching}`);
+                if (!this._prefetching && this._prefetchedIndex < this.queue.length - 1) {
+                    this._appendTrackData(this._prefetchedIndex + 1).catch(e => console.warn('MSE prefetch on waiting:', e));
+                }
             }
         });
 
@@ -130,7 +131,6 @@ const Player = {
         });
 
         this._sourceBuffer = this._mediaSource.addSourceBuffer('audio/mp4; codecs="mp4a.40.2"');
-        this._sourceBuffer.mode = 'sequence';
         this._mseActive = true;
 
         await this._appendTrackData(startIndex);
@@ -167,14 +167,18 @@ const Player = {
 
             if (!this._mseActive || !this._sourceBuffer) return;
 
+            const startOffset = this._trackDurations.reduce((a, b) => a + b, 0);
+
             await this._waitForSB();
+            this._sourceBuffer.timestampOffset = startOffset;
             this._sourceBuffer.appendBuffer(data);
             await this._waitForSB();
 
-            const startOffset = this._trackDurations.reduce((a, b) => a + b, 0);
             this._trackDurations[trackIndex] = duration;
             this._trackStartOffsets[trackIndex] = startOffset;
             this._prefetchedIndex = trackIndex;
+
+            console.log(`MSE: track ${trackIndex} appended, offset=${startOffset.toFixed(1)}, dur=${duration.toFixed(1)}, buffered=${(startOffset + duration).toFixed(1)}s`);
 
             if (trackIndex >= this.queue.length - 1 && this._mediaSource.readyState === 'open') {
                 this._mediaSource.endOfStream();
