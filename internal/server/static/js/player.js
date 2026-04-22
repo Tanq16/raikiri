@@ -322,7 +322,10 @@ const Player = {
         }
 
         if (this._mseActive) {
-            // Rebuild MSE from current position
+            if (!removingCurrent && idx > this._prefetchedIndex) {
+                UI.renderQueueList();
+                return;
+            }
             let targetIndex = this.currentIndex;
             if (idx < this.currentIndex) targetIndex--;
             if (targetIndex >= this.queue.length) targetIndex = this.queue.length - 1;
