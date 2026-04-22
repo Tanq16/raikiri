@@ -8,12 +8,6 @@ import (
 	"strings"
 )
 
-// GetAudioDuration returns the duration of an audio file in seconds.
-// ffprobe's format=duration works for audio and video, so this aliases GetVideoDuration.
-func GetAudioDuration(filePath string) (float64, error) {
-	return GetVideoDuration(filePath)
-}
-
 func GetVideoDuration(filePath string) (float64, error) {
 	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", filePath)
 	output, err := cmd.Output()

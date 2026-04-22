@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -286,78 +285,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		"subtitles":        subtitleList,
 		"availableSources": availableSources,
 	})
-}
-
-// HandleAudioFMP4 streams an audio file as fragmented MP4 suitable for direct
-// MSE SourceBuffer.appendBuffer(). M4A (AAC) is remuxed (zero CPU); other
-// formats are transcoded to AAC. The response is the raw fMP4 byte stream.
-func (s *Server) HandleAudioFMP4(w http.ResponseWriter, r *http.Request) {
-	targetFile := r.URL.Query().Get("file")
-	mode := r.URL.Query().Get("mode")
-	root := s.getRoot(mode)
-	fullPath := filepath.Join(root, targetFile)
-
-	if !strings.HasPrefix(fullPath, root) {
-		http.NotFound(w, r)
-		return
-	}
-
-	duration, err := media.GetAudioDuration(fullPath)
-	if err != nil {
-		http.Error(w, "Failed to get audio duration", 500)
-		return
-	}
-
-	audioTracks := media.GetAudioTracks(fullPath)
-	selectedAudio := media.SelectBestAudioTrack(audioTracks)
-
-	args := []string{"-loglevel", "warning", "-i", fullPath, "-vn"}
-
-	if selectedAudio != nil {
-		args = append(args, "-map", fmt.Sprintf("0:%d", selectedAudio.Index))
-		sampleRate := media.GetAudioSampleRate(fullPath, selectedAudio.Index)
-		canCopy := selectedAudio.Codec == "aac" && selectedAudio.Profile == "LC" && selectedAudio.Channels <= 2 && sampleRate == 48000
-		if canCopy {
-			log.Printf("INFO [server] audio-fmp4: copying AAC-LC file=%s", targetFile)
-			args = append(args, "-c:a", "copy")
-		} else {
-			log.Printf("INFO [server] audio-fmp4: transcoding to AAC-LC 48kHz codec=%s profile=%s rate=%d file=%s", selectedAudio.Codec, selectedAudio.Profile, sampleRate, targetFile)
-			args = append(args, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
-		}
-	} else {
-		args = append(args, "-c:a", "aac", "-b:a", "192k", "-ac", "2", "-ar", "48000")
-	}
-
-	args = append(args,
-		"-f", "mp4",
-		"-movflags", "frag_keyframe+empty_moov+default_base_moof",
-		"pipe:1",
-	)
-
-	cmd := exec.Command("ffmpeg", args...)
-	cmd.Stderr = os.Stderr
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		http.Error(w, "Failed to create pipe", 500)
-		return
-	}
-
-	if err := cmd.Start(); err != nil {
-		log.Printf("ERROR [server] audio-fmp4 ffmpeg start failed: %v", err)
-		http.Error(w, "Failed to start transcoder", 500)
-		return
-	}
-
-	w.Header().Set("Content-Type", "audio/mp4")
-	w.Header().Set("X-Audio-Duration", fmt.Sprintf("%.6f", duration))
-	w.Header().Set("Cache-Control", "no-store")
-
-	if _, err := io.Copy(w, stdout); err != nil {
-		log.Printf("DEBUG [server] audio-fmp4 stream interrupted file=%s: %v", targetFile, err)
-	}
-
-	cmd.Wait()
 }
 
 func (s *Server) HandleStreamStop(w http.ResponseWriter, r *http.Request) {
