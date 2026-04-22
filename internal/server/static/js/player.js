@@ -167,18 +167,21 @@ const Player = {
 
             if (!this._mseActive || !this._sourceBuffer) return;
 
-            const startOffset = this._trackDurations.reduce((a, b) => a + b, 0);
+            // Use actual buffered range end, not metadata duration, to avoid gaps
+            const sb = this._sourceBuffer;
+            const startOffset = sb.buffered.length > 0 ? sb.buffered.end(sb.buffered.length - 1) : 0;
 
             await this._waitForSB();
-            this._sourceBuffer.timestampOffset = startOffset;
-            this._sourceBuffer.appendBuffer(data);
+            sb.timestampOffset = startOffset;
+            sb.appendBuffer(data);
             await this._waitForSB();
 
+            const bufEnd = sb.buffered.length > 0 ? sb.buffered.end(sb.buffered.length - 1) : 0;
             this._trackDurations[trackIndex] = duration;
             this._trackStartOffsets[trackIndex] = startOffset;
             this._prefetchedIndex = trackIndex;
 
-            console.log(`MSE: track ${trackIndex} appended, offset=${startOffset.toFixed(1)}, dur=${duration.toFixed(1)}, buffered=${(startOffset + duration).toFixed(1)}s`);
+            console.log(`MSE: track ${trackIndex}, range=[${startOffset.toFixed(1)}, ${bufEnd.toFixed(1)}], dur=${duration.toFixed(1)}`);
 
             if (trackIndex >= this.queue.length - 1 && this._mediaSource.readyState === 'open') {
                 this._mediaSource.endOfStream();
