@@ -135,7 +135,7 @@ class PlayerViewModel(private val connection: PlaybackConnection) : ViewModel() 
     }
 
     fun playIndex(index: Int) {
-        controller.value?.seekToMediaItem(index, 0L)
+        controller.value?.seekToDefaultPosition(index)
     }
 
     private fun updateCurrentTrack() {

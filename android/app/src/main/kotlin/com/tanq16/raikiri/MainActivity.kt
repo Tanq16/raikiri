@@ -32,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -123,9 +125,9 @@ private fun BottomNavBar(navController: NavController) {
         contentColor = MaterialTheme.colorScheme.onSurface
     ) {
         navItems.forEach { item ->
-            val selected = currentDestination?.route?.contains(
-                item.route::class.qualifiedName ?: ""
-            ) == true
+            val selected = currentDestination?.hierarchy?.any {
+                it.hasRoute(item.route::class)
+            } == true
 
             NavigationBarItem(
                 selected = selected,
