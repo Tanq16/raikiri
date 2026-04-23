@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,17 +16,23 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -36,6 +43,7 @@ import com.tanq16.raikiri.ui.PlayerViewModel
 import com.tanq16.raikiri.ui.components.AlbumArtImage
 import com.tanq16.raikiri.ui.components.TrackItem
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NowPlayingScreen(
     playerVm: PlayerViewModel,
@@ -48,15 +56,19 @@ fun NowPlayingScreen(
     val queue by playerVm.queue.collectAsStateWithLifecycle()
     val currentIndex by playerVm.currentIndex.collectAsStateWithLifecycle()
 
+    var showQueue by remember { mutableStateOf(false) }
     val track = currentTrack
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 16.dp),
+            .padding(horizontal = 24.dp)
+            .padding(top = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (track != null) {
+            Spacer(Modifier.weight(1f))
+
             // Album art
             AlbumArtImage(
                 thumbPath = track.thumb,
@@ -64,7 +76,7 @@ fun NowPlayingScreen(
                 size = 280.dp
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(32.dp))
 
             // Track info
             Text(
@@ -73,54 +85,52 @@ fun NowPlayingScreen(
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 24.dp)
+                textAlign = TextAlign.Center
             )
 
             val artistName = track.path.split("/").firstOrNull() ?: ""
             if (artistName.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
                 Text(
                     text = artistName,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 24.dp)
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.weight(1f))
 
             // Seek bar
-            Column(Modifier.padding(horizontal = 24.dp)) {
-                Slider(
-                    value = if (durationMs > 0) positionMs.toFloat() / durationMs.toFloat() else 0f,
-                    onValueChange = { fraction ->
-                        playerVm.seekTo((fraction * durationMs).toLong())
-                    },
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    )
+            Slider(
+                value = if (durationMs > 0) positionMs.toFloat() / durationMs.toFloat() else 0f,
+                onValueChange = { fraction ->
+                    playerVm.seekTo((fraction * durationMs).toLong())
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
+            )
 
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = formatMs(positionMs),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = formatMs(durationMs),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = formatMs(positionMs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = formatMs(durationMs),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
 
             // Controls
             Row(
@@ -161,26 +171,19 @@ fun NowPlayingScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Queue
+            // Queue button
             if (queue.isNotEmpty()) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Text(
-                    text = "Queue",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-                LazyColumn(Modifier.fillMaxSize()) {
-                    itemsIndexed(queue, key = { _, item -> item.path }) { index, item ->
-                        TrackItem(
-                            item = item,
-                            serverUrl = serverUrl,
-                            isPlaying = index == currentIndex,
-                            onClick = { playerVm.playIndex(index) }
-                        )
-                    }
+                IconButton(onClick = { showQueue = true }) {
+                    Icon(
+                        Icons.Default.QueueMusic,
+                        contentDescription = "Queue",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
             }
+
+            Spacer(Modifier.height(24.dp))
         } else {
             Box(
                 Modifier.fillMaxSize(),
@@ -191,6 +194,41 @@ fun NowPlayingScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+
+    // Queue bottom sheet
+    if (showQueue) {
+        ModalBottomSheet(
+            onDismissRequest = { showQueue = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    text = "Queue",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                LazyColumn(Modifier.fillMaxWidth()) {
+                    itemsIndexed(queue, key = { _, item -> item.path }) { index, item ->
+                        TrackItem(
+                            item = item,
+                            serverUrl = serverUrl,
+                            isPlaying = index == currentIndex,
+                            onClick = {
+                                playerVm.playIndex(index)
+                                showQueue = false
+                            }
+                        )
+                    }
+                }
             }
         }
     }

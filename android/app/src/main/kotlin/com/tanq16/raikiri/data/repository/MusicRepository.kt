@@ -1,8 +1,8 @@
 package com.tanq16.raikiri.data.repository
 
+import android.net.Uri
 import com.tanq16.raikiri.data.api.FileEntry
 import com.tanq16.raikiri.data.api.RaikiriApi
-import java.net.URLEncoder
 
 class MusicRepository(
     private val api: RaikiriApi?,
@@ -43,7 +43,7 @@ class MusicRepository(
     companion object {
         fun contentUrl(serverUrl: String, path: String): String {
             val encoded = path.split("/").joinToString("/") {
-                URLEncoder.encode(it, "UTF-8")
+                Uri.encode(it)
             }
             return "${serverUrl.trimEnd('/')}/content/$encoded?mode=music"
         }
