@@ -134,6 +134,19 @@ class PlayerViewModel(private val connection: PlaybackConnection) : ViewModel() 
         controller.value?.seekTo(posMs)
     }
 
+    fun stop() {
+        controller.value?.let {
+            it.stop()
+            it.clearMediaItems()
+        }
+        _queue.value = emptyList()
+        _currentTrack.value = null
+        _currentIndex.value = -1
+        _isPlaying.value = false
+        _positionMs.value = 0L
+        _durationMs.value = 0L
+    }
+
     fun playIndex(index: Int) {
         controller.value?.seekToDefaultPosition(index)
     }
