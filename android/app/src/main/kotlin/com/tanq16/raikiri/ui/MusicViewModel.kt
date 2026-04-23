@@ -27,12 +27,6 @@ class MusicViewModel(initialRepository: MusicRepository) : ViewModel() {
     private val _folderState = MutableStateFlow<UiState>(UiState.Loading)
     val folderState: StateFlow<UiState> = _folderState.asStateFlow()
 
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-
-    private val _searchResults = MutableStateFlow<List<FileEntry>>(emptyList())
-    val searchResults: StateFlow<List<FileEntry>> = _searchResults.asStateFlow()
-
     val serverUrl: String get() = repository.serverUrl
 
     fun updateRepository(newRepo: MusicRepository) {
@@ -55,15 +49,6 @@ class MusicViewModel(initialRepository: MusicRepository) : ViewModel() {
             repository.listFolder(path)
                 .onSuccess { _folderState.value = UiState.Success(it) }
                 .onFailure { _folderState.value = UiState.Error(it.message ?: "Failed to load folder") }
-        }
-    }
-
-    fun setSearchQuery(query: String) {
-        _searchQuery.value = query
-        _searchResults.value = if (query.length >= 2) {
-            repository.search(query)
-        } else {
-            emptyList()
         }
     }
 

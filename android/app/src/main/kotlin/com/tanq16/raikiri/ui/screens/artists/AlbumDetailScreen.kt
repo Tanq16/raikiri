@@ -2,6 +2,7 @@ package com.tanq16.raikiri.ui.screens.artists
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,14 +10,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,7 +34,6 @@ import com.tanq16.raikiri.ui.PlayerViewModel
 import com.tanq16.raikiri.ui.components.AlbumArtImage
 import com.tanq16.raikiri.ui.components.TrackItem
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumDetailScreen(
     path: String,
@@ -53,24 +53,10 @@ fun AlbumDetailScreen(
             .onFailure { error = it.message }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(name) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
+    Column(Modifier.fillMaxSize()) {
         when {
             error != null -> {
-                Box(
-                    Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     TextButton(onClick = { error = null }) {
                         Text("Failed to load. Tap to retry.", color = MaterialTheme.colorScheme.error)
                     }
@@ -78,10 +64,7 @@ fun AlbumDetailScreen(
             }
 
             items == null -> {
-                Box(
-                    Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
@@ -90,7 +73,7 @@ fun AlbumDetailScreen(
                 val tracks = items!!
                 val thumbPath = tracks.firstOrNull()?.thumb ?: ""
 
-                LazyColumn(Modifier.fillMaxSize().padding(padding)) {
+                LazyColumn(Modifier.fillMaxSize()) {
                     item {
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -110,9 +93,9 @@ fun AlbumDetailScreen(
                             Text(
                                 text = artist,
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(Modifier.height(16.dp))
+                            Spacer(Modifier.height(8.dp))
                         }
                     }
                     itemsIndexed(tracks, key = { _, item -> item.path }) { index, item ->

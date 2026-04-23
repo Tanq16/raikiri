@@ -2,8 +2,11 @@ package com.tanq16.raikiri.ui.screens.artists
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -11,18 +14,15 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,7 +43,6 @@ import com.tanq16.raikiri.ui.components.FolderListItem
 import com.tanq16.raikiri.ui.components.TrackItem
 import com.tanq16.raikiri.ui.navigation.AlbumDetailRoute
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArtistDetailScreen(
     path: String,
@@ -68,58 +67,57 @@ fun ArtistDetailScreen(
     val tracks = items?.filter { it.type == "audio" } ?: emptyList()
     val hasFolders = folders.isNotEmpty()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(name) },
-                actions = {
-                    if (hasFolders) {
-                        IconButton(onClick = { isGrid = !isGrid }) {
-                            Icon(
-                                imageVector = if (isGrid) Icons.AutoMirrored.Filled.List else Icons.Default.GridView,
-                                contentDescription = if (isGrid) "List view" else "Grid view",
-                                tint = MaterialTheme.colorScheme.onBackground
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
+    Column(Modifier.fillMaxSize()) {
+        // Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { navController.popBackStack() }) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.onBackground
                 )
+            }
+            Text(
+                text = name,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f)
             )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
+            if (hasFolders) {
+                IconButton(onClick = { isGrid = !isGrid }) {
+                    Icon(
+                        imageVector = if (isGrid) Icons.AutoMirrored.Filled.List else Icons.Default.GridView,
+                        contentDescription = if (isGrid) "List view" else "Grid view",
+                        tint = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+            }
+        }
+
         when {
             error != null -> {
-                Box(
-                    Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    TextButton(onClick = {
-                        error = null
-                        items = null
-                    }) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    TextButton(onClick = { error = null; items = null }) {
                         Text("Failed to load. Tap to retry.", color = MaterialTheme.colorScheme.error)
                     }
                 }
             }
 
             items == null -> {
-                Box(
-                    Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
 
             hasFolders && isGrid -> {
-                // Grid view for albums
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 150.dp),
-                    modifier = Modifier.fillMaxSize().padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -139,8 +137,7 @@ fun ArtistDetailScreen(
             }
 
             else -> {
-                // List view for albums + tracks
-                LazyColumn(Modifier.fillMaxSize().padding(padding)) {
+                LazyColumn(Modifier.fillMaxSize()) {
                     if (hasFolders) {
                         items(folders.size, key = { folders[it].path }) { idx ->
                             FolderListItem(

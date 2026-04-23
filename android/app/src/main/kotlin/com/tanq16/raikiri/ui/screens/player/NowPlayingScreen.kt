@@ -222,6 +222,7 @@ fun NowPlayingScreen(
                             item = item,
                             serverUrl = serverUrl,
                             isPlaying = index == currentIndex,
+                            onRemove = { playerVm.removeFromQueue(index) },
                             onClick = {
                                 playerVm.playIndex(index)
                                 showQueue = false

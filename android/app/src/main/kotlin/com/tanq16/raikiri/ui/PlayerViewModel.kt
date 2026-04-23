@@ -138,6 +138,34 @@ class PlayerViewModel(private val connection: PlaybackConnection) : ViewModel() 
         controller.value?.seekToDefaultPosition(index)
     }
 
+    fun removeFromQueue(index: Int) {
+        val ctrl = controller.value ?: return
+        val q = _queue.value.toMutableList()
+        if (index < 0 || index >= q.size) return
+
+        val removingCurrent = index == _currentIndex.value
+        q.removeAt(index)
+        ctrl.removeMediaItem(index)
+
+        if (q.isEmpty()) {
+            _queue.value = emptyList()
+            _currentTrack.value = null
+            _currentIndex.value = -1
+            ctrl.stop()
+            return
+        }
+
+        _queue.value = q
+
+        if (index < _currentIndex.value) {
+            _currentIndex.value = _currentIndex.value - 1
+        } else if (removingCurrent) {
+            val newIdx = _currentIndex.value.coerceAtMost(q.size - 1)
+            _currentIndex.value = newIdx
+            updateCurrentTrack()
+        }
+    }
+
     private fun updateCurrentTrack() {
         val idx = _currentIndex.value
         _currentTrack.value = _queue.value.getOrNull(idx)

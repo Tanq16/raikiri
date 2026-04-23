@@ -12,11 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.MusicNote
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,7 +41,6 @@ import com.tanq16.raikiri.ui.components.MiniPlayer
 import com.tanq16.raikiri.ui.navigation.AppNavigation
 import com.tanq16.raikiri.ui.navigation.ArtistsRoute
 import com.tanq16.raikiri.ui.navigation.NowPlayingRoute
-import com.tanq16.raikiri.ui.navigation.SearchRoute
 import com.tanq16.raikiri.ui.navigation.SettingsRoute
 import com.tanq16.raikiri.ui.navigation.SongsRoute
 import com.tanq16.raikiri.ui.theme.RaikiriTheme
@@ -111,7 +108,6 @@ private data class NavItem(
 private val navItems = listOf(
     NavItem(SongsRoute, "Songs", Icons.Filled.MusicNote, Icons.Outlined.MusicNote),
     NavItem(ArtistsRoute, "Artists", Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic),
-    NavItem(SearchRoute, "Search", Icons.Filled.Search, Icons.Outlined.Search),
     NavItem(SettingsRoute, "Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
 )
 

@@ -26,18 +26,8 @@ class MusicRepository(
         songs
     }
 
-    fun getCachedSongs(): List<FileEntry> = allSongs ?: emptyList()
-
     fun clearCache() {
         allSongs = null
-    }
-
-    fun search(query: String): List<FileEntry> {
-        val q = query.lowercase()
-        return getCachedSongs().filter { song ->
-            song.name.lowercase().contains(q) ||
-            song.path.lowercase().contains(q)
-        }
     }
 
     companion object {
