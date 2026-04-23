@@ -1,10 +1,10 @@
 <div align="center">
-  <img src=".github/assets/logo.svg" alt="Local Content Share Logo" width="200">
+  <img src=".github/assets/logo.svg" alt="Raikiri Logo" width="200">
   <h1>Raikiri</h1>
 
   <a href="https://github.com/tanq16/raikiri/actions/workflows/release.yaml"><img alt="Build Workflow" src="https://github.com/tanq16/raikiri/actions/workflows/release.yaml/badge.svg"></a>&nbsp;<a href="https://github.com/Tanq16/raikiri/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/tanq16/raikiri"></a>&nbsp;<a href="https://hub.docker.com/r/tanq16/raikiri"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/tanq16/raikiri"></a><br><br>
 
-  <a href="#features">Features</a> &bull; <a href="#screenshots">Screenshots</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#thumbnails">Thumbnails</a> &bull; <a href="#player-and-playlists">Player</a>
+  <a href="#features">Features</a> &bull; <a href="#screenshots">Screenshots</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#android-app">Android</a> &bull; <a href="#thumbnails">Thumbnails</a> &bull; <a href="#player-and-playlists">Player</a>
 </div>
 
 A fast, simple, self-hosted, no-nonsense media server. Lightweight alternative to Jellyfin/Plex without complex metadata tagging.
@@ -33,6 +33,7 @@ The aim is to provide an elegant directory listing for images, videos, and audio
 - Automatic cache cleanup that removes old HLS session files older than 3 days
 - Fully self-hosted with local assets and self-contained binary and container
 - Efficient size for both binary and container, ~15 and ~50 MB resp
+- Companion Android app for music with background playback and media notification support
 
 ## Screenshots
 
@@ -59,7 +60,7 @@ docker run --rm -d --name raikiri \
   -v $HOME/raikiri:/app/media \
   -v $HOME/music:/app/music \
   -v $HOME/raikiri-cache:/app/cache \
-  tanq16/raikiri:main
+  tanq16/raikiri:latest
 ```
 
 Available at `http://localhost:8080`. Docker Compose example:
@@ -67,7 +68,7 @@ Available at `http://localhost:8080`. Docker Compose example:
 ```yaml
 services:
   raikiri:
-    image: tanq16/raikiri:main
+    image: tanq16/raikiri:latest
     container_name: raikiri
     volumes:
       - /home/tanq/raikiri:/app/media # Change as needed
@@ -113,6 +114,24 @@ git clone https://github.com/tanq16/raikiri.git && \
 cd raikiri && \
 make build
 ```
+
+### Android App
+
+Raikiri includes a companion Android app for music playback. It is **not** a standalone music player — it connects to a self-hosted Raikiri server and streams from it. The app exists because Chrome Android restricts background audio auto-advance (changing tracks kills audio output when the screen is off). The native app uses Media3 ExoPlayer with a foreground service, so background playback and track advancement work reliably.
+
+**What it does:**
+- Browse artists and albums (folder navigation, same as the web app)
+- View all songs with search/filter
+- Background playback with Android media notification and lock screen controls
+- Queue management with track removal
+- Grid and list view toggle for artists/albums
+- Catppuccin Mocha dark theme matching the web app
+
+**Install:**
+- Download the APK from the [latest release](https://github.com/Tanq16/raikiri/releases/latest)
+- For auto-updates via [Obtainium](https://github.com/ImranR98/Obtainium), add `https://github.com/Tanq16/raikiri` as a source and configure it to track the `app-release.apk` asset
+
+On first launch, go to Settings and enter your Raikiri server URL (e.g., `http://192.168.1.100:8080`).
 
 ### Additional Notes
 
