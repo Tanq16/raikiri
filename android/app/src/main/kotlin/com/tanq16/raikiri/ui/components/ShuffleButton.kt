@@ -1,11 +1,9 @@
 package com.tanq16.raikiri.ui.components
 
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -16,20 +14,18 @@ import com.tanq16.raikiri.R
 fun ShuffleButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    text: String = "Shuffle"
+    enabled: Boolean = true
 ) {
-    FilledTonalButton(
+    IconButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_shuffle),
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
+            contentDescription = "Shuffle",
+            tint = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.size(24.dp)
         )
-        Spacer(Modifier.width(8.dp))
-        Text(text)
     }
 }

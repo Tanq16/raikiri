@@ -95,7 +95,6 @@ fun ArtistDetailScreen(
             )
             ShuffleButton(
                 enabled = !isShuffleLoading,
-                text = if (isShuffleLoading) "Loading..." else "Shuffle",
                 onClick = {
                     isShuffleLoading = true
                     scope.launch {

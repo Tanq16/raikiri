@@ -3,10 +3,9 @@ package com.tanq16.raikiri.ui.screens.songs
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.CircularProgressIndicator
@@ -38,6 +37,16 @@ fun SongsScreen(
     val uiState by musicVm.allSongsState.collectAsStateWithLifecycle()
     val currentTrack by playerVm.currentTrack.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
+    val visibleTracks = (uiState as? MusicViewModel.UiState.Success)?.let { state ->
+        if (query.length >= 2) {
+            val q = query.lowercase()
+            state.items.filter {
+                it.name.lowercase().contains(q) || it.path.lowercase().contains(q)
+            }
+        } else {
+            state.items
+        }
+    } ?: emptyList()
 
     LaunchedEffect(Unit) {
         if (uiState is MusicViewModel.UiState.Loading) {
@@ -46,14 +55,25 @@ fun SongsScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        SearchBar(
-            query = query,
-            onQueryChange = { query = it },
-            placeholder = "Search songs...",
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SearchBar(
+                query = query,
+                onQueryChange = { query = it },
+                placeholder = "Search songs...",
+                modifier = Modifier.weight(1f)
+            )
+            ShuffleButton(
+                enabled = visibleTracks.isNotEmpty(),
+                onClick = { playerVm.playShuffledTracks(visibleTracks, serverUrl) }
+            )
+        }
 
-        when (val state = uiState) {
+        when (uiState) {
             is MusicViewModel.UiState.Loading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
@@ -69,37 +89,16 @@ fun SongsScreen(
             }
 
             is MusicViewModel.UiState.Success -> {
-                val filtered = if (query.length >= 2) {
-                    val q = query.lowercase()
-                    state.items.filter {
-                        it.name.lowercase().contains(q) || it.path.lowercase().contains(q)
-                    }
-                } else {
-                    state.items
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    ShuffleButton(
-                        enabled = filtered.isNotEmpty(),
-                        onClick = { playerVm.playShuffledTracks(filtered, serverUrl) }
-                    )
-                }
-
                 LazyColumn(Modifier.fillMaxSize()) {
                     itemsIndexed(
-                        items = filtered,
+                        items = visibleTracks,
                         key = { _, item -> item.path }
                     ) { index, item ->
                         TrackItem(
                             item = item,
                             serverUrl = serverUrl,
                             isPlaying = currentTrack?.path == item.path,
-                            onClick = { playerVm.playTracks(filtered, index, serverUrl) }
+                            onClick = { playerVm.playTracks(visibleTracks, index, serverUrl) }
                         )
                     }
                 }
