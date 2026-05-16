@@ -108,6 +108,11 @@ class PlayerViewModel(private val connection: PlaybackConnection) : ViewModel() 
         updateCurrentTrack()
     }
 
+    fun playShuffledTracks(tracks: List<FileEntry>, serverUrl: String) {
+        if (tracks.isEmpty()) return
+        playTracks(tracks.shuffled(), startIndex = 0, serverUrl = serverUrl)
+    }
+
     fun togglePlayPause() {
         controller.value?.let {
             if (it.isPlaying) it.pause() else it.play()

@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -34,20 +35,26 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.tanq16.raikiri.ui.MusicViewModel
+import com.tanq16.raikiri.ui.PlayerViewModel
 import com.tanq16.raikiri.ui.components.FolderGridItem
 import com.tanq16.raikiri.ui.components.FolderListItem
 import com.tanq16.raikiri.ui.components.SearchBar
+import com.tanq16.raikiri.ui.components.ShuffleButton
 import com.tanq16.raikiri.ui.navigation.ArtistDetailRoute
+import kotlinx.coroutines.launch
 
 @Composable
 fun ArtistsScreen(
     musicVm: MusicViewModel,
+    playerVm: PlayerViewModel,
     serverUrl: String,
     navController: NavController
 ) {
     val uiState by musicVm.folderState.collectAsStateWithLifecycle()
     var isGrid by rememberSaveable { mutableStateOf(true) }
     var query by rememberSaveable { mutableStateOf("") }
+    var isShuffleLoading by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         musicVm.loadFolder("")
@@ -65,6 +72,18 @@ fun ArtistsScreen(
                 onQueryChange = { query = it },
                 placeholder = "Search artists...",
                 modifier = Modifier.weight(1f)
+            )
+            ShuffleButton(
+                enabled = !isShuffleLoading,
+                text = if (isShuffleLoading) "Loading..." else "Shuffle",
+                onClick = {
+                    isShuffleLoading = true
+                    scope.launch {
+                        musicVm.repository.getAllSongs()
+                            .onSuccess { playerVm.playShuffledTracks(it, serverUrl) }
+                        isShuffleLoading = false
+                    }
+                }
             )
             IconButton(onClick = { isGrid = !isGrid }) {
                 Icon(

@@ -2,8 +2,11 @@ package com.tanq16.raikiri.ui.screens.songs
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tanq16.raikiri.ui.MusicViewModel
 import com.tanq16.raikiri.ui.PlayerViewModel
 import com.tanq16.raikiri.ui.components.SearchBar
+import com.tanq16.raikiri.ui.components.ShuffleButton
 import com.tanq16.raikiri.ui.components.TrackItem
 
 @Composable
@@ -72,6 +76,18 @@ fun SongsScreen(
                     }
                 } else {
                     state.items
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    ShuffleButton(
+                        enabled = filtered.isNotEmpty(),
+                        onClick = { playerVm.playShuffledTracks(filtered, serverUrl) }
+                    )
                 }
 
                 LazyColumn(Modifier.fillMaxSize()) {

@@ -2,6 +2,7 @@ package com.tanq16.raikiri.ui.screens.artists
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +33,7 @@ import com.tanq16.raikiri.data.api.FileEntry
 import com.tanq16.raikiri.ui.MusicViewModel
 import com.tanq16.raikiri.ui.PlayerViewModel
 import com.tanq16.raikiri.ui.components.AlbumArtImage
+import com.tanq16.raikiri.ui.components.ShuffleButton
 import com.tanq16.raikiri.ui.components.TrackItem
 
 @Composable
@@ -95,6 +97,16 @@ fun AlbumDetailScreen(
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.primary
                             )
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                ShuffleButton(
+                                    enabled = tracks.isNotEmpty(),
+                                    onClick = { playerVm.playShuffledTracks(tracks, serverUrl) }
+                                )
+                            }
                             Spacer(Modifier.height(8.dp))
                         }
                     }

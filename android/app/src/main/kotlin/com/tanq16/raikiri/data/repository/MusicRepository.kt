@@ -16,18 +16,26 @@ class MusicRepository(
             .filter { it.type == "folder" || it.type == "audio" }
     }
 
+    suspend fun listSongs(path: String, recursive: Boolean): Result<List<FileEntry>> = runCatching {
+        fetchSongs(path, recursive)
+    }
+
     suspend fun getAllSongs(): Result<List<FileEntry>> = runCatching {
-        val api = api ?: throw IllegalStateException("Server not configured")
         allSongs?.let { return@runCatching it }
-        val songs = api.list(path = "", mode = "music", recursive = true)
-            .filter { it.type == "audio" }
-            .sortedBy { it.name.lowercase() }
+        val songs = fetchSongs(path = "", recursive = true)
         allSongs = songs
         songs
     }
 
     fun clearCache() {
         allSongs = null
+    }
+
+    private suspend fun fetchSongs(path: String, recursive: Boolean): List<FileEntry> {
+        val api = api ?: throw IllegalStateException("Server not configured")
+        return api.list(path = path, mode = "music", recursive = recursive)
+            .filter { it.type == "audio" }
+            .sortedBy { it.name.lowercase() }
     }
 
     companion object {

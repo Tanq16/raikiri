@@ -28,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,8 +41,10 @@ import com.tanq16.raikiri.ui.MusicViewModel
 import com.tanq16.raikiri.ui.PlayerViewModel
 import com.tanq16.raikiri.ui.components.FolderGridItem
 import com.tanq16.raikiri.ui.components.FolderListItem
+import com.tanq16.raikiri.ui.components.ShuffleButton
 import com.tanq16.raikiri.ui.components.TrackItem
 import com.tanq16.raikiri.ui.navigation.AlbumDetailRoute
+import kotlinx.coroutines.launch
 
 @Composable
 fun ArtistDetailScreen(
@@ -56,6 +59,8 @@ fun ArtistDetailScreen(
     var error by remember { mutableStateOf<String?>(null) }
     val currentTrack by playerVm.currentTrack.collectAsStateWithLifecycle()
     var isGrid by rememberSaveable { mutableStateOf(true) }
+    var isShuffleLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(path) {
         musicVm.repository.listFolder(path)
@@ -87,6 +92,19 @@ fun ArtistDetailScreen(
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.weight(1f)
+            )
+            ShuffleButton(
+                enabled = !isShuffleLoading,
+                text = if (isShuffleLoading) "Loading..." else "Shuffle",
+                onClick = {
+                    isShuffleLoading = true
+                    scope.launch {
+                        musicVm.repository.listSongs(path = path, recursive = true)
+                            .onSuccess { playerVm.playShuffledTracks(it, serverUrl) }
+                            .onFailure { error = it.message ?: "Failed to load songs" }
+                        isShuffleLoading = false
+                    }
+                }
             )
             if (hasFolders) {
                 IconButton(onClick = { isGrid = !isGrid }) {

@@ -40,7 +40,7 @@ fun AppNavigation(
             SongsScreen(musicVm, playerVm, serverUrl)
         }
         composable<ArtistsRoute> {
-            ArtistsScreen(musicVm, serverUrl, navController)
+            ArtistsScreen(musicVm, playerVm, serverUrl, navController)
         }
         composable<ArtistDetailRoute> { backStackEntry ->
             val route = backStackEntry.toRoute<ArtistDetailRoute>()
