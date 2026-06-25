@@ -22,11 +22,12 @@ The aim is to provide an elegant directory listing for images, videos, and audio
 - Player bar with expanded player view supporting audio, video, and image playback
 - Image slideshow mode with automatic advancement every 5 seconds
 - Shuffle mode for recursive directory playback (media files only)
-- Queue dialog showing current playlist with ability to jump to any item
+- Queue dialog showing current playlist with ability to reorder items and jump to any item
 - Video history tracking - stores last 50 video paths in browser local storage
-- Fullscreen player support for videos and images
-- Subtitle support for videos with automatic detection of SRT files and embedded tracks
+- Fullscreen player support for videos and images (toggle with the `F` key in expanded view)
+- Subtitle support for videos with automatic detection of SRT/ASS/SSA/VTT files and embedded tracks
 - Player with support to switch between multiple available subtitle tracks
+- Player with support to switch between multiple available audio tracks (e.g. original vs. dubbed)
 - Search functionality to filter files in the current directory
 - Ability to upload files to the server at specific paths
 - Thumbnail generation mode in CLI for movies, shows, and videos (using `ffmpeg` and TMDB API)
@@ -143,6 +144,8 @@ Requires `ffmpeg` (includes `ffprobe`) in PATH for:
 
 For Docker deployments, provided image includes `ffmpeg`.
 
+If `ffmpeg`/`ffprobe` are missing, the server still starts and logs a startup warning; video playback then returns a clear error instead of failing silently (image and audio browsing continue to work).
+
 #### Thumbnails
 
 Thumbnails are stored as hidden files (`.filename.thumbnail.jpg`) alongside media. It is displayed in grid view when available.
@@ -151,6 +154,7 @@ To generate thumbnails, use the `prepare` subcommand:
 
 - `thumbnails`: Generate ffmpeg thumbnails recursively for all videos in the current directory
 - `thumbnails --current`: Generate thumbnails for the current directory only (non-recursive)
+- `thumbnails --force`: Overwrite existing thumbnails (by default, files that already have one are skipped)
 - `thumbnails <file>`: Generate a thumbnail for a single video file
 - `shows`: Auto-match TV shows using TMDB API (requires `TMDB_API_KEY` environment variable); run in the directory containing all show directories
 - `shows --manual`: Interactive TV show matching for a single show directory
@@ -160,6 +164,7 @@ To generate thumbnails, use the `prepare` subcommand:
 ```bash
 raikiri prepare thumbnails
 raikiri prepare thumbnails --current
+raikiri prepare thumbnails --force
 raikiri prepare thumbnails path/to/video.mkv
 raikiri prepare shows
 raikiri prepare movies --manual
@@ -197,7 +202,7 @@ raikiri video-encode --slower path/to/video.mkv
 
 Clicking media auto-creates a playlist from current directory files. Player bar shows current item with controls. Click to expand for seek controls, time display, and queue dialog.
 
-Queue dialog highlights active item; click any item to jump. Shuffle button plays all media recursively in random order (skips non-media).
+Queue dialog highlights active item; click any item to jump, or use the up/down buttons to reorder the queue. Shuffle button plays all media recursively in random order (skips non-media).
 
 - Images: auto-advance every 5s
 - Videos/audio: play/pause, prev/next, seek
@@ -214,13 +219,17 @@ Queue dialog highlights active item; click any item to jump. Shuffle button play
 - Unplayable files open in new tab as raw GET
 
 **Subtitles**
-- Auto-detection of SRTs in same directory, `subs/`, or `Subs/`
+- Auto-detection of SRT/ASS/SSA/VTT subtitles in same directory, `subs/`, or `Subs/`
 - Auto-extraction of embedded subtitle tracks
 - All subtitles are converted to WebVTT and served as options
 - CC button allows selecting across available tracks or disabled
 
+**Audio Tracks**
+- For videos with multiple audio streams, an audio button lists the available tracks
+- Selecting a track re-streams from the current position; direct playback switches to remux so the chosen track can be applied
+
 #### Quickie on Playback Sync
 
 - Compatible videos are served directly; others are HLS transmuxed/transcoded via `ffmpeg` (full seekability, format compatibility)
-- Fullscreen player with custom overlay with controls (play/pause, +-10s seek, seek bar, exit)
+- Fullscreen player with custom overlay with controls (play/pause, +-10s seek, seek bar, exit); press `F` to toggle fullscreen from the expanded view
 - Fullscreen disabled for audio (images/videos only)
