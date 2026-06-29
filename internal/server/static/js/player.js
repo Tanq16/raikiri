@@ -517,6 +517,7 @@ const Player = {
             if (this.activeSubtitleIndex !== null) this.setSubtitle(this.activeSubtitleIndex);
         } catch (e) {
             console.error('Source cycle failed', e);
+            UI.showError(e.message || 'Could not switch playback source');
         }
     },
 
@@ -559,6 +560,7 @@ const Player = {
             if (this.activeSubtitleIndex !== null) this.setSubtitle(this.activeSubtitleIndex);
         } catch (e) {
             console.error('Audio track switch failed', e);
+            UI.showError(e.message || 'Could not switch audio track');
         }
     },
 

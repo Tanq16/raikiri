@@ -29,7 +29,7 @@ func (s *Server) HandleList(w http.ResponseWriter, r *http.Request) {
 	relPath := r.URL.Query().Get("path")
 	recursive := r.URL.Query().Get("recursive") == "true"
 
-	root := s.getRoot(mode)
+	root, _ := filepath.Abs(filepath.Clean(s.getRoot(mode)))
 	targetDir, ok := s.resolveWithinRoot(mode, relPath)
 	if !ok {
 		http.Error(w, "Invalid path", 400)

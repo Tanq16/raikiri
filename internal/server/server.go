@@ -120,7 +120,11 @@ func (s *Server) getRoot(mode string) string {
 func (s *Server) resolveWithinRoot(mode, rel string) (string, bool) {
 	cleanRoot, _ := filepath.Abs(filepath.Clean(s.getRoot(mode)))
 	full, _ := filepath.Abs(filepath.Join(cleanRoot, rel))
-	ok := full == cleanRoot || strings.HasPrefix(full, cleanRoot+string(os.PathSeparator))
+	prefix := cleanRoot
+	if !strings.HasSuffix(prefix, string(os.PathSeparator)) {
+		prefix += string(os.PathSeparator)
+	}
+	ok := full == cleanRoot || strings.HasPrefix(full, prefix)
 	return full, ok
 }
 
