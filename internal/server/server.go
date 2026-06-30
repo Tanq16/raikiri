@@ -31,17 +31,25 @@ type Server struct {
 	mux          *http.ServeMux
 	activeStreams map[string]*exec.Cmd
 	streamMutex  sync.Mutex
+	ffmpegAvailable bool
 }
 
 func New(cfg Config) *Server {
+	_, ffmpegErr := exec.LookPath("ffmpeg")
+	_, ffprobeErr := exec.LookPath("ffprobe")
 	return &Server{
 		config:       cfg,
 		mux:          http.NewServeMux(),
 		activeStreams: make(map[string]*exec.Cmd),
+		ffmpegAvailable: ffmpegErr == nil && ffprobeErr == nil,
 	}
 }
 
 func (s *Server) Setup() error {
+	if !s.ffmpegAvailable {
+		log.Printf("WARN [server] ffmpeg/ffprobe not found in PATH - video playback will not work")
+	}
+
 	s.mux.HandleFunc("/api/list", s.HandleList)
 	s.mux.HandleFunc("/api/stream", s.HandleStreamStart)
 	s.mux.HandleFunc("/api/stop-stream", s.HandleStreamStop)
@@ -107,6 +115,17 @@ func (s *Server) getRoot(mode string) string {
 		return s.config.MusicPath
 	}
 	return s.config.MediaPath
+}
+
+func (s *Server) resolveWithinRoot(mode, rel string) (string, bool) {
+	cleanRoot, _ := filepath.Abs(filepath.Clean(s.getRoot(mode)))
+	full, _ := filepath.Abs(filepath.Join(cleanRoot, rel))
+	prefix := cleanRoot
+	if !strings.HasSuffix(prefix, string(os.PathSeparator)) {
+		prefix += string(os.PathSeparator)
+	}
+	ok := full == cleanRoot || strings.HasPrefix(full, prefix)
+	return full, ok
 }
 
 func (s *Server) cleanupOldCacheSessions(ctx context.Context) {

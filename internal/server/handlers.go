@@ -16,9 +16,8 @@ import (
 func (s *Server) HandleContent(w http.ResponseWriter, r *http.Request) {
 	mode := r.URL.Query().Get("mode")
 	relPath := strings.TrimPrefix(r.URL.Path, "/content/")
-	root := s.getRoot(mode)
-	fullPath := filepath.Join(root, relPath)
-	if !strings.HasPrefix(fullPath, root) {
+	fullPath, ok := s.resolveWithinRoot(mode, relPath)
+	if !ok {
 		http.NotFound(w, r)
 		return
 	}
@@ -30,8 +29,12 @@ func (s *Server) HandleList(w http.ResponseWriter, r *http.Request) {
 	relPath := r.URL.Query().Get("path")
 	recursive := r.URL.Query().Get("recursive") == "true"
 
-	root := s.getRoot(mode)
-	targetDir := filepath.Join(root, relPath)
+	root, _ := filepath.Abs(filepath.Clean(s.getRoot(mode)))
+	targetDir, ok := s.resolveWithinRoot(mode, relPath)
+	if !ok {
+		http.Error(w, "Invalid path", 400)
+		return
+	}
 
 	var entries []media.FileEntry
 
@@ -166,7 +169,12 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		dstPath := filepath.Join(s.getRoot(mode), relPath, fileHeader.Filename)
+		dstPath, ok := s.resolveWithinRoot(mode, filepath.Join(relPath, fileHeader.Filename))
+		if !ok {
+			file.Close()
+			http.Error(w, "Invalid path", 400)
+			return
+		}
 		dst, err := os.Create(dstPath)
 		if err != nil {
 			file.Close()

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,12 +56,21 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	mode := r.URL.Query().Get("mode")
 	source := r.URL.Query().Get("source") // "direct", "remux", "hls-fmp4", "hls-ts", or "" (auto)
 	forceHLS := r.URL.Query().Get("force") == "hls"
-	root := s.getRoot(mode)
-	fullPath := filepath.Join(root, targetFile)
+	audioParam := r.URL.Query().Get("audio")
+	fullPath, ok := s.resolveWithinRoot(mode, targetFile)
+	if !ok {
+		http.Error(w, "Invalid path", 400)
+		return
+	}
 
 	duration, err := media.GetVideoDuration(fullPath)
 	if err != nil {
-		http.Error(w, "Failed to get video duration", 500)
+		log.Printf("ERROR [server] failed to get video duration file=%s: %v", targetFile, err)
+		if !s.ffmpegAvailable {
+			http.Error(w, "ffmpeg is not installed on the server; video playback is unavailable", http.StatusServiceUnavailable)
+		} else {
+			http.Error(w, "Could not read this video file", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -74,6 +84,20 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	isServable := media.IsDirectServable(fullPath)
 	videoCodec := media.GetVideoCodec(fullPath)
 	canRemux := media.IsVideoCompatibleForHLS(videoCodec)
+
+	audioTracks := media.GetAudioTracks(fullPath)
+	defaultAudio := media.SelectBestAudioTrack(audioTracks)
+	selectedAudio := defaultAudio
+	if audioParam != "" {
+		if reqIndex, err := strconv.Atoi(audioParam); err == nil {
+			for i := range audioTracks {
+				if audioTracks[i].Index == reqIndex {
+					selectedAudio = &audioTracks[i]
+					break
+				}
+			}
+		}
+	}
 
 	availableSources := []string{}
 	if isServable {
@@ -111,6 +135,16 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		source = "hls-fmp4"
 	}
 
+	// Direct mode serves the raw file and cannot honor a non-default audio track.
+	// Bump to remux (or hls-fmp4 if not remux-capable) when a different track is requested.
+	if audioParam != "" && source == "direct" && selectedAudio != nil && defaultAudio != nil && selectedAudio.Index != defaultAudio.Index {
+		if canRemux {
+			source = "remux"
+		} else {
+			source = "hls-fmp4"
+		}
+	}
+
 	if source == "direct" {
 		log.Printf("INFO [server] direct serve file=%s", targetFile)
 
@@ -134,6 +168,8 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 			"sessionId":        sessionID,
 			"subtitles":        subtitleList,
 			"availableSources": availableSources,
+			"audioTracks":      audioTracks,
+			"selectedAudio":    audioTrackIndex(selectedAudio),
 		})
 		return
 	}
@@ -149,9 +185,6 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	} else {
 		log.Printf("INFO [server] video codec HLS-compatible, will copy codec=%s file=%s", videoCodec, targetFile)
 	}
-
-	audioTracks := media.GetAudioTracks(fullPath)
-	selectedAudio := media.SelectBestAudioTrack(audioTracks)
 
 	var audioArgs []string
 	if selectedAudio != nil {
@@ -284,7 +317,16 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		"duration":         duration,
 		"subtitles":        subtitleList,
 		"availableSources": availableSources,
+		"audioTracks":      audioTracks,
+		"selectedAudio":    audioTrackIndex(selectedAudio),
 	})
+}
+
+func audioTrackIndex(t *media.AudioTrack) int {
+	if t == nil {
+		return -1
+	}
+	return t.Index
 }
 
 func (s *Server) HandleStreamStop(w http.ResponseWriter, r *http.Request) {

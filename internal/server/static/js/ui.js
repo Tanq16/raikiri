@@ -9,6 +9,7 @@ const UI = {
     videoHome: null,
     fullscreenControlsTimer: null,
     fullscreenControlsVisible: true,
+    _toastTimer: null,
     
     init() {
         const handleRangeInput = (e) => {
@@ -53,6 +54,21 @@ const UI = {
         }
 
         document.addEventListener('keydown', (e) => {
+            if (e.key && e.key.toLowerCase() === 'f') {
+                const t = e.target;
+                if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+                if (document.getElementById('expanded-player').classList.contains('translate-y-full')) return;
+                const item = Player.queue[Player.currentIndex];
+                if (!item || (item.type !== 'video' && item.type !== 'image')) return;
+                e.preventDefault();
+                const fsVideo = document.getElementById('fullscreen-video-container');
+                const fsImage = document.getElementById('fullscreen-image-container');
+                const inFs = (fsVideo && !fsVideo.classList.contains('hidden')) || (fsImage && !fsImage.classList.contains('hidden'));
+                if (inFs) this.exitFullscreen();
+                else this.toggleFullscreen();
+                return;
+            }
+
             const fvc = document.getElementById('fullscreen-video-container');
             if (!fvc || fvc.classList.contains('hidden')) return;
 
@@ -75,6 +91,18 @@ const UI = {
         const queueContainer = document.getElementById('queue-list-container');
         if (queueContainer) {
             queueContainer.addEventListener('click', (e) => {
+                const up = e.target.closest('[data-queue-move-up]');
+                if (up) {
+                    const i = parseInt(up.getAttribute('data-queue-move-up'), 10);
+                    if (!Number.isNaN(i)) Player.moveInQueue(i, i - 1);
+                    return;
+                }
+                const down = e.target.closest('[data-queue-move-down]');
+                if (down) {
+                    const i = parseInt(down.getAttribute('data-queue-move-down'), 10);
+                    if (!Number.isNaN(i)) Player.moveInQueue(i, i + 1);
+                    return;
+                }
                 const removeBtn = e.target.closest('[data-queue-remove]');
                 if (removeBtn) {
                     const idx = parseInt(removeBtn.getAttribute('data-queue-remove'), 10);
@@ -134,6 +162,16 @@ const UI = {
     
     refreshIcons() {
         if (window.lucide) window.lucide.createIcons();
+    },
+
+    showError(msg) {
+        const toast = document.getElementById('toast');
+        const message = document.getElementById('toast-message');
+        if (!toast || !message) return;
+        message.textContent = msg;
+        toast.classList.remove('hidden');
+        if (this._toastTimer) clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
     },
 
     exitBrowserFullscreen() {
@@ -370,6 +408,16 @@ const UI = {
             dialog.classList.add('hidden');
         }
     },
+
+    toggleAudioDialog() {
+        const dialog = document.getElementById('audio-dialog');
+        if (dialog.classList.contains('hidden')) {
+            dialog.classList.remove('hidden');
+            this.renderAudioList();
+        } else {
+            dialog.classList.add('hidden');
+        }
+    },
     
     toggleHistoryDialog() {
         const dialog = document.getElementById('history-dialog');
@@ -434,6 +482,28 @@ const UI = {
         });
     },
 
+    renderAudioList() {
+        const container = document.getElementById('audio-list-container');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        Player.availableAudioTracks.forEach((track, i) => {
+            const label = `Track ${i + 1} (${track.language}, ${track.channels}ch)`;
+            const option = document.createElement('label');
+            option.className = 'flex items-center gap-3 p-3 rounded-lg hover:bg-surface0 cursor-pointer transition-colors';
+            option.innerHTML = `
+                <input type="radio" name="audio" value="${track.index}" ${Player.selectedAudioIndex === track.index ? 'checked' : ''} class="w-4 h-4 text-mauve">
+                <span class="text-text">${Escape.html(label)}</span>
+            `;
+            option.querySelector('input').addEventListener('change', () => {
+                Player.setAudioTrack(track.index);
+                this.toggleAudioDialog();
+            });
+            container.appendChild(option);
+        });
+    },
+
     updateSourceButton(source, visible) {
         const labels = { 'direct': 'Direct', 'remux': 'Remux', 'hls-fmp4': 'HLS', 'hls-ts': 'HLS-TS' };
         const label = labels[source] || '';
@@ -471,7 +541,23 @@ const UI = {
             if (pbCc) pbCc.classList.add('hidden');
         }
     },
-    
+
+    updateAudioButton(visible) {
+        const epAudioMob = document.getElementById('ep-audio-btn-mob');
+        const epAudioDesktop = document.getElementById('ep-audio-btn-desktop');
+        const pbAudio = document.getElementById('pb-audio-btn');
+
+        if (visible) {
+            if (epAudioMob) epAudioMob.classList.remove('hidden');
+            if (epAudioDesktop) { epAudioDesktop.classList.remove('hidden'); epAudioDesktop.classList.add('max-md:hidden', 'md:flex'); }
+            if (pbAudio) pbAudio.classList.remove('hidden');
+        } else {
+            if (epAudioMob) epAudioMob.classList.add('hidden');
+            if (epAudioDesktop) { epAudioDesktop.classList.add('hidden'); epAudioDesktop.classList.remove('max-md:hidden', 'md:flex'); }
+            if (pbAudio) pbAudio.classList.add('hidden');
+        }
+    },
+
     updateProgress(current, duration) {
         if (!duration) return;
         const percent = (current / duration) * 100;

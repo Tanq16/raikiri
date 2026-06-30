@@ -131,7 +131,7 @@ const App = {
         if (success) {
             this.loadDirectory();
         } else {
-            alert('Upload failed');
+            UI.showError('Upload failed');
         }
     }
 };

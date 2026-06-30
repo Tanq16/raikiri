@@ -101,6 +101,7 @@
         
         #queue-dialog { z-index: 60; }
         #subtitle-dialog { z-index: 60; }
+        #audio-dialog { z-index: 60; }
         #history-dialog { z-index: 60; }
         
         ::cue {
@@ -188,6 +189,23 @@
         </div>
     </div>
 
+    <div id="audio-dialog" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 backdrop-blur-sm" onclick="ui.toggleAudioDialog()">
+        <div class="bg-mantle w-full max-w-sm rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-surface1" onclick="event.stopPropagation()">
+            <div class="p-4 border-b border-surface0 flex justify-between items-center bg-base">
+                <span class="font-bold">Audio Track</span>
+                <button onclick="ui.toggleAudioDialog()"><i data-lucide="x" size="20"></i></button>
+            </div>
+            <div id="audio-list-container" class="p-4 space-y-2"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] hidden">
+        <div class="bg-surface0 text-text px-4 py-2 rounded-lg shadow-lg border border-red/50 flex items-center gap-2">
+            <i data-lucide="alert-circle" size="16" class="text-red shrink-0"></i>
+            <span id="toast-message" class="text-sm"></span>
+        </div>
+    </div>
+
     <div id="history-dialog" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 backdrop-blur-sm" onclick="ui.toggleHistoryDialog()">
         <div class="bg-mantle w-full max-w-md max-h-[70vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-surface1" onclick="event.stopPropagation()">
             <div class="p-4 border-b border-surface0 flex justify-between items-center bg-base">
@@ -234,6 +252,9 @@
             <div class="flex items-center justify-end w-1/3 gap-4">
                  <button id="pb-cc-btn" onclick="ui.toggleSubtitleDialog()" class="text-subtext0 hover:text-mauve p-2 rounded-lg hover:bg-surface0 transition-colors hidden">
                     <i data-lucide="closed-caption" size="20"></i>
+                </button>
+                 <button id="pb-audio-btn" onclick="ui.toggleAudioDialog()" class="text-subtext0 hover:text-mauve p-2 rounded-lg hover:bg-surface0 transition-colors hidden">
+                    <i data-lucide="audio-lines" size="20"></i>
                 </button>
                  <button id="pb-source-btn" onclick="player.cycleSource()" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface0 text-subtext0 hover:text-mauve transition-colors hidden"><span>HLS</span></button>
                  <button onclick="ui.toggleQueueDialog()" class="text-subtext0 hover:text-mauve relative p-2 rounded-lg hover:bg-surface0 transition-colors">
@@ -309,11 +330,13 @@
                         </button>
                         <button onclick="player.next()" class="text-text hover:scale-110 transition shrink-0"><i data-lucide="skip-forward" size="24" class="fill-current"></i></button>
                         <button id="ep-cc-btn-mob" onclick="ui.toggleSubtitleDialog()" class="text-subtext0 hover:text-mauve shrink-0 hidden"><i data-lucide="closed-caption" size="20"></i></button>
+                        <button id="ep-audio-btn-mob" onclick="ui.toggleAudioDialog()" class="text-subtext0 hover:text-mauve shrink-0 hidden"><i data-lucide="audio-lines" size="20"></i></button>
                         <button id="ep-source-btn-mob" onclick="player.cycleSource()" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-surface0 text-subtext0 hover:text-mauve transition-colors shrink-0 hidden"><span>HLS</span></button>
                         <button onclick="ui.toggleQueueDialog()" class="text-subtext0 hover:text-mauve shrink-0"><i data-lucide="list-music" size="20"></i></button>
                     </div>
                     <!-- Desktop: CC and Playlist buttons -->
                     <button id="ep-cc-btn-desktop" onclick="ui.toggleSubtitleDialog()" class="hidden text-subtext0 hover:text-mauve shrink-0"><i data-lucide="closed-caption" size="20"></i></button>
+                    <button id="ep-audio-btn-desktop" onclick="ui.toggleAudioDialog()" class="hidden text-subtext0 hover:text-mauve shrink-0"><i data-lucide="audio-lines" size="20"></i></button>
                     <button id="ep-source-btn-desktop" onclick="player.cycleSource()" class="hidden text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-surface0 text-subtext0 hover:text-mauve transition-colors shrink-0"><span>HLS</span></button>
                     <button id="ep-desktop-playlist" onclick="ui.toggleQueueDialog()" class="hidden md:block text-subtext0 hover:text-mauve shrink-0"><i data-lucide="list-music" size="20"></i></button>
                 </div>

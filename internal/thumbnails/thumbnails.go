@@ -12,16 +12,14 @@ import (
 	u "github.com/tanq16/raikiri/utils"
 )
 
-func CreateVideoThumbnail(filePath string) error {
+func CreateVideoThumbnail(filePath string, force bool) error {
 	dir := filepath.Dir(filePath)
 	filename := filepath.Base(filePath)
 	thumbFilename := fmt.Sprintf(".%s.thumbnail.jpg", filename)
 	thumbPath := filepath.Join(dir, thumbFilename)
 
-	if _, err := os.Stat(thumbPath); err == nil {
-		if !askToOverwrite(thumbPath) {
-			return nil
-		}
+	if _, err := os.Stat(thumbPath); err == nil && !force {
+		return nil
 	}
 
 	duration, err := media.GetVideoDuration(filePath)
@@ -48,7 +46,7 @@ func CreateVideoThumbnail(filePath string) error {
 	return nil
 }
 
-func ProcessVideos(rootDir string) {
+func ProcessVideos(rootDir string, force bool) {
 	var filesToProcess []string
 
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
@@ -71,14 +69,14 @@ func ProcessVideos(rootDir string) {
 	u.PrintInfo(fmt.Sprintf("found %d video files in '%s'", len(filesToProcess), rootDir))
 	for i, filePath := range filesToProcess {
 		u.PrintInfo(fmt.Sprintf("[%d/%d] processing: %s", i+1, len(filesToProcess), filepath.Base(filePath)))
-		err := CreateVideoThumbnail(filePath)
+		err := CreateVideoThumbnail(filePath, force)
 		if err != nil {
 			u.PrintError("thumbnail creation failed", err)
 		}
 	}
 }
 
-func ProcessVideo(currentDir string) {
+func ProcessVideo(currentDir string, force bool) {
 	var filesToProcess []string
 
 	entries, err := os.ReadDir(currentDir)
@@ -101,7 +99,7 @@ func ProcessVideo(currentDir string) {
 	u.PrintInfo(fmt.Sprintf("found %d video files in '%s'", len(filesToProcess), currentDir))
 	for i, filePath := range filesToProcess {
 		u.PrintInfo(fmt.Sprintf("[%d/%d] processing: %s", i+1, len(filesToProcess), filepath.Base(filePath)))
-		err := CreateVideoThumbnail(filePath)
+		err := CreateVideoThumbnail(filePath, force)
 		if err != nil {
 			u.PrintError("thumbnail creation failed", err)
 		}

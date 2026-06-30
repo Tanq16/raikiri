@@ -44,6 +44,7 @@ func getCwd() string {
 
 var thumbnailsFlags struct {
 	current bool
+	force   bool
 }
 
 var thumbnailsCmd = &cobra.Command{
@@ -68,7 +69,7 @@ Pass a single file path as an argument to generate a thumbnail for that file onl
 				u.PrintFatal(fmt.Sprintf("video file not found: %s", videoPath), nil)
 			}
 			u.PrintInfo(fmt.Sprintf("processing: %s", filepath.Base(videoPath)))
-			if err := thumbnails.CreateVideoThumbnail(videoPath); err != nil {
+			if err := thumbnails.CreateVideoThumbnail(videoPath, thumbnailsFlags.force); err != nil {
 				u.PrintFatal("error creating thumbnail", err)
 			}
 			u.PrintSuccess("complete")
@@ -77,10 +78,10 @@ Pass a single file path as an argument to generate a thumbnail for that file onl
 
 		if thumbnailsFlags.current {
 			u.PrintInfo("starting video thumbnail generation (current directory)")
-			thumbnails.ProcessVideo(cwd)
+			thumbnails.ProcessVideo(cwd, thumbnailsFlags.force)
 		} else {
 			u.PrintInfo("starting recursive video thumbnail generation")
-			thumbnails.ProcessVideos(cwd)
+			thumbnails.ProcessVideos(cwd, thumbnailsFlags.force)
 		}
 		u.PrintSuccess("complete")
 	},
@@ -136,6 +137,7 @@ Use --manual for interactive matching of the current directory to a specific mov
 
 func init() {
 	thumbnailsCmd.Flags().BoolVar(&thumbnailsFlags.current, "current", false, "Only process the current directory (non-recursive)")
+	thumbnailsCmd.Flags().BoolVar(&thumbnailsFlags.force, "force", false, "Overwrite existing thumbnails (default: skip files that already have one)")
 	showsCmd.Flags().BoolVar(&showsFlags.manual, "manual", false, "Interactive matching for a single show")
 	moviesCmd.Flags().BoolVar(&moviesFlags.manual, "manual", false, "Interactive matching for a single movie")
 

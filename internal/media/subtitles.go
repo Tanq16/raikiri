@@ -11,43 +11,34 @@ import (
 	"strings"
 )
 
+// isSubtitleFile reports whether name has a text-based subtitle extension that
+// can be converted through ffmpeg -f webvtt. VobSub (.sub/.idx) is image-based
+// and intentionally excluded.
+func isSubtitleFile(name string) bool {
+	lower := strings.ToLower(name)
+	for _, ext := range []string{".srt", ".ass", ".ssa", ".vtt"} {
+		if strings.HasSuffix(lower, ext) {
+			return true
+		}
+	}
+	return false
+}
+
 func FindExternalSubtitles(videoPath string) []string {
 	var subtitles []string
 	dir := filepath.Dir(videoPath)
 
-	videoDir, err := os.ReadDir(dir)
-	if err != nil {
-		return subtitles
-	}
-
-	for _, f := range videoDir {
-		if f.IsDir() || !strings.HasSuffix(strings.ToLower(f.Name()), ".srt") {
+	candidates := []string{dir, filepath.Join(dir, "subs"), filepath.Join(dir, "Subs")}
+	for _, scanDir := range candidates {
+		log.Printf("DEBUG [media] checking subtitle directory path=%s", scanDir)
+		entries, err := os.ReadDir(scanDir)
+		if err != nil {
 			continue
 		}
-		subtitles = append(subtitles, filepath.Join(dir, f.Name()))
-	}
-
-	subsDir := filepath.Join(dir, "subs")
-	log.Printf("DEBUG [media] checking subs directory path=%s", subsDir)
-	if subsDirEntries, err := os.ReadDir(subsDir); err == nil {
-		for _, f := range subsDirEntries {
-			log.Printf("DEBUG [media] checking subtitle file=%s", f.Name())
-			if !f.IsDir() && strings.HasSuffix(strings.ToLower(f.Name()), ".srt") {
+		for _, f := range entries {
+			if !f.IsDir() && isSubtitleFile(f.Name()) {
 				log.Printf("DEBUG [media] found subtitle file=%s", f.Name())
-				subtitles = append(subtitles, filepath.Join(subsDir, f.Name()))
-			}
-		}
-	}
-
-	subsDir = filepath.Join(dir, "Subs")
-	log.Printf("DEBUG [media] checking Subs directory path=%s", subsDir)
-	if subsDirEntries, err := os.ReadDir(subsDir); err == nil {
-		log.Printf("DEBUG [media] files in Subs directory count=%d", len(subsDirEntries))
-		for _, f := range subsDirEntries {
-			log.Printf("DEBUG [media] checking subtitle file=%s", f.Name())
-			if !f.IsDir() && strings.HasSuffix(strings.ToLower(f.Name()), ".srt") {
-				log.Printf("DEBUG [media] found subtitle file=%s", f.Name())
-				subtitles = append(subtitles, filepath.Join(subsDir, f.Name()))
+				subtitles = append(subtitles, filepath.Join(scanDir, f.Name()))
 			}
 		}
 	}

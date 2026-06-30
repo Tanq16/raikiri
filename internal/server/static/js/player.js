@@ -14,6 +14,8 @@ const Player = {
     isPlaying: false,
     availableSubtitles: [],
     activeSubtitleIndex: null,
+    availableAudioTracks: [],
+    selectedAudioIndex: null,
     _advancing: false,
     _directMode: false,
     _currentSource: null,
@@ -86,6 +88,23 @@ const Player = {
             }
             this.load(this.queue[this.currentIndex]);
             return;
+        }
+
+        UI.renderQueueList();
+    },
+
+    moveInQueue(from, to) {
+        if (from < 0 || from >= this.queue.length) return;
+        if (to < 0 || to >= this.queue.length) return;
+        const [moved] = this.queue.splice(from, 1);
+        this.queue.splice(to, 0, moved);
+
+        if (from === this.currentIndex) {
+            this.currentIndex = to;
+        } else if (from < this.currentIndex && to >= this.currentIndex) {
+            this.currentIndex--;
+        } else if (from > this.currentIndex && to <= this.currentIndex) {
+            this.currentIndex++;
         }
 
         UI.renderQueueList();
@@ -172,9 +191,12 @@ const Player = {
 
         this.availableSubtitles = [];
         this.activeSubtitleIndex = null;
+        this.availableAudioTracks = [];
+        this.selectedAudioIndex = null;
         this._currentSource = null;
         this._availableSources = [];
         UI.updateSubtitleButton(false);
+        UI.updateAudioButton(false);
         UI.updateSourceButton(null, false);
 
         const thumb = item.thumb ? API.getContentUrl(item.thumb, state.mode) : null;
@@ -204,6 +226,8 @@ const Player = {
                 this.currentSessionId = data.sessionId;
                 this.videoDuration = data.duration || null;
                 this.availableSubtitles = data.subtitles || [];
+                this.availableAudioTracks = data.audioTracks || [];
+                this.selectedAudioIndex = (typeof data.selectedAudio === 'number') ? data.selectedAudio : null;
                 this._availableSources = data.availableSources || [];
                 this._currentSource = data.source;
                 this.videoEl.classList.remove('hidden');
@@ -227,11 +251,13 @@ const Player = {
                 }
 
                 UI.updateSubtitleButton(this.availableSubtitles.length > 0);
+                UI.updateAudioButton(this.availableAudioTracks.length > 1);
                 UI.updateSourceButton(this._currentSource, true);
                 this.isPlaying = true;
                 loaded = true;
             } catch (e) {
                 console.error("Stream failed", e);
+                UI.showError(e.message || 'Could not play this video');
             }
         } else if (item.type === 'image') {
             const img = document.getElementById('ep-image');
@@ -415,11 +441,12 @@ const Player = {
 
     // ── Video Source Management ──────────────────────────────────────────
 
-    async _requestSource(item, source) {
+    async _requestSource(item, source, audioIndex) {
         const params = new URLSearchParams({ file: item.path, mode: state.mode });
         if (source) params.set('source', source);
+        if (audioIndex != null) params.set('audio', audioIndex);
         const res = await fetch(`/api/stream?${params}`);
-        if (!res.ok) throw new Error(`Stream request failed: ${res.status}`);
+        if (!res.ok) throw new Error(await res.text());
         return res.json();
     },
 
@@ -465,7 +492,7 @@ const Player = {
         this.videoEl.load();
 
         try {
-            const data = await this._requestSource(item, nextSource);
+            const data = await this._requestSource(item, nextSource, this.selectedAudioIndex);
             this.currentSessionId = data.sessionId;
             this.videoDuration = data.duration || null;
             this.availableSubtitles = data.subtitles || [];
@@ -490,6 +517,50 @@ const Player = {
             if (this.activeSubtitleIndex !== null) this.setSubtitle(this.activeSubtitleIndex);
         } catch (e) {
             console.error('Source cycle failed', e);
+            UI.showError(e.message || 'Could not switch playback source');
+        }
+    },
+
+    async setAudioTrack(index) {
+        if (!this.queue.length) return;
+        const item = this.queue[this.currentIndex];
+        if (!item || item.type !== 'video') return;
+        const savedTime = this.videoEl.currentTime;
+
+        this._cleanupVideo();
+        this.videoEl.removeAttribute('src');
+        this.videoEl.load();
+
+        try {
+            const data = await this._requestSource(item, this._currentSource, index);
+            this.currentSessionId = data.sessionId;
+            this.videoDuration = data.duration || null;
+            this.availableSubtitles = data.subtitles || [];
+            this._currentSource = data.source;
+            this.selectedAudioIndex = index;
+            this.availableAudioTracks = data.audioTracks || [];
+            this.videoEl.classList.remove('hidden');
+            while (this.videoEl.firstChild) this.videoEl.removeChild(this.videoEl.firstChild);
+
+            const seekOnce = () => { this.videoEl.currentTime = savedTime; this.videoEl.removeEventListener('loadeddata', seekOnce); };
+            if (savedTime > 0) this.videoEl.addEventListener('loadeddata', seekOnce);
+
+            if (data.mode === 'direct') {
+                this._directMode = true;
+                this.videoEl.src = data.url;
+                await this.videoEl.play();
+            } else {
+                this._directMode = false;
+                this._loadVideoHLS(data.url);
+            }
+
+            UI.updateSubtitleButton(this.availableSubtitles.length > 0);
+            UI.updateAudioButton(this.availableAudioTracks.length > 1);
+            UI.updateSourceButton(this._currentSource, true);
+            if (this.activeSubtitleIndex !== null) this.setSubtitle(this.activeSubtitleIndex);
+        } catch (e) {
+            console.error('Audio track switch failed', e);
+            UI.showError(e.message || 'Could not switch audio track');
         }
     },
 
