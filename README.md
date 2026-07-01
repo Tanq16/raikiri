@@ -4,7 +4,7 @@
 
   <a href="https://github.com/tanq16/raikiri/actions/workflows/release.yaml"><img alt="Build Workflow" src="https://github.com/tanq16/raikiri/actions/workflows/release.yaml/badge.svg"></a>&nbsp;<a href="https://github.com/Tanq16/raikiri/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/tanq16/raikiri"></a>&nbsp;<a href="https://hub.docker.com/r/tanq16/raikiri"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/tanq16/raikiri"></a><br><br>
 
-  <a href="#features">Features</a> &bull; <a href="#screenshots">Screenshots</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#android-app">Android</a> &bull; <a href="#thumbnails">Thumbnails</a> &bull; <a href="#player-and-playlists">Player</a>
+  <a href="#features">Features</a> &bull; <a href="#screenshots">Screenshots</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#playback">Playback</a> &bull; <a href="#tools">Tools</a> &bull; <a href="#android-app">Android</a>
 </div>
 
 A fast, simple, self-hosted, no-nonsense media server. Lightweight alternative to Jellyfin/Plex without complex metadata tagging.
@@ -50,6 +50,8 @@ The aim is to provide an elegant directory listing for images, videos, and audio
 
 ## Usage
 
+Switch between Media and Music modes via interface tabs. Think of it as your own minimal Netflix on the Media tab and your own minimal Spotify on the Music tab.
+
 ### Docker (for Homelab)
 
 ```bash
@@ -81,7 +83,7 @@ services:
 
 ### Binary
 
-To use the binary, simply download the latest version from the project releases and run as follows:
+Download the latest version from the project releases and run as follows:
 
 ```bash
 raikiri serve --media $YOUR_MEDIA_FOLDER --music $YOUR_MUSIC_FOLDER --cache $YOUR_HLS_CACHE_FOLDER
@@ -93,12 +95,6 @@ Flags:
 - `--cache`: HLS cache directory (default: `/tmp`)
 - `--port`: port to listen on (default: `8080`)
 - `--version`: print version information
-
-Switch between Media and Music modes via interface tabs. Think of it as your own minimal Netflix on the Media tab and your own minimal Spotify on the Music tab.
-
-Cache directory stores temporary HLS segments generated during video playback. Auto-cleanup runs daily at 3 AM, removing sessions older than 3 days.
-
-Storing cache in your SSD will yield faster performance (or instant seeks anywhere in the video). However, using HDD is recommended for longevity (lots of segment writes), even though it's not instant when seeking to further ahead right after launching the video.
 
 ### Local Development
 
@@ -116,41 +112,61 @@ cd raikiri && \
 make build
 ```
 
-### Android App
+### Requirements
 
-Raikiri includes a companion Android app for music playback. It is **not** a standalone music player — it connects to a self-hosted Raikiri server and streams from it. The app exists because Chrome Android restricts background audio auto-advance (changing tracks kills audio output when the screen is off). The native app uses Media3 ExoPlayer with a foreground service, so background playback and track advancement work reliably.
-
-**What it does:**
-- Browse artists and albums (folder navigation, same as the web app)
-- View all songs with search/filter
-- Background playback with Android media notification and lock screen controls
-- Queue management with track removal
-- Grid and list view toggle for artists/albums
-- Catppuccin Mocha dark theme matching the web app
-
-**Install:**
-- Download the APK from the [latest release](https://github.com/Tanq16/raikiri/releases/latest)
-- For auto-updates via [Obtainium](https://github.com/ImranR98/Obtainium), add `https://github.com/Tanq16/raikiri` as a source and configure it to track the `app-release.apk` asset
-
-On first launch, go to Settings and enter your Raikiri server URL (e.g., `http://192.168.1.100:8080`).
-
-### Additional Notes
-
-#### Requirements
-
-Requires `ffmpeg` (includes `ffprobe`) in PATH for:
-- Video playback (HLS transmuxing; transcodes if audio is a mismatch)
-- Thumbnail generation (`prepare` subcommand)
-
-For Docker deployments, provided image includes `ffmpeg`.
+Requires `ffmpeg` (includes `ffprobe`) in PATH for video playback (HLS transmuxing; transcodes if audio is a mismatch) and thumbnail generation (`prepare` subcommand). The provided Docker image already includes `ffmpeg`.
 
 If `ffmpeg`/`ffprobe` are missing, the server still starts and logs a startup warning; video playback then returns a clear error instead of failing silently (image and audio browsing continue to work).
 
-#### Thumbnails
+### Cache
 
-Thumbnails are stored as hidden files (`.filename.thumbnail.jpg`) alongside media. It is displayed in grid view when available.
+The cache directory stores temporary HLS segments generated during video playback. Auto-cleanup runs daily at 3 AM, removing sessions older than 3 days.
 
-To generate thumbnails, use the `prepare` subcommand:
+Storing cache on an SSD yields faster performance (or instant seeks anywhere in the video). However, an HDD is recommended for longevity (lots of segment writes), even though it's not instant when seeking far ahead right after launching the video.
+
+## Playback
+
+Clicking media auto-creates a playlist from the current directory's files. The player bar shows the current item with controls; click to expand it for seek controls, time display, and the queue dialog.
+
+### Queue
+
+The queue dialog highlights the active item; click any item to jump, or use the up/down buttons to reorder the queue. The shuffle button plays all media recursively in random order (skips non-media).
+
+- Images: auto-advance every 5s
+- Videos/audio: play/pause, prev/next, seek
+- Fullscreen: videos and images only
+
+### History
+
+- Click the Raikiri logo to open a history modal with the last 50 videos (not audio/images) played
+- History is stored in browser localStorage and shows the full file path, most recent first
+
+### Video Playback
+
+- Compatible MP4s (H.264/HEVC + AAC 48kHz stereo) are served directly via HTTP range requests for instant playback
+- All other videos are HLS-segmented to 6s fMP4 segments via `ffmpeg`, with audio transcoded to 48kHz AAC to prevent A/V drift (full seekability and format compatibility)
+- Audio plays directly in HTML5; unplayable files open in a new tab as a raw GET
+- Fullscreen uses a custom overlay (play/pause, ±10s seek, seek bar, exit); press `F` to toggle from the expanded view (videos and images only)
+
+### Subtitles
+
+- Auto-detection of SRT/ASS/SSA/VTT subtitles in the same directory, `subs/`, or `Subs/`
+- Auto-extraction of embedded subtitle tracks
+- All subtitles are converted to WebVTT and served as options
+- CC button allows selecting across available tracks or disabling them
+
+### Audio Tracks
+
+- For videos with multiple audio streams, an audio button lists the available tracks
+- Selecting a track re-streams from the current position; direct playback switches to remux so the chosen track can be applied
+
+## Tools
+
+Standalone CLI subcommands for preparing thumbnails and inspecting or re-encoding video files.
+
+### Thumbnails
+
+Thumbnails are stored as hidden files (`.filename.thumbnail.jpg`) alongside media and displayed in grid view when available. Generate them with the `prepare` subcommand:
 
 - `thumbnails`: Generate ffmpeg thumbnails recursively for all videos in the current directory
 - `thumbnails --current`: Generate thumbnails for the current directory only (non-recursive)
@@ -175,11 +191,11 @@ raikiri prepare movies --manual
 > - For images, the original file is used as a fallback if no thumbnail exists
 
 > [!TIP]
-> In Music mode, album art is considered as the directory thumbnail (`.thumbnail.jpg`), artist cover is considered from artist directory thumbnail. Tracks use list view (no thumbnails).
+> In Music mode, album art is used as the directory thumbnail (`.thumbnail.jpg`) and artist cover from the artist directory thumbnail. Tracks use list view (no thumbnails).
 
-#### Video Tools
+### Video Tools
 
-The `video-info` and `video-encode` commands are standalone CLI tools for inspecting and re-encoding video files.
+The `video-info` and `video-encode` commands inspect and re-encode video files.
 
 ```bash
 raikiri video-info path/to/video.mkv
@@ -198,38 +214,20 @@ raikiri video-encode --slower path/to/video.mkv
 - Default preset is `medium`; use `--slower` for preset `slow` (better compression, longer encode)
 - Output file is auto-named as `<basename>.h265.<mp4|mkv>`
 
-#### Player and Playlists
+## Android App
 
-Clicking media auto-creates a playlist from current directory files. Player bar shows current item with controls. Click to expand for seek controls, time display, and queue dialog.
+Raikiri includes a companion Android app for music playback. It is **not** a standalone music player — it connects to a self-hosted Raikiri server and streams from it. The app exists because Chrome Android restricts background audio auto-advance (changing tracks kills audio output when the screen is off). The native app uses Media3 ExoPlayer with a foreground service, so background playback and track advancement work reliably.
 
-Queue dialog highlights active item; click any item to jump, or use the up/down buttons to reorder the queue. Shuffle button plays all media recursively in random order (skips non-media).
+**What it does:**
+- Browse artists and albums (folder navigation, same as the web app)
+- View all songs with search/filter
+- Background playback with Android media notification and lock screen controls
+- Queue management with track removal
+- Grid and list view toggle for artists/albums
+- Catppuccin Mocha dark theme matching the web app
 
-- Images: auto-advance every 5s
-- Videos/audio: play/pause, prev/next, seek
-- Fullscreen: videos and images only
+**Install:**
+- Download the APK from the [latest release](https://github.com/Tanq16/raikiri/releases/latest)
+- For auto-updates via [Obtainium](https://github.com/ImranR98/Obtainium), add `https://github.com/Tanq16/raikiri` as a source and configure it to track the `app-release.apk` asset
 
-**History Tracking**
-- Click the Raikiri logo to open a history modal with last 50 videos (not audio/images) played
-- History is stored in browser localStorage and shows full file path as most recent first
-
-**Video Playback**
-- Compatible MP4s (H.264/HEVC + AAC 48kHz stereo) are served directly via HTTP range requests for instant playback
-- All other videos are HLS-segmented to 6s fMP4 segments via `ffmpeg`, with audio transcoded to 48kHz AAC to prevent A/V drift
-- Audio is played back directly in HTML5
-- Unplayable files open in new tab as raw GET
-
-**Subtitles**
-- Auto-detection of SRT/ASS/SSA/VTT subtitles in same directory, `subs/`, or `Subs/`
-- Auto-extraction of embedded subtitle tracks
-- All subtitles are converted to WebVTT and served as options
-- CC button allows selecting across available tracks or disabled
-
-**Audio Tracks**
-- For videos with multiple audio streams, an audio button lists the available tracks
-- Selecting a track re-streams from the current position; direct playback switches to remux so the chosen track can be applied
-
-#### Quickie on Playback Sync
-
-- Compatible videos are served directly; others are HLS transmuxed/transcoded via `ffmpeg` (full seekability, format compatibility)
-- Fullscreen player with custom overlay with controls (play/pause, +-10s seek, seek bar, exit); press `F` to toggle fullscreen from the expanded view
-- Fullscreen disabled for audio (images/videos only)
+On first launch, go to Settings and enter your Raikiri server URL (e.g., `http://192.168.1.100:8080`).
