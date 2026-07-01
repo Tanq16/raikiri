@@ -28,7 +28,7 @@ The aim is to provide an elegant directory listing for images, videos, and audio
 - Subtitle support for videos with automatic detection of SRT/ASS/SSA/VTT files and embedded tracks
 - Player with support to switch between multiple available subtitle tracks
 - Player with support to switch between multiple available audio tracks (e.g. original vs. dubbed)
-- Search functionality to filter files in the current directory
+- Hierarchical search that recursively filters the current directory and all subfolders, with results playable directly
 - Ability to upload files to the server at specific paths
 - Thumbnail generation mode in CLI for movies, shows, and videos (using `ffmpeg` and TMDB API)
 - Automatic cache cleanup that removes old HLS session files older than 3 days

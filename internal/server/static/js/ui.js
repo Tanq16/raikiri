@@ -186,7 +186,7 @@ const UI = {
         }
     },
 
-    render(items) {
+    render(items, opts = {}) {
         const depth = state.path.split('/').filter(p => p).length;
         const forceList = state.mode === 'music' && depth >= 2;
         const view = forceList ? 'list' : state.view;
@@ -195,12 +195,12 @@ const UI = {
         this.container.classList.toggle('view-list', view === 'list');
         document.getElementById('view-toggle-icon').setAttribute('data-lucide', view === 'grid' ? 'layout-grid' : 'list');
 
-        this.container.innerHTML = items.map(item => 
-            view === 'grid' 
-                ? Elements.createGridItem(item) 
-                : Elements.createListItem(item)
+        this.container.innerHTML = items.map(item =>
+            view === 'grid'
+                ? Elements.createGridItem(item, opts.showPath)
+                : Elements.createListItem(item, opts.showPath)
         ).join('');
-        
+
         this.refreshIcons();
     },
     

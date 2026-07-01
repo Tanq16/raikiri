@@ -36,7 +36,12 @@ const Elements = {
         return map[item.type] || 'File';
     },
 
-    createGridItem(item) {
+    getParentDir(item) {
+        const slash = item.path.lastIndexOf('/');
+        return slash > -1 ? item.path.slice(0, slash) : '';
+    },
+
+    createGridItem(item, showPath = false) {
         const isMedia = ['image', 'video', 'audio'].includes(item.type);
         const iconName = this.getIconName(item.type);
         const thumbUrl = item.thumb ? API.getContentUrl(item.thumb, state.mode) : null;
@@ -74,6 +79,11 @@ const Elements = {
              visual = `<div class="w-full h-full bg-surface0 flex items-center justify-center text-blue relative z-10"><i data-lucide="${iconName}" size="40"></i></div>`;
         }
 
+        const parentDir = showPath ? this.getParentDir(item) : '';
+        const secondary = parentDir
+            ? Escape.html(parentDir)
+            : Escape.html(item.size || '');
+
         return `
             <div class="flex flex-col gap-2 group w-full select-none"
                 data-id="${Escape.attr(item.path)}" data-type="${Escape.attr(item.type)}" data-name="${Escape.attr(item.name.toLowerCase())}">
@@ -85,18 +95,25 @@ const Elements = {
 
                 <div class="px-1 min-w-0">
                     <p class="text-xs font-bold text-text truncate group-hover:text-mauve transition-colors">${Escape.html(item.name)}</p>
-                    <p class="text-[10px] text-subtext0 truncate mt-0.5">${Escape.html(item.size || '')}</p>
+                    <p class="text-[10px] text-subtext0 truncate mt-0.5">${secondary}</p>
                 </div>
             </div>
         `;
     },
 
-    createListItem(item) {
+    createListItem(item, showPath = false) {
         const iconName = this.getIconName(item.type);
         const typeLabel = this.getDisplayType(item);
         const size = item.type === 'folder' ? '—' : (item.size || '—');
         const modified = item.modified || '—';
-        
+        const parentDir = showPath ? this.getParentDir(item) : '';
+
+        // When showing search results, use the parent directory as the secondary
+        // line so identically-named files in different folders are distinguishable.
+        const mobileSecondary = parentDir
+            ? `<span class="truncate">${Escape.html(parentDir)}</span>`
+            : `<span>${Escape.html(typeLabel)}</span>${item.type !== 'folder' ? `<span class="text-overlay0">•</span><span>${Escape.html(size)}</span>` : ''}`;
+
         return `
             <div class="group w-full"
                 data-id="${Escape.attr(item.path)}" data-type="${Escape.attr(item.type)}" data-name="${Escape.attr(item.name.toLowerCase())}">
@@ -106,14 +123,15 @@ const Elements = {
                     </div>
                     <div class="flex flex-col min-w-0">
                         <p class="text-sm font-semibold text-text truncate group-hover:text-mauve transition-colors">${Escape.html(item.name)}</p>
-                        <div class="flex items-center gap-2 text-[11px] text-subtext0 md:hidden">
-                            <span>${Escape.html(typeLabel)}</span>
-                            ${item.type !== 'folder' ? `<span class="text-overlay0">•</span><span>${Escape.html(size)}</span>` : ''}
+                        <div class="flex items-center gap-2 text-[11px] text-subtext0 md:hidden min-w-0">
+                            ${mobileSecondary}
                         </div>
                     </div>
-                    <span class="hidden md:block text-xs text-subtext0 font-semibold uppercase tracking-wide">${Escape.html(typeLabel)}</span>
+                    ${parentDir
+                        ? `<span class="hidden md:block text-xs text-subtext0 truncate md:col-span-3">${Escape.html(parentDir)}</span>`
+                        : `<span class="hidden md:block text-xs text-subtext0 font-semibold uppercase tracking-wide">${Escape.html(typeLabel)}</span>
                     <span class="hidden md:block text-xs text-subtext0">${Escape.html(size)}</span>
-                    <span class="hidden md:block text-xs text-subtext0">${Escape.html(modified)}</span>
+                    <span class="hidden md:block text-xs text-subtext0">${Escape.html(modified)}</span>`}
                 </div>
             </div>
         `;
