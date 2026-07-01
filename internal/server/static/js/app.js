@@ -4,6 +4,10 @@ import API from './api.js';
 import Player from './player.js';
 
 const App = {
+    _recursiveCache: null,
+    _searchResults: null,
+    _searchDebounce: null,
+
     async init() {
         UI.init(); // Bind seek events
         Player.init();
@@ -11,7 +15,6 @@ const App = {
         this.handleHashChange();
         window.addEventListener('hashchange', () => this.handleHashChange());
 
-        // Search Listener
         document.getElementById('search-input').addEventListener('input', (e) => this.handleSearch(e.target.value));
         
     },
@@ -64,22 +67,49 @@ const App = {
         }
         
         state.items = items;
-        
+
         UI.renderBreadcrumbs();
         UI.render(items);
-        
-        // Clear search
+
+        // Reset search state so cache/results don't bleed across directories
+        this._recursiveCache = null;
+        this._searchResults = null;
+        clearTimeout(this._searchDebounce);
         document.getElementById('search-input').value = '';
     },
     
     handleSearch(query) {
-        if (!query) {
+        const trimmed = query.trim();
+        if (!trimmed) {
+            clearTimeout(this._searchDebounce);
+            this._searchResults = null;
             UI.render(state.items);
             return;
         }
+        clearTimeout(this._searchDebounce);
+        this._searchDebounce = setTimeout(() => this._runSearch(trimmed), 200);
+    },
+
+    async _runSearch(query) {
+        if (this._recursiveCache === null) {
+            const path = state.path;
+            const mode = state.mode;
+            let pool = await API.list(path, mode, true);
+            // Don't poison the cache if the user navigated or switched mode during the fetch
+            if (state.path !== path || state.mode !== mode) return;
+            if (mode === 'music') {
+                pool = pool.filter(i => i.type === 'folder' || i.type === 'audio');
+            }
+            this._recursiveCache = pool;
+        }
+
+        // Stale guard: bail if the search box changed during the in-flight fetch
+        if (document.getElementById('search-input').value.trim() !== query) return;
+
         const lower = query.toLowerCase();
-        const filtered = state.items.filter(item => item.name.toLowerCase().includes(lower));
-        UI.render(filtered);
+        const filtered = this._recursiveCache.filter(item => item.name.toLowerCase().includes(lower));
+        this._searchResults = filtered;
+        UI.render(filtered, { showPath: true });
     },
     
     switchTab(mode) {
@@ -89,18 +119,22 @@ const App = {
     toggleView() {
         state.view = state.view === 'grid' ? 'list' : 'grid';
         document.getElementById('view-toggle-icon').setAttribute('data-lucide', state.view === 'grid' ? 'layout-grid' : 'list');
-        UI.render(state.items);
+        // Keep the active search results visible when toggling view mid-search
+        if (this._searchResults !== null) {
+            UI.render(this._searchResults, { showPath: true });
+        } else {
+            UI.render(state.items);
+        }
     },
     
     async handleItemClick(path, type) {
+        const source = this._searchResults !== null ? this._searchResults : state.items;
         if (type === 'folder') {
             // Path is already relative from root, just append root slash
-            const newPath = `/${path}`; 
+            const newPath = `/${path}`;
             state.setPath(newPath.replace(/\/+/g, '/'));
         } else if (['audio', 'video', 'image'].includes(type)) {
-            // Filter to only media files in current directory
-            const mediaItems = state.items.filter(i => ['audio', 'video', 'image'].includes(i.type));
-            // Find the index of the clicked file
+            const mediaItems = source.filter(i => ['audio', 'video', 'image'].includes(i.type));
             const clickedIndex = mediaItems.findIndex(i => i.path === path);
             if (clickedIndex !== -1) {
                 Player.setQueue(mediaItems, clickedIndex);
