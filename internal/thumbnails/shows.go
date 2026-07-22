@@ -108,51 +108,41 @@ func ProcessShowManual(currentDir string) {
 		u.PrintFatal("search failed", err)
 	}
 
-	u.PrintGeneric("")
-	u.PrintInfo("Possible Matches")
 	maxDisplay := min(5, len(results))
-	for i, r := range results {
-		if i >= maxDisplay {
-			break
-		}
+	labels := make([]string, 0, maxDisplay+1)
+	for i := range maxDisplay {
+		r := results[i]
 		date := "N/A"
 		if len(r.FirstAirDate) >= 4 {
 			date = r.FirstAirDate[:4]
 		}
-		u.PrintGeneric(fmt.Sprintf("  %d. %s (%s) - ID: %d", i+1, r.Name, date, r.ID))
+		labels = append(labels, fmt.Sprintf("%s (%s) - ID: %d", r.Name, date, r.ID))
 	}
-	manualOptionNum := maxDisplay + 1
-	u.PrintGeneric(fmt.Sprintf("  %d. Enter TMDB ID Manually", manualOptionNum))
+	labels = append(labels, "Enter TMDB ID Manually")
 
-	u.PrintGeneric("")
-	input, err := u.PromptInput("Select option (or 'q' to quit)", "")
+	idx, err := u.PromptSelect("Select a match", labels)
 	if err != nil {
 		u.PrintError("input error", err)
 		return
 	}
-
-	if input == "q" {
+	if idx < 0 {
 		return
 	}
 
 	var tmdbID int
-	choice, atoiErr := strconv.Atoi(input)
-	if atoiErr == nil && choice > 0 && choice <= maxDisplay {
-		tmdbID = results[choice-1].ID
-	} else if atoiErr == nil && choice == manualOptionNum {
+	if idx == maxDisplay {
 		manualInput, err := u.PromptInput("Enter TMDB ID", "")
 		if err != nil {
 			u.PrintError("input error", err)
 			return
 		}
-		tmdbID, atoiErr = strconv.Atoi(manualInput)
-		if atoiErr != nil {
+		tmdbID, err = strconv.Atoi(manualInput)
+		if err != nil {
 			u.PrintError("invalid ID", nil)
 			return
 		}
 	} else {
-		u.PrintError("invalid selection", nil)
-		return
+		tmdbID = results[idx].ID
 	}
 
 	details, err := getTVDetails(tmdbID)
