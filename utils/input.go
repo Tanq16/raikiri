@@ -3,11 +3,13 @@ package utils
 import (
 	"bufio"
 	"os"
+	"strconv"
 	"strings"
 
 	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 var stdinScanner *bufio.Scanner
@@ -186,4 +188,85 @@ func PromptTextArea(prompt string, placeholder string) (string, error) {
 
 	result := finalModel.(textAreaModel)
 	return strings.TrimSpace(result.value), nil
+}
+
+var selectCursorStyle = lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(12))
+
+type selectModel struct {
+	prompt  string
+	options []string
+	cursor  int
+	choice  int
+	done    bool
+}
+
+func (m selectModel) Init() tea.Cmd { return nil }
+
+func (m selectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			if m.cursor < len(m.options)-1 {
+				m.cursor++
+			}
+		case "enter":
+			m.choice = m.cursor
+			m.done = true
+			return m, tea.Quit
+		case "ctrl+c", "esc", "q":
+			m.choice = -1
+			m.done = true
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
+func (m selectModel) View() tea.View {
+	if m.done {
+		return tea.NewView("")
+	}
+	var b strings.Builder
+	b.WriteString(m.prompt)
+	b.WriteByte('\n')
+	for i, opt := range m.options {
+		if i == m.cursor {
+			b.WriteString(selectCursorStyle.Render("> " + opt))
+		} else {
+			b.WriteString("  ")
+			b.WriteString(opt)
+		}
+		b.WriteByte('\n')
+	}
+	b.WriteString("(↑/↓ or j/k to move, enter to select, esc to cancel)")
+	return tea.NewView(b.String())
+}
+
+func parseSelectIndex(line string, n int) int {
+	choice, err := strconv.Atoi(strings.TrimSpace(line))
+	if err != nil || choice < 1 || choice > n {
+		return -1
+	}
+	return choice - 1
+}
+
+func PromptSelect(prompt string, options []string) (int, error) {
+	if GlobalForAIFlag {
+		return parseSelectIndex(ReadPipedLine(), len(options)), nil
+	}
+	if len(options) == 0 {
+		return -1, nil
+	}
+
+	m := selectModel{prompt: prompt, options: options, choice: -1}
+	finalModel, err := tea.NewProgram(m).Run()
+	if err != nil {
+		return -1, err
+	}
+	return finalModel.(selectModel).choice, nil
 }

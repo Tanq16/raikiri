@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -29,7 +30,14 @@ func requireFFmpeg() {
 func requireTMDB() {
 	apiKey := os.Getenv("TMDB_API_KEY")
 	if apiKey == "" {
-		u.PrintFatal("TMDB_API_KEY environment variable is required", nil)
+		key, err := u.PromptPassword("Enter TMDB API key:")
+		if err != nil {
+			u.PrintFatal("error reading TMDB API key", err)
+		}
+		apiKey = strings.TrimSpace(key)
+		if apiKey == "" {
+			u.PrintFatal("a TMDB API key is required (set TMDB_API_KEY or enter it when prompted)", nil)
+		}
 	}
 	thumbnails.TmdbAPIKey = apiKey
 }
