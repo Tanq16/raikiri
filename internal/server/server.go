@@ -31,6 +31,7 @@ type Server struct {
 	mux          *http.ServeMux
 	activeStreams map[string]*exec.Cmd
 	streamMutex  sync.Mutex
+	historyMutex sync.Mutex
 	ffmpegAvailable bool
 }
 
@@ -54,6 +55,9 @@ func (s *Server) Setup() error {
 	s.mux.HandleFunc("/api/stream", s.HandleStreamStart)
 	s.mux.HandleFunc("/api/stop-stream", s.HandleStreamStop)
 	s.mux.HandleFunc("/api/upload", s.HandleUpload)
+	s.mux.HandleFunc("/api/history", s.HandleHistory)
+	s.mux.HandleFunc("/api/delete", s.HandleDelete)
+	s.mux.HandleFunc("/api/delete/preview", s.HandleDeletePreview)
 	s.mux.HandleFunc("/content/", s.HandleContent)
 
 	hlsHandler := s.makeHLSHandler()
@@ -71,10 +75,6 @@ func (s *Server) Setup() error {
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
 	data, err := staticFiles.ReadFile("static/index.html")
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)

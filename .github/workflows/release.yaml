@@ -10,15 +10,39 @@ permissions:
 
 jobs:
   # ===========================================================================
-  # Step 1: Calculate version and create draft release
+  # Step 1: Test gate - no release exists if this fails
+  # ===========================================================================
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: '1.26'
+
+      # //go:embed static needs the tree populated before anything compiles.
+      - name: Download Assets
+        run: make assets
+
+      - name: Run Tests
+        run: go test ./...
+
+      - name: Vet
+        run: go vet ./...
+
+  # ===========================================================================
+  # Step 2: Calculate version and create draft release
   # ===========================================================================
   create-release:
+    needs: test
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
       release_created: ${{ steps.create_release.outputs.release_created }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -42,13 +66,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   # ===========================================================================
-  # Step 2a: Build and push Docker image (parallel)
+  # Step 3a: Build and push Docker image (parallel)
   # ===========================================================================
   docker:
     needs: create-release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -68,12 +92,14 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: |
+            VERSION=${{ needs.create-release.outputs.version }}
           tags: |
             tanq16/raikiri:latest
             tanq16/raikiri:${{ needs.create-release.outputs.version }}
 
   # ===========================================================================
-  # Step 2b: Build binaries (parallel matrix)
+  # Step 3b: Build binaries (parallel matrix)
   # ===========================================================================
   binaries:
     needs: create-release
@@ -83,12 +109,12 @@ jobs:
         os: [linux, darwin]
         arch: [amd64, arm64]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
-          go-version: '1.25'
+          go-version: '1.26'
 
       - name: Download Assets
         run: make assets
@@ -105,13 +131,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   # ===========================================================================
-  # Step 2c: Build Android APK (parallel)
+  # Step 3c: Build Android APK (parallel)
   # ===========================================================================
   android:
     needs: create-release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -145,13 +171,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   # ===========================================================================
-  # Step 3: Publish release
+  # Step 4: Publish release
   # ===========================================================================
   publish:
     needs: [create-release, docker, binaries, android]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Publish Release
         run: gh release edit "${{ needs.create-release.outputs.version }}" --draft=false

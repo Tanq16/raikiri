@@ -3,7 +3,9 @@ const state = {
     path: '/',
     view: 'grid',
     items: [],
-    
+    selectMode: false,
+    selected: new Set(),
+
     setPath(newPath) {
         this.path = newPath;
         const pathSegments = newPath.split('/').filter(p => p).map(p => encodeURIComponent(p));

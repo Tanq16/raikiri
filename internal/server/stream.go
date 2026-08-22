@@ -16,15 +16,15 @@ import (
 	"github.com/tanq16/raikiri/internal/media"
 )
 
-func extractSubtitles(fullPath, sessionDir string) []map[string]interface{} {
-	var subtitleList []map[string]interface{}
+func extractSubtitles(fullPath, sessionDir string) []map[string]any {
+	var subtitleList []map[string]any
 	subtitleCounter := 1
 
 	externalSubs := media.FindExternalSubtitles(fullPath)
 	for _, subPath := range externalSubs {
 		dstPath := filepath.Join(sessionDir, fmt.Sprintf("sub_%d.vtt", subtitleCounter))
 		if err := media.ConvertSRTtoVTT(subPath, dstPath); err == nil {
-			subtitleList = append(subtitleList, map[string]interface{}{
+			subtitleList = append(subtitleList, map[string]any{
 				"index": subtitleCounter,
 				"label": fmt.Sprintf("Sub %d", subtitleCounter),
 			})
@@ -38,7 +38,7 @@ func extractSubtitles(fullPath, sessionDir string) []map[string]interface{} {
 	for _, track := range embeddedSubs {
 		dstPath := filepath.Join(sessionDir, fmt.Sprintf("sub_%d.vtt", subtitleCounter))
 		if err := media.ExtractSubtitleToSRT(fullPath, track.Index, dstPath); err == nil {
-			subtitleList = append(subtitleList, map[string]interface{}{
+			subtitleList = append(subtitleList, map[string]any{
 				"index": subtitleCounter,
 				"label": fmt.Sprintf("Sub %d", subtitleCounter),
 			})
@@ -160,7 +160,7 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 		contentURL := fmt.Sprintf("/content/%s?mode=%s", strings.Join(segments, "/"), mode)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"mode":             "direct",
 			"source":           "direct",
 			"url":              contentURL,
@@ -278,14 +278,15 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	s.activeStreams[sessionID] = cmd
 	s.streamMutex.Unlock()
 
+	ctx := r.Context()
 	var firstSegReady bool
 	if isTS {
-		firstSegReady = media.WaitForFile(filepath.Join(sessionDir, "seg_000.ts"), 50, 200*time.Millisecond) &&
-			media.WaitForFile(playlistPath, 50, 200*time.Millisecond)
+		firstSegReady = media.WaitForFile(ctx, filepath.Join(sessionDir, "seg_000.ts"), 50, 200*time.Millisecond) &&
+			media.WaitForFile(ctx, playlistPath, 50, 200*time.Millisecond)
 	} else {
-		firstSegReady = media.WaitForFile(filepath.Join(sessionDir, "init.mp4"), 50, 200*time.Millisecond) &&
-			media.WaitForFile(filepath.Join(sessionDir, "seg_000.m4s"), 50, 200*time.Millisecond) &&
-			media.WaitForFile(playlistPath, 50, 200*time.Millisecond)
+		firstSegReady = media.WaitForFile(ctx, filepath.Join(sessionDir, "init.mp4"), 50, 200*time.Millisecond) &&
+			media.WaitForFile(ctx, filepath.Join(sessionDir, "seg_000.m4s"), 50, 200*time.Millisecond) &&
+			media.WaitForFile(ctx, playlistPath, 50, 200*time.Millisecond)
 	}
 	if !firstSegReady {
 		log.Printf("INFO [server] HLS not ready, killing ffmpeg session=%s", sessionID)
@@ -308,7 +309,7 @@ func (s *Server) HandleStreamStart(w http.ResponseWriter, r *http.Request) {
 	log.Printf("INFO [server] HLS ready session=%s source=%s", sessionID, source)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]any{
 		"mode":             "hls",
 		"source":           source,
 		"url":              fmt.Sprintf("/api/hls/%s/index.m3u8", sessionID),

@@ -27,7 +27,7 @@ func requireFFmpeg() {
 	}
 }
 
-func requireTMDB() {
+func requireTMDB() string {
 	apiKey := os.Getenv("TMDB_API_KEY")
 	if apiKey == "" {
 		key, err := u.PromptPassword("Enter TMDB API key:")
@@ -39,7 +39,7 @@ func requireTMDB() {
 			u.PrintFatal("a TMDB API key is required (set TMDB_API_KEY or enter it when prompted)", nil)
 		}
 	}
-	thumbnails.TmdbAPIKey = apiKey
+	return apiKey
 }
 
 func getCwd() string {
@@ -107,13 +107,13 @@ var showsCmd = &cobra.Command{
 By default, auto-matches all show subdirectories in the current directory.
 Use --manual for interactive matching of the current directory to a specific show.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		requireTMDB()
+		apiKey := requireTMDB()
 		if showsFlags.manual {
 			u.PrintInfo("starting manual show processing")
-			thumbnails.ProcessShowManual(getCwd())
+			thumbnails.ProcessShowManual(apiKey, getCwd())
 		} else {
 			u.PrintInfo("starting automatic show processing")
-			thumbnails.ProcessShowsAuto(getCwd())
+			thumbnails.ProcessShowsAuto(apiKey, getCwd())
 		}
 		u.PrintSuccess("complete")
 	},
@@ -131,13 +131,13 @@ var moviesCmd = &cobra.Command{
 By default, auto-matches all movie subdirectories in the current directory.
 Use --manual for interactive matching of the current directory to a specific movie.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		requireTMDB()
+		apiKey := requireTMDB()
 		if moviesFlags.manual {
 			u.PrintInfo("starting manual movie processing")
-			thumbnails.ProcessMovieManual(getCwd())
+			thumbnails.ProcessMovieManual(apiKey, getCwd())
 		} else {
 			u.PrintInfo("starting automatic movie processing")
-			thumbnails.ProcessMoviesAuto(getCwd())
+			thumbnails.ProcessMoviesAuto(apiKey, getCwd())
 		}
 		u.PrintSuccess("complete")
 	},

@@ -1,4 +1,4 @@
-package cmd
+package video
 
 import (
 	"context"
@@ -7,27 +7,27 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tanq16/raikiri/internal/video"
+	iv "github.com/tanq16/raikiri/internal/video"
 	u "github.com/tanq16/raikiri/utils"
 )
 
-var videoInfoCmd = &cobra.Command{
+var InfoCmd = &cobra.Command{
 	Use:   "video-info <file>",
 	Short: "Display detailed information about a video file using ffprobe",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := video.RunVideoInfo(args[0]); err != nil {
+		if err := iv.RunVideoInfo(args[0]); err != nil {
 			u.PrintFatal("failed to get video info", err)
 		}
 	},
 }
 
-var videoEncodeFlags struct {
+var encodeFlags struct {
 	quality string
 	slower  bool
 }
 
-var videoEncodeCmd = &cobra.Command{
+var EncodeCmd = &cobra.Command{
 	Use:   "video-encode <file>",
 	Short: "Smart encode video to H.265 with automatic stream selection",
 	Long: `Probes the input file, selects the best audio stream (rejecting commentary),
@@ -42,20 +42,17 @@ Output file is generated automatically as <basename>.h265.<mp4|mkv>.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer stop()
-		opts := video.EncodeOptions{
-			Quality: videoEncodeFlags.quality,
-			Slower:  videoEncodeFlags.slower,
+		opts := iv.EncodeOptions{
+			Quality: encodeFlags.quality,
+			Slower:  encodeFlags.slower,
 		}
-		if err := video.RunEncode(ctx, args[0], opts); err != nil {
+		if err := iv.RunEncode(ctx, args[0], opts); err != nil {
 			u.PrintFatal("video encoding failed", err)
 		}
 	},
 }
 
 func init() {
-	videoEncodeCmd.Flags().StringVarP(&videoEncodeFlags.quality, "quality", "q", "medium", "Quality tier: very-high, high, medium, low")
-	videoEncodeCmd.Flags().BoolVar(&videoEncodeFlags.slower, "slower", false, "Use preset slow for better compression (longer encode)")
-
-	rootCmd.AddCommand(videoInfoCmd)
-	rootCmd.AddCommand(videoEncodeCmd)
+	EncodeCmd.Flags().StringVarP(&encodeFlags.quality, "quality", "q", "medium", "Quality tier: very-high, high, medium, low")
+	EncodeCmd.Flags().BoolVar(&encodeFlags.slower, "slower", false, "Use preset slow for better compression (longer encode)")
 }

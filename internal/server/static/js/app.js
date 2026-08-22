@@ -7,6 +7,7 @@ const App = {
     _recursiveCache: null,
     _searchResults: null,
     _searchDebounce: null,
+    _renderedMode: null,
 
     async init() {
         UI.init(); // Bind seek events
@@ -31,11 +32,16 @@ const App = {
         if (parts.length < 1) return;
         
         const mode = parts[0];
-        const path = '/' + parts.slice(1).join('/'); 
-        
+        const path = '/' + parts.slice(1).join('/');
+
+        // Selected paths are relative to a mode's root. Compared against the last
+        // render because state.mode is already updated when a tab click lands here.
+        if (mode !== this._renderedMode) this.clearSelection();
+        this._renderedMode = mode;
+
         state.mode = mode;
         state.path = path;
-        
+
         this.updateTabs(mode);
         await this.loadDirectory();
     },
@@ -116,18 +122,95 @@ const App = {
         state.setMode(mode);
     },
     
-    toggleView() {
-        state.view = state.view === 'grid' ? 'list' : 'grid';
-        document.getElementById('view-toggle-icon').setAttribute('data-lucide', state.view === 'grid' ? 'layout-grid' : 'list');
-        // Keep the active search results visible when toggling view mid-search
+    // Keeps the active search results visible instead of falling back to the directory listing
+    rerender() {
         if (this._searchResults !== null) {
             UI.render(this._searchResults, { showPath: true });
         } else {
             UI.render(state.items);
         }
     },
-    
+
+    toggleView() {
+        state.view = state.view === 'grid' ? 'list' : 'grid';
+        document.getElementById('view-toggle-icon').setAttribute('data-lucide', state.view === 'grid' ? 'layout-grid' : 'list');
+        this.rerender();
+    },
+
+    toggleSelectMode() {
+        if (!state.selectMode) {
+            state.selectMode = true;
+            this.updateSelectButton();
+            this.rerender();
+            return;
+        }
+        if (state.selected.size) {
+            UI.openDeleteDialog([...state.selected]);
+            return;
+        }
+        this.exitSelectMode();
+    },
+
+    clearSelection() {
+        state.selectMode = false;
+        state.selected.clear();
+        this.updateSelectButton();
+    },
+
+    exitSelectMode() {
+        this.clearSelection();
+        this.rerender();
+    },
+
+    toggleSelection(path) {
+        if (state.selected.has(path)) {
+            state.selected.delete(path);
+        } else {
+            state.selected.add(path);
+        }
+        this.updateSelectButton();
+        this.rerender();
+    },
+
+    updateSelectButton() {
+        const btn = document.getElementById('select-toggle');
+        const icon = document.getElementById('select-toggle-icon');
+        const badge = document.getElementById('select-count');
+        if (!btn || !icon || !badge) return;
+
+        const count = state.selected.size;
+        const armed = state.selectMode && count > 0;
+        icon.setAttribute('data-lucide', state.selectMode ? (armed ? 'trash-2' : 'x') : 'list-checks');
+        btn.setAttribute('title', state.selectMode ? (armed ? `Delete ${count} selected` : 'Exit selection') : 'Select');
+        btn.classList.toggle('text-red', armed);
+        btn.classList.toggle('text-subtext0', !armed);
+        badge.textContent = count;
+        badge.classList.toggle('hidden', !armed);
+        UI.refreshIcons();
+    },
+
+    async confirmDelete() {
+        const paths = [...state.selected];
+        if (!paths.length) return;
+
+        const res = await API.deleteItems(state.mode, paths);
+        UI.closeDeleteDialog();
+        if (!res) {
+            UI.showError('Delete failed');
+            return;
+        }
+        if (res.errors.length) {
+            UI.showError(`Failed to delete ${res.errors.length} item(s)`);
+        }
+        this.clearSelection();
+        await this.loadDirectory();
+    },
+
     async handleItemClick(path, type) {
+        if (state.selectMode) {
+            this.toggleSelection(path);
+            return;
+        }
         const source = this._searchResults !== null ? this._searchResults : state.items;
         if (type === 'folder') {
             // Path is already relative from root, just append root slash
@@ -201,6 +284,18 @@ document.getElementById('main-container').addEventListener('error', (e) => {
         }
     }
 }, true); // Use capture phase to catch errors
+
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (UI.isDeleteDialogOpen()) {
+        UI.closeDeleteDialog();
+        return;
+    }
+    if (!state.selectMode) return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    App.exitSelectMode();
+});
 
 const fileInput = document.getElementById('file-upload');
 fileInput.addEventListener('change', async (e) => {

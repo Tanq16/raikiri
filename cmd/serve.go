@@ -21,7 +21,7 @@ var serveFlags struct {
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start the Raikiri media server",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()
 
@@ -39,7 +39,6 @@ var serveCmd = &cobra.Command{
 		if err := srv.Run(ctx); err != nil {
 			log.Fatalf("ERROR [serve] %v", err)
 		}
-		return nil
 	},
 }
 

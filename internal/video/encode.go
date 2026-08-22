@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -168,20 +169,15 @@ func buildFFmpegArgs(inputFile string, data *FFProbeOutput, opts EncodeOptions) 
 	return &encodeResult{args: args, outputFile: outputFile, details: details}, nil
 }
 
-// formatCommand splits the ffmpeg arg list into logical multi-line groups.
-// Returns the formatted lines (each ending with \) and the line count.
 func formatCommand(args []string) ([]string, int) {
 	var lines []string
 	var current []string
 
-	// Group args: start a new line at each -map, -c:v, -c:a, -c:s, -avoid_negative_ts, -f,
-	// or when current line gets the output file (last arg with no dash prefix)
 	breakBefore := map[string]bool{
 		"-map": true, "-c:v": true, "-c:a": true, "-c:s": true,
 		"-avoid_negative_ts": true, "-hls_time": true, "-f": true,
 	}
 
-	// First line always starts with "ffmpeg"
 	current = append(current, "ffmpeg")
 
 	for i, arg := range args {
@@ -233,10 +229,6 @@ var fpsFloatHalving = []struct {
 
 const fpsMatchEpsilon = 0.002
 
-// computeFPSTarget returns the halved frame rate for known standard high frame rates.
-// Tries exact rational match first, then falls back to float comparison within
-// 0.002 fps tolerance for imprecise container metadata.
-// Returns empty string if the source is not a recognized rate above 30 fps.
 func computeFPSTarget(frameRate string) string {
 	parts := strings.Split(frameRate, "/")
 	if len(parts) != 2 {
@@ -336,7 +328,6 @@ func runEncode(ctx context.Context, result *encodeResult, data *FFProbeOutput) e
 		totalDurationSecs, _ = strconv.ParseFloat(data.Format.Duration, 64)
 	}
 
-	// Print video information phase
 	lineCount := 0
 	u.PrintRunning("Video Information")
 	lineCount++
@@ -345,7 +336,6 @@ func runEncode(ctx context.Context, result *encodeResult, data *FFProbeOutput) e
 		lineCount++
 	}
 
-	// Print command phase
 	cmdLines, _ := formatCommand(result.args)
 	u.PrintRunning("Command")
 	lineCount++
@@ -354,7 +344,6 @@ func runEncode(ctx context.Context, result *encodeResult, data *FFProbeOutput) e
 		lineCount++
 	}
 
-	// Run ffmpeg
 	ffmpegArgs := append(result.args, "-progress", "pipe:1", "-nostats", "-loglevel", "error", "-y")
 	cmd := exec.Command("ffmpeg", ffmpegArgs...)
 
@@ -379,7 +368,8 @@ func runEncode(ctx context.Context, result *encodeResult, data *FFProbeOutput) e
 	// +1 for the progress line itself when clearing
 	totalClearLines := lineCount + 1
 
-	go func() {
+	var progress sync.WaitGroup
+	progress.Go(func() {
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 		firstTick := true
@@ -399,7 +389,7 @@ func runEncode(ctx context.Context, result *encodeResult, data *FFProbeOutput) e
 				u.PrintProgress(outputName, int(currentPercent.Load()))
 			}
 		}
-	}()
+	})
 
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
@@ -408,10 +398,7 @@ func runEncode(ctx context.Context, result *encodeResult, data *FFProbeOutput) e
 		if len(parts) == 2 && parts[0] == "out_time_us" {
 			currentUs, _ := strconv.ParseFloat(parts[1], 64)
 			if totalDurationSecs > 0 {
-				pct := int((currentUs / 1000000.0 / totalDurationSecs) * 100)
-				if pct > 100 {
-					pct = 100
-				}
+				pct := min(int((currentUs/1000000.0/totalDurationSecs)*100), 100)
 				currentPercent.Store(int32(pct))
 			}
 		}
@@ -419,12 +406,11 @@ func runEncode(ctx context.Context, result *encodeResult, data *FFProbeOutput) e
 
 	cmdErr := cmd.Wait()
 	close(done)
+	progress.Wait()
 
-	// Clear all output: video info + command + progress line
 	if printed.Load() {
 		u.ClearLines(totalClearLines)
 	} else {
-		// Progress never printed, just clear video info + command (no progress line)
 		u.ClearLines(lineCount)
 	}
 

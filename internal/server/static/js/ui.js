@@ -121,6 +121,21 @@ const UI = {
             });
         }
 
+        const historyContainer = document.getElementById('history-list-container');
+        if (historyContainer) {
+            historyContainer.addEventListener('click', (e) => {
+                const row = e.target.closest('[data-history-path]');
+                if (!row) return;
+                Player.setQueue([{
+                    name: row.getAttribute('data-history-name'),
+                    path: row.getAttribute('data-history-path'),
+                    type: row.getAttribute('data-history-type'),
+                    thumb: row.getAttribute('data-history-thumb') || ''
+                }], 0);
+                this.toggleHistoryDialog();
+            });
+        }
+
         // Handle fullscreen change events (for escape key)
         document.addEventListener('fullscreenchange', () => this.handleFullscreenChange());
         document.addEventListener('webkitfullscreenchange', () => this.handleFullscreenChange());
@@ -429,24 +444,56 @@ const UI = {
         }
     },
     
-    renderHistoryList() {
+    async renderHistoryList() {
         const container = document.getElementById('history-list-container');
         if (!container) return;
-        
-        try {
-            const history = JSON.parse(localStorage.getItem('raikiri_history') || '[]');
-            if (history.length === 0) {
-                container.innerHTML = '<div class="p-4 text-center text-subtext0 text-sm">No history</div>';
-            } else {
-                container.innerHTML = history.map((path, idx) => 
-                    Elements.createHistoryItem(path, idx)
-                ).join('');
-                this.refreshIcons();
-            }
-        } catch (e) {
-            console.error('Failed to load history', e);
-            container.innerHTML = '<div class="p-4 text-center text-subtext0 text-sm">Error loading history</div>';
+
+        container.innerHTML = '<div class="p-4 text-center text-subtext0 text-sm">Loading...</div>';
+        const history = await API.getHistory(state.mode);
+        if (!history.length) {
+            container.innerHTML = '<div class="p-4 text-center text-subtext0 text-sm">No history</div>';
+            return;
         }
+        container.innerHTML = history.map(entry => Elements.createHistoryItem(entry)).join('');
+        this.refreshIcons();
+    },
+
+    async openDeleteDialog(paths) {
+        const dialog = document.getElementById('delete-dialog');
+        const body = document.getElementById('delete-tree-container');
+        if (!dialog || !body || !paths.length) return;
+
+        document.getElementById('delete-count').textContent = paths.length;
+        body.innerHTML = '<div class="p-4 text-center text-subtext0 text-sm">Loading...</div>';
+        dialog.classList.remove('hidden');
+
+        const trees = await API.previewDelete(state.mode, paths);
+        if (!trees) {
+            body.innerHTML = '<div class="p-4 text-center text-red text-sm">Failed to load deletion preview</div>';
+            return;
+        }
+        this.renderDeleteTree(trees);
+    },
+
+    renderDeleteTree(trees) {
+        const body = document.getElementById('delete-tree-container');
+        if (!body) return;
+        if (!trees.length) {
+            body.innerHTML = '<div class="p-4 text-center text-subtext0 text-sm">Nothing to delete</div>';
+            return;
+        }
+        body.innerHTML = trees.map(node => Elements.createDeleteNode(node)).join('');
+        this.refreshIcons();
+    },
+
+    closeDeleteDialog() {
+        const dialog = document.getElementById('delete-dialog');
+        if (dialog) dialog.classList.add('hidden');
+    },
+
+    isDeleteDialogOpen() {
+        const dialog = document.getElementById('delete-dialog');
+        return !!dialog && !dialog.classList.contains('hidden');
     },
 
     renderSubtitleList() {

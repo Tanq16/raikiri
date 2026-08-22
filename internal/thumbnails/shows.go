@@ -12,7 +12,7 @@ import (
 	u "github.com/tanq16/raikiri/utils"
 )
 
-func ProcessShowsAuto(rootDir string) {
+func ProcessShowsAuto(apiKey, rootDir string) {
 	entries, err := os.ReadDir(rootDir)
 	if err != nil {
 		u.PrintFatal("error reading directory", err)
@@ -38,14 +38,14 @@ func ProcessShowsAuto(rootDir string) {
 			queryName = folderName
 		}
 
-		results, err := searchTV(queryName, queryYear)
+		results, err := searchTV(apiKey, queryName, queryYear)
 		if err != nil {
 			u.PrintError("TMDB error", err)
 			continue
 		}
 		if len(results) == 0 {
 			if queryYear != "" {
-				results, _ = searchTV(queryName, "")
+				results, _ = searchTV(apiKey, queryName, "")
 			}
 			if len(results) == 0 {
 				u.PrintWarn("no matches found", nil)
@@ -56,7 +56,7 @@ func ProcessShowsAuto(rootDir string) {
 		best := results[0]
 		u.PrintInfo(fmt.Sprintf("match: %s (%s) [ID:%d]", best.Name, best.FirstAirDate, best.ID))
 
-		details, err := getTVDetails(best.ID)
+		details, err := getTVDetails(apiKey, best.ID)
 		if err != nil {
 			u.PrintError("failed to get details", err)
 			continue
@@ -96,14 +96,14 @@ func ProcessShowsAuto(rootDir string) {
 	}
 }
 
-func ProcessShowManual(currentDir string) {
+func ProcessShowManual(apiKey, currentDir string) {
 	dirName := filepath.Base(currentDir)
 	u.PrintInfo(fmt.Sprintf("processing directory: %s", dirName))
 
 	cleanName := strings.ReplaceAll(dirName, "-", " ")
 	cleanName = strings.ReplaceAll(cleanName, ".", " ")
 
-	results, err := searchTV(cleanName, "")
+	results, err := searchTV(apiKey, cleanName, "")
 	if err != nil {
 		u.PrintFatal("search failed", err)
 	}
@@ -145,7 +145,7 @@ func ProcessShowManual(currentDir string) {
 		tmdbID = results[idx].ID
 	}
 
-	details, err := getTVDetails(tmdbID)
+	details, err := getTVDetails(apiKey, tmdbID)
 	if err != nil {
 		u.PrintFatal("failed to get details", err)
 	}

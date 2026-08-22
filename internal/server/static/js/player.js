@@ -203,6 +203,10 @@ const Player = {
         UI.updatePlayerMeta(item, thumb);
         this.updateMediaSession(item, thumb);
 
+        if (item.type === 'audio' || item.type === 'video') {
+            API.recordHistory({ mode: state.mode, name: item.name, path: item.path, type: item.type, thumb: item.thumb || '' });
+        }
+
         let loaded = false;
 
         if (item.type === 'audio') {
@@ -213,14 +217,6 @@ const Player = {
             this.isPlaying = true;
             loaded = true;
         } else if (item.type === 'video') {
-            const fullPath = item.path;
-            try {
-                const history = JSON.parse(localStorage.getItem('raikiri_history') || '[]');
-                const filtered = history.filter(p => p !== fullPath);
-                filtered.unshift(fullPath);
-                localStorage.setItem('raikiri_history', JSON.stringify(filtered.slice(0, 50)));
-            } catch (e) {}
-
             try {
                 const data = await this._requestSource(item);
                 this.currentSessionId = data.sessionId;

@@ -2,7 +2,6 @@ package media
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,14 +29,12 @@ func FindExternalSubtitles(videoPath string) []string {
 
 	candidates := []string{dir, filepath.Join(dir, "subs"), filepath.Join(dir, "Subs")}
 	for _, scanDir := range candidates {
-		log.Printf("DEBUG [media] checking subtitle directory path=%s", scanDir)
 		entries, err := os.ReadDir(scanDir)
 		if err != nil {
 			continue
 		}
 		for _, f := range entries {
 			if !f.IsDir() && isSubtitleFile(f.Name()) {
-				log.Printf("DEBUG [media] found subtitle file=%s", f.Name())
 				subtitles = append(subtitles, filepath.Join(scanDir, f.Name()))
 			}
 		}
@@ -60,8 +57,7 @@ func GetEmbeddedSubtitleTracks(filePath string) []SubtitleTrack {
 	}
 
 	var tracks []SubtitleTrack
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(strings.TrimSpace(string(output)), "\n") {
 		if line == "" {
 			continue
 		}
