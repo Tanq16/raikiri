@@ -1,4 +1,4 @@
-.PHONY: help assets verify-assets clean build build-for build-all docker-build docker-push version
+.PHONY: help assets font verify-assets clean build build-for build-all docker-build docker-push version
 
 # =============================================================================
 # Variables
@@ -11,15 +11,19 @@ VERSION ?= dev-build
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
-# Asset versions - update as needed
-LUCIDE_VERSION := 1.8.0
-HLS_VERSION := 1.6.15
+# Pinned asset versions. Bump deliberately, never float.
+TAILWIND_VERSION := 4.3.3
+LUCIDE_VERSION := 1.33.0
+HLS_VERSION := 1.7.1
 
 # Directories
 STATIC_DIR := internal/server/static
 JS_DIR := $(STATIC_DIR)/js
 CSS_DIR := $(STATIC_DIR)/css
 FONTS_DIR := $(STATIC_DIR)/fonts
+
+# Google Fonts serves woff2 to a browser-shaped User-Agent and ttf, twice the bytes, to anything else.
+UA := Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
 
 # Console colors
 CYAN := \033[0;36m
@@ -42,23 +46,30 @@ help: ## Show this help
 assets: ## Download static assets
 	@echo "$(CYAN)Downloading assets...$(NC)"
 	@mkdir -p $(JS_DIR) $(CSS_DIR) $(FONTS_DIR)
-	@curl -sL "https://cdn.tailwindcss.com" -o "$(JS_DIR)/tailwindcss.js"
-	@curl -sL "https://unpkg.com/lucide@$(LUCIDE_VERSION)/dist/umd/lucide.min.js" -o "$(JS_DIR)/lucide.min.js"
-	@curl -sL "https://cdn.jsdelivr.net/npm/hls.js@$(HLS_VERSION)/dist/hls.min.js" -o "$(JS_DIR)/hls.min.js"
-	@curl -sL "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" -H "User-Agent: Mozilla/5.0" -o "$(CSS_DIR)/inter.css"
-	@grep -o "https://fonts.gstatic.com/[^)']*" "$(CSS_DIR)/inter.css" | sort -u | while read url; do \
-		filename=$$(basename "$$url" | sed 's/?.*//'); \
-		curl -sL "$$url" -o "$(FONTS_DIR)/$$filename"; \
-	done
-	@sed -i.bak -E 's|https://fonts.gstatic.com/s/inter/[^/]+/||g' "$(CSS_DIR)/inter.css" && rm -f "$(CSS_DIR)/inter.css.bak"
-	@sed -i.bak 's|src: url(|src: url(/static/fonts/|g' "$(CSS_DIR)/inter.css" && rm -f "$(CSS_DIR)/inter.css.bak"
+	@curl -sfL "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@$(TAILWIND_VERSION)" -o "$(JS_DIR)/tailwindcss.js"
+	@curl -sfL "https://cdn.jsdelivr.net/npm/lucide@$(LUCIDE_VERSION)/dist/umd/lucide.min.js" -o "$(JS_DIR)/lucide.min.js"
+	@curl -sfL "https://cdn.jsdelivr.net/npm/hls.js@$(HLS_VERSION)/dist/hls.min.js" -o "$(JS_DIR)/hls.min.js"
+	@$(MAKE) --no-print-directory font FAMILY="Inter" SLUG=inter WEIGHTS="400;500;600;700"
+	@$(MAKE) --no-print-directory font FAMILY="Google+Sans" SLUG=google-sans WEIGHTS="400;500;700"
 	@echo "$(GREEN)Assets downloaded$(NC)"
+
+# URLs are repointed at the local copies so nothing is fetched at run time.
+font:
+	@curl -sfL -H "User-Agent: $(UA)" \
+	  "https://fonts.googleapis.com/css2?family=$(FAMILY):wght@$(WEIGHTS)&display=swap" \
+	  -o "$(CSS_DIR)/$(SLUG).css"
+	@grep -o 'https://fonts.gstatic.com/[^)]*' "$(CSS_DIR)/$(SLUG).css" | sort -u | while read -r url; do \
+	  curl -sfL "$$url" -o "$(FONTS_DIR)/$$(basename "$$url")"; \
+	done
+	@sed -i.bak -E 's|https://fonts\.gstatic\.com/[^)]*/([^/)]+)|/static/fonts/\1|g' "$(CSS_DIR)/$(SLUG).css"
+	@rm -f "$(CSS_DIR)/$(SLUG).css.bak"
 
 verify-assets: ## Verify required assets exist
 	@test -f $(JS_DIR)/tailwindcss.js || (echo "$(YELLOW)tailwindcss.js missing. Run 'make assets'$(NC)" && exit 1)
 	@test -f $(JS_DIR)/lucide.min.js || (echo "$(YELLOW)lucide.min.js missing. Run 'make assets'$(NC)" && exit 1)
 	@test -f $(JS_DIR)/hls.min.js || (echo "$(YELLOW)hls.min.js missing. Run 'make assets'$(NC)" && exit 1)
 	@test -f $(CSS_DIR)/inter.css || (echo "$(YELLOW)inter.css missing. Run 'make assets'$(NC)" && exit 1)
+	@test -f $(CSS_DIR)/google-sans.css || (echo "$(YELLOW)google-sans.css missing. Run 'make assets'$(NC)" && exit 1)
 	@echo "$(GREEN)Assets verified$(NC)"
 
 clean: ## Remove built artifacts and downloaded assets
@@ -88,7 +99,7 @@ build-all: assets verify-assets ## Build all platform binaries
 # Docker
 # =============================================================================
 docker-build: ## Build Docker image
-	@docker build -t $(DOCKER_USER)/$(APP_NAME):$(VERSION) .
+	@docker build --build-arg VERSION=$(VERSION) -t $(DOCKER_USER)/$(APP_NAME):$(VERSION) .
 	@docker tag $(DOCKER_USER)/$(APP_NAME):$(VERSION) $(DOCKER_USER)/$(APP_NAME):latest
 	@echo "$(GREEN)Docker image built$(NC)"
 

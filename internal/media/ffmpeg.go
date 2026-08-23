@@ -10,8 +10,13 @@ import (
 
 func GetVideoDuration(filePath string) (float64, error) {
 	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", filePath)
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
 	output, err := cmd.Output()
 	if err != nil {
+		if detail := strings.TrimSpace(stderr.String()); detail != "" {
+			return 0, fmt.Errorf("%s: %w", detail, err)
+		}
 		return 0, fmt.Errorf("failed to get video duration: %w", err)
 	}
 	durationStr := strings.TrimSpace(string(output))

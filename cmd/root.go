@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/tanq16/raikiri/cmd/prepare"
+	videoCmd "github.com/tanq16/raikiri/cmd/video"
 	"github.com/tanq16/raikiri/utils"
 )
 
@@ -27,7 +27,6 @@ var rootCmd = &cobra.Command{
 }
 
 func setupLogs() {
-	log.SetFlags(log.Ldate | log.Ltime)
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	output := zerolog.ConsoleWriter{
 		Out:        os.Stdout,
@@ -57,6 +56,8 @@ func init() {
 
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(prepare.Cmd)
+	rootCmd.AddCommand(videoCmd.InfoCmd)
+	rootCmd.AddCommand(videoCmd.EncodeCmd)
 }
 
 func Execute() {

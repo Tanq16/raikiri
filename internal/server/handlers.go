@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -32,7 +33,7 @@ func (s *Server) HandleList(w http.ResponseWriter, r *http.Request) {
 	root, _ := filepath.Abs(filepath.Clean(s.getRoot(mode)))
 	targetDir, ok := s.resolveWithinRoot(mode, relPath)
 	if !ok {
-		http.Error(w, "Invalid path", 400)
+		http.Error(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
 
@@ -88,13 +89,15 @@ func (s *Server) HandleList(w http.ResponseWriter, r *http.Request) {
 			return nil
 		})
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			log.Printf("ERROR [server] recursive listing failed path=%s: %v", relPath, err)
+			http.Error(w, "Could not read this directory", http.StatusInternalServerError)
 			return
 		}
 	} else {
 		files, err := os.ReadDir(targetDir)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			log.Printf("ERROR [server] listing failed path=%s: %v", relPath, err)
+			http.Error(w, "Could not read this directory", http.StatusInternalServerError)
 			return
 		}
 
@@ -157,7 +160,8 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		log.Printf("ERROR [server] upload form rejected path=%s: %v", relPath, err)
+		http.Error(w, "Invalid upload", http.StatusBadRequest)
 		return
 	}
 
@@ -165,27 +169,30 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	for _, fileHeader := range files {
 		file, err := fileHeader.Open()
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			log.Printf("ERROR [server] upload open failed name=%s: %v", fileHeader.Filename, err)
+			http.Error(w, "Could not read the uploaded file", http.StatusInternalServerError)
 			return
 		}
 
 		dstPath, ok := s.resolveWithinRoot(mode, filepath.Join(relPath, fileHeader.Filename))
 		if !ok {
 			file.Close()
-			http.Error(w, "Invalid path", 400)
+			http.Error(w, "Invalid path", http.StatusBadRequest)
 			return
 		}
 		dst, err := os.Create(dstPath)
 		if err != nil {
 			file.Close()
-			http.Error(w, err.Error(), 500)
+			log.Printf("ERROR [server] upload create failed path=%s: %v", dstPath, err)
+			http.Error(w, "Could not write the uploaded file", http.StatusInternalServerError)
 			return
 		}
 
 		if _, err := io.Copy(dst, file); err != nil {
 			file.Close()
 			dst.Close()
-			http.Error(w, err.Error(), 500)
+			log.Printf("ERROR [server] upload copy failed path=%s: %v", dstPath, err)
+			http.Error(w, "Could not write the uploaded file", http.StatusInternalServerError)
 			return
 		}
 
@@ -193,5 +200,5 @@ func (s *Server) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		dst.Close()
 	}
 
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 }

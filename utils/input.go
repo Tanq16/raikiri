@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -218,7 +219,7 @@ func (m selectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.choice = m.cursor
 			m.done = true
 			return m, tea.Quit
-		case "ctrl+c", "esc", "q":
+		case "ctrl+c", "esc":
 			m.choice = -1
 			m.done = true
 			return m, tea.Quit
@@ -247,17 +248,22 @@ func (m selectModel) View() tea.View {
 	return tea.NewView(b.String())
 }
 
-func parseSelectIndex(line string, n int) int {
-	choice, err := strconv.Atoi(strings.TrimSpace(line))
-	if err != nil || choice < 1 || choice > n {
-		return -1
+// An empty line is a cancel; a malformed one is a mistake the caller has to see.
+func parseSelectIndex(line string, n int) (int, error) {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return -1, nil
 	}
-	return choice - 1
+	choice, err := strconv.Atoi(line)
+	if err != nil || choice < 1 || choice > n {
+		return -1, fmt.Errorf("expected a number between 1 and %d, got %q", n, line)
+	}
+	return choice - 1, nil
 }
 
 func PromptSelect(prompt string, options []string) (int, error) {
 	if GlobalForAIFlag {
-		return parseSelectIndex(ReadPipedLine(), len(options)), nil
+		return parseSelectIndex(ReadPipedLine(), len(options))
 	}
 	if len(options) == 0 {
 		return -1, nil

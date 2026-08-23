@@ -11,7 +11,7 @@ import (
 	u "github.com/tanq16/raikiri/utils"
 )
 
-func ProcessMoviesAuto(rootDir string) {
+func ProcessMoviesAuto(apiKey, rootDir string) {
 	entries, err := os.ReadDir(rootDir)
 	if err != nil {
 		u.PrintFatal("error reading directory", err)
@@ -37,14 +37,14 @@ func ProcessMoviesAuto(rootDir string) {
 			queryName = folderName
 		}
 
-		results, err := searchMovie(queryName, queryYear)
+		results, err := searchMovie(apiKey, queryName, queryYear)
 		if err != nil {
 			u.PrintError("TMDB error", err)
 			continue
 		}
 		if len(results) == 0 {
 			if queryYear != "" {
-				results, _ = searchMovie(queryName, "")
+				results, _ = searchMovie(apiKey, queryName, "")
 			}
 			if len(results) == 0 {
 				u.PrintWarn("no matches found", nil)
@@ -55,7 +55,7 @@ func ProcessMoviesAuto(rootDir string) {
 		best := results[0]
 		u.PrintInfo(fmt.Sprintf("match: %s (%s) [ID:%d]", best.Title, best.ReleaseDate, best.ID))
 
-		details, err := getMovieDetails(best.ID)
+		details, err := getMovieDetails(apiKey, best.ID)
 		if err != nil {
 			u.PrintError("failed to get details", err)
 			continue
@@ -71,14 +71,14 @@ func ProcessMoviesAuto(rootDir string) {
 	}
 }
 
-func ProcessMovieManual(currentDir string) {
+func ProcessMovieManual(apiKey, currentDir string) {
 	dirName := filepath.Base(currentDir)
 	u.PrintInfo(fmt.Sprintf("processing directory: %s", dirName))
 
 	cleanName := strings.ReplaceAll(dirName, "-", " ")
 	cleanName = strings.ReplaceAll(cleanName, ".", " ")
 
-	results, err := searchMovie(cleanName, "")
+	results, err := searchMovie(apiKey, cleanName, "")
 	if err != nil {
 		u.PrintFatal("search failed", err)
 	}
@@ -120,7 +120,7 @@ func ProcessMovieManual(currentDir string) {
 		tmdbID = results[idx].ID
 	}
 
-	details, err := getMovieDetails(tmdbID)
+	details, err := getMovieDetails(apiKey, tmdbID)
 	if err != nil {
 		u.PrintFatal("failed to get details", err)
 	}

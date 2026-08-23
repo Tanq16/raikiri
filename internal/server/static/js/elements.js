@@ -41,6 +41,20 @@ const Elements = {
         return slash > -1 ? item.path.slice(0, slash) : '';
     },
 
+    isSelected(item) {
+        return state.selectMode && state.selected.has(item.path);
+    },
+
+    createCheckbox(item, extraClass = '') {
+        if (!state.selectMode) return '';
+        const checked = state.selected.has(item.path);
+        return `
+            <div class="${extraClass} ${checked ? 'text-mauve' : 'text-subtext0'}">
+                <i data-lucide="${checked ? 'square-check' : 'square'}" size="18"></i>
+            </div>
+        `;
+    },
+
     createGridItem(item, showPath = false) {
         const isMedia = ['image', 'video', 'audio'].includes(item.type);
         const iconName = this.getIconName(item.type);
@@ -88,9 +102,10 @@ const Elements = {
             <div class="flex flex-col gap-2 group w-full select-none"
                 data-id="${Escape.attr(item.path)}" data-type="${Escape.attr(item.type)}" data-name="${Escape.attr(item.name.toLowerCase())}">
                 
-                <div class="aspect-square w-full rounded-xl overflow-hidden bg-surface0/20 shadow-sm border border-transparent group-hover:border-surface1 group-hover:bg-surface0 transition-all cursor-pointer relative isolate">
+                <div class="aspect-square w-full rounded-xl overflow-hidden bg-surface0/20 shadow-sm border border-transparent group-hover:border-surface1 group-hover:bg-surface0 transition-all cursor-pointer relative isolate ${this.isSelected(item) ? 'ring-2 ring-mauve' : ''}">
                     ${visual}
-                    ${isMedia ? `<div class="absolute inset-0 bg-black/20 hidden group-hover:flex items-center justify-center z-20"><i data-lucide="play" class="fill-white text-white drop-shadow-lg" size="24"></i></div>` : ''}
+                    ${isMedia && !state.selectMode ? `<div class="absolute inset-0 bg-black/20 hidden group-hover:flex items-center justify-center z-20"><i data-lucide="play" class="fill-white text-white drop-shadow-lg" size="24"></i></div>` : ''}
+                    ${this.createCheckbox(item, 'absolute top-1.5 left-1.5 z-30 rounded-md bg-crust/80 p-1')}
                 </div>
 
                 <div class="px-1 min-w-0">
@@ -117,10 +132,12 @@ const Elements = {
         return `
             <div class="group w-full"
                 data-id="${Escape.attr(item.path)}" data-type="${Escape.attr(item.type)}" data-name="${Escape.attr(item.name.toLowerCase())}">
-                <div class="grid grid-cols-[auto,1fr] md:grid-cols-[auto,1fr,120px,100px,160px] items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface0/80 transition-colors cursor-pointer border border-transparent hover:border-surface0/40 select-none">
-                    <div class="w-6 h-6 flex items-center justify-center text-subtext0 group-hover:text-mauve shrink-0">
+                <div class="grid grid-cols-[auto,1fr] md:grid-cols-[auto,1fr,120px,100px,160px] items-center gap-3 px-3 py-3 rounded-lg hover:bg-surface0/80 transition-colors cursor-pointer border border-transparent hover:border-surface0/40 select-none ${this.isSelected(item) ? 'bg-surface0/60' : ''}">
+                    ${state.selectMode
+                        ? this.createCheckbox(item, 'w-6 h-6 flex items-center justify-center shrink-0')
+                        : `<div class="w-6 h-6 flex items-center justify-center text-subtext0 group-hover:text-mauve shrink-0">
                         <i data-lucide="${iconName}" size="20"></i>
-                    </div>
+                    </div>`}
                     <div class="flex flex-col min-w-0">
                         <p class="text-sm font-semibold text-text truncate group-hover:text-mauve transition-colors">${Escape.html(item.name)}</p>
                         <div class="flex items-center gap-2 text-[11px] text-subtext0 md:hidden min-w-0">
@@ -155,13 +172,39 @@ const Elements = {
         `;
     },
     
-    createHistoryItem(path, idx) {
+    createHistoryItem(entry) {
+        const parentDir = this.getParentDir(entry);
         return `
-            <div class="flex items-center gap-3 p-2 rounded hover:bg-surface0/50 text-subtext1">
-                <i data-lucide="film" size="14"></i>
-                <div class="flex-1 truncate text-sm">${Escape.html(path)}</div>
+            <div class="flex items-center gap-3 p-2 rounded hover:bg-surface0/50 text-subtext1 cursor-pointer"
+                data-history-path="${Escape.attr(entry.path)}"
+                data-history-name="${Escape.attr(entry.name)}"
+                data-history-type="${Escape.attr(entry.type)}"
+                data-history-thumb="${Escape.attr(entry.thumb || '')}">
+                <i data-lucide="${entry.type === 'audio' ? 'music' : 'film'}" size="14" class="shrink-0"></i>
+                <div class="flex-1 min-w-0">
+                    <p class="truncate text-sm text-text">${Escape.html(entry.name)}</p>
+                    ${parentDir ? `<p class="truncate text-[11px] text-subtext0">${Escape.html(parentDir)}</p>` : ''}
+                </div>
             </div>
         `;
+    },
+
+    createDeleteNode(node, depth = 0) {
+        const isThumb = node.type === 'thumbnail';
+        const isDir = node.type === 'dir';
+        const icon = isDir ? 'folder' : (isThumb ? 'image' : 'file');
+        const tone = isThumb ? 'text-overlay0' : (isDir ? 'text-blue font-semibold' : 'text-subtext1');
+        let html = `
+            <div class="flex items-center gap-2 py-1 text-sm ${tone}" style="padding-left: ${depth * 16}px">
+                <i data-lucide="${icon}" size="14" class="shrink-0"></i>
+                <span class="truncate">${Escape.html(node.name)}</span>
+                ${isThumb ? '<span class="text-[10px] uppercase tracking-wide shrink-0">artwork</span>' : ''}
+            </div>
+        `;
+        (node.children || []).forEach(child => {
+            html += this.createDeleteNode(child, depth + 1);
+        });
+        return html;
     }
 };
 

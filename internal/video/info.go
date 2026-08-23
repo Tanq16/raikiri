@@ -29,7 +29,7 @@ type Stream struct {
 	Channels      int         `json:"channels,omitempty"`
 	ChannelLayout string      `json:"channel_layout,omitempty"`
 	SampleRate    string      `json:"sample_rate,omitempty"`
-	Tags          Tags        `json:"tags,omitempty"`
+	Tags          Tags        `json:"tags,omitzero"`
 	Disposition   Disposition `json:"disposition"`
 }
 

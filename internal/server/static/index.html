@@ -6,48 +6,34 @@
     <meta name="theme-color" content="#1e1e2e">
     <meta name="description" content="A fast, simple, self-hosted, no-nonsense app for running a media server.">
     <link rel="icon" type="image/x-icon" href="/static/icons/favicon.ico">
-    <link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192x192.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
     <link rel="manifest" href="/static/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Raikiri">
     <title>Raikiri Media</title>
     <link rel="stylesheet" href="/static/css/inter.css">
+    <link rel="stylesheet" href="/static/css/google-sans.css">
     <script src="/static/js/tailwindcss.js"></script>
     <script src="/static/js/lucide.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        rosewater: 'var(--rosewater)', flamingo: 'var(--flamingo)',
-                        pink: 'var(--pink)', mauve: 'var(--mauve)',
-                        red: 'var(--red)', maroon: 'var(--maroon)',
-                        peach: 'var(--peach)', yellow: 'var(--yellow)',
-                        green: 'var(--green)', teal: 'var(--teal)',
-                        sky: 'var(--sky)', sapphire: 'var(--sapphire)',
-                        blue: 'var(--blue)', lavender: 'var(--lavender)',
-                        text: 'var(--text)', subtext1: 'var(--subtext1)',
-                        subtext0: 'var(--subtext0)', overlay2: 'var(--overlay2)',
-                        overlay1: 'var(--overlay1)', overlay0: 'var(--overlay0)',
-                        surface2: 'var(--surface2)', surface1: 'var(--surface1)',
-                        surface0: 'var(--surface0)', base: 'var(--base)',
-                        mantle: 'var(--mantle)', crust: 'var(--crust)'
-                    },
-                    fontFamily: { sans: ['Inter', 'sans-serif'] }
-                }
-            }
-        }
-    </script>
+    <style type="text/tailwindcss">
+      @theme {
+        --color-rosewater: #f5e0dc; --color-flamingo: #f2cdcd; --color-pink: #f5c2e7;
+        --color-mauve: #cba6f7;     --color-red: #f38ba8;      --color-maroon: #eba0ac;
+        --color-peach: #fab387;     --color-yellow: #f9e2af;   --color-green: #a6e3a1;
+        --color-teal: #94e2d5;      --color-sky: #89dceb;      --color-sapphire: #74c7ec;
+        --color-blue: #89b4fa;      --color-lavender: #b4befe; --color-text: #cdd6f4;
+        --color-subtext1: #bac2de;  --color-subtext0: #a6adc8; --color-overlay2: #9399b2;
+        --color-overlay1: #7f849c;  --color-overlay0: #6c7086; --color-surface2: #585b70;
+        --color-surface1: #45475a;  --color-surface0: #313244; --color-base: #1e1e2e;
+        --color-mantle: #181825;    --color-crust: #11111b;
+
+        --font-sans: 'Inter', sans-serif;
+        --font-display: 'Google Sans', sans-serif;
+      }
+    </style>
     <style>
-        :root {
-            --rosewater: #f5e0dc; --flamingo: #f2cdcd; --pink: #f5c2e7; --mauve: #cba6f7;
-            --red: #f38ba8; --maroon: #eba0ac; --peach: #fab387; --yellow: #f9e2af;
-            --green: #a6e3a1; --teal: #94e2d5; --sky: #89dceb; --sapphire: #74c7ec;
-            --blue: #89b4fa; --lavender: #b4befe;
-            --text: #cdd6f4; --subtext1: #bac2de; --subtext0: #a6adc8;
-            --overlay2: #9399b2; --overlay1: #7f849c; --overlay0: #6c7086;
-            --surface2: #585b70; --surface1: #45475a; --surface0: #313244;
-            --base: #1e1e2e; --mantle: #181825; --crust: #11111b;
-        }
         body { -webkit-tap-highlight-color: transparent; font-family: 'Inter', sans-serif; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -55,18 +41,18 @@
         input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; }
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none; height: 12px; width: 12px;
-            border-radius: 50%; background: var(--mauve); cursor: pointer; margin-top: -5px;
-            box-shadow: 0 0 0 2px var(--base); transition: transform 0.1s;
+            border-radius: 50%; background: var(--color-mauve); cursor: pointer; margin-top: -5px;
+            box-shadow: 0 0 0 2px var(--color-base); transition: transform 0.1s;
         }
         input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.2); }
         input[type=range]::-webkit-slider-runnable-track {
-            width: 100%; height: 2px; cursor: pointer; background: var(--surface1); border-radius: 99px;
+            width: 100%; height: 2px; cursor: pointer; background: var(--color-surface1); border-radius: 99px;
         }
         #ep-range-wrapper, #ep-range-wrapper-mob {
-            position: relative; flex: 1; min-width: 0; height: 2px; background: var(--surface1); border-radius: 99px;
+            position: relative; flex: 1; min-width: 0; height: 2px; background: var(--color-surface1); border-radius: 99px;
         }
         #ep-range-fill, #ep-range-fill-mob {
-            position: absolute; left: 0; top: 0; height: 100%; background: var(--mauve); border-radius: 99px; pointer-events: none; width: 0%;
+            position: absolute; left: 0; top: 0; height: 100%; background: var(--color-mauve); border-radius: 99px; pointer-events: none; width: 0%;
         }
         #ep-range, #ep-range-mob {
             position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; height: 12px; z-index: 1; margin: 0; padding: 0; cursor: pointer;
@@ -75,7 +61,7 @@
             position: relative; flex: 1; min-width: 0; height: 3px; background: rgba(255,255,255,0.3); border-radius: 99px;
         }
         #fv-range-fill {
-            position: absolute; left: 0; top: 0; height: 100%; background: var(--mauve); border-radius: 99px; pointer-events: none; width: 0%;
+            position: absolute; left: 0; top: 0; height: 100%; background: var(--color-mauve); border-radius: 99px; pointer-events: none; width: 0%;
         }
         #fv-range {
             position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 100%; height: 14px; z-index: 1; margin: 0; padding: 0; cursor: pointer; background: transparent;
@@ -103,6 +89,7 @@
         #subtitle-dialog { z-index: 60; }
         #audio-dialog { z-index: 60; }
         #history-dialog { z-index: 60; }
+        #delete-dialog { z-index: 60; }
         
         ::cue {
             color: rgb(240, 240, 240) !important;
@@ -131,7 +118,7 @@
     <header class="flex flex-col md:flex-row md:items-center justify-between px-4 md:px-6 py-2 md:py-0 md:h-16 shrink-0 relative z-30 bg-base border-b border-transparent transition-colors duration-300 gap-2">
         <div class="flex items-center justify-between w-full md:w-auto">
             <div class="flex items-center gap-2 w-32">
-                <img src="/static/logo.svg" alt="Raikiri" class="w-8 h-8 rounded-lg cursor-pointer hover:opacity-80 transition-opacity" onclick="ui.toggleHistoryDialog()">
+                <img src="/static/logo.svg" alt="Raikiri" title="Home" class="w-8 h-8 rounded-lg cursor-pointer hover:opacity-80 transition-opacity" onclick="navigate('/')">
             </div>
             <div class="md:hidden flex bg-surface0 p-1 rounded-full items-center shadow-lg">
                 <button onclick="app.switchTab('files')" id="tab-files-mob" class="w-16 py-1 rounded-full text-xs font-bold transition-all bg-mauve text-base shadow-sm">Media</button>
@@ -160,6 +147,13 @@
                 </button>
                 <button onclick="app.toggleView()" id="view-toggle" class="p-2 text-subtext0 hover:text-mauve hover:bg-surface0 rounded-lg transition-colors" title="View">
                     <i id="view-toggle-icon" data-lucide="layout-grid" size="20"></i>
+                </button>
+                <button onclick="ui.toggleHistoryDialog()" class="p-2 text-subtext0 hover:text-mauve hover:bg-surface0 rounded-lg transition-colors" title="History">
+                    <i data-lucide="history" size="20"></i>
+                </button>
+                <button onclick="app.toggleSelectMode()" id="select-toggle" class="relative p-2 text-subtext0 hover:text-mauve hover:bg-surface0 rounded-lg transition-colors" title="Select">
+                    <i id="select-toggle-icon" data-lucide="list-checks" size="20"></i>
+                    <span id="select-count" class="hidden absolute top-0 right-0 min-w-[16px] h-4 px-1 rounded-full bg-red text-crust text-[10px] font-bold flex items-center justify-center">0</span>
                 </button>
             </div>
         </div>
@@ -213,6 +207,25 @@
                 <button onclick="ui.toggleHistoryDialog()"><i data-lucide="x" size="20"></i></button>
             </div>
             <div id="history-list-container" class="overflow-y-auto p-2 flex-1 space-y-1"></div>
+        </div>
+    </div>
+
+    <div id="delete-dialog" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 backdrop-blur-sm" onclick="ui.closeDeleteDialog()">
+        <div class="bg-mantle w-full max-w-md max-h-[70vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-surface1" onclick="event.stopPropagation()">
+            <div class="p-4 border-b border-surface0 flex justify-between items-start bg-base gap-4">
+                <div class="min-w-0">
+                    <span class="font-bold">Delete <span id="delete-count">0</span> item(s)</span>
+                    <p class="text-[11px] text-red mt-0.5">Permanently removes everything listed below.</p>
+                </div>
+                <button onclick="ui.closeDeleteDialog()" class="shrink-0"><i data-lucide="x" size="20"></i></button>
+            </div>
+            <div id="delete-tree-container" class="overflow-y-auto p-3 flex-1"></div>
+            <div class="p-3 border-t border-surface0 bg-base flex items-center justify-end gap-2">
+                <button onclick="ui.closeDeleteDialog()" class="px-3 py-1.5 rounded-lg text-sm font-semibold text-subtext0 hover:text-text hover:bg-surface0 transition-colors">Cancel</button>
+                <button onclick="app.confirmDelete()" class="px-3 py-1.5 rounded-lg text-sm font-bold bg-red text-crust hover:opacity-90 transition-opacity flex items-center gap-2">
+                    <i data-lucide="trash-2" size="16"></i>Delete
+                </button>
+            </div>
         </div>
     </div>
 

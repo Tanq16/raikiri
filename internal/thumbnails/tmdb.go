@@ -2,6 +2,7 @@ package thumbnails
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	u "github.com/tanq16/raikiri/utils"
 )
@@ -16,7 +18,16 @@ import (
 const tmdbBaseURL = "https://api.themoviedb.org/3"
 const imageBaseURL = "https://image.tmdb.org/t/p/w500"
 
-var TmdbAPIKey string
+var tmdbClient = &http.Client{
+	Timeout: 30 * time.Second,
+	Transport: &http.Transport{
+		// A custom Transport replaces DefaultTransport, so proxy support is not inherited.
+		Proxy:               http.ProxyFromEnvironment,
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
 
 type tmdbSearchResponse struct {
 	Results []tmdbShow `json:"results"`
@@ -86,7 +97,7 @@ func downloadFile(url string, destPath string) error {
 	}
 	defer out.Close()
 
-	resp, err := http.Get(url)
+	resp, err := tmdbClient.Get(url)
 	if err != nil {
 		return err
 	}
@@ -100,70 +111,68 @@ func downloadFile(url string, destPath string) error {
 	return err
 }
 
-func searchTV(query string, year string) ([]tmdbShow, error) {
-	endpoint := fmt.Sprintf("%s/search/tv?api_key=%s&query=%s", tmdbBaseURL, TmdbAPIKey, url.QueryEscape(query))
+// The api_key rides in the query string, so an error carrying the URL leaks it.
+func redactQuery(err error) error {
+	urlErr, ok := errors.AsType[*url.Error](err)
+	if !ok {
+		return err
+	}
+	safe := urlErr.URL
+	if parsed, parseErr := url.Parse(urlErr.URL); parseErr == nil {
+		parsed.RawQuery = ""
+		safe = parsed.String()
+	}
+	return fmt.Errorf("%s %s: %w", urlErr.Op, safe, urlErr.Err)
+}
+
+func tmdbFetch[T any](endpoint string) (*T, error) {
+	resp, err := tmdbClient.Get(endpoint)
+	if err != nil {
+		return nil, redactQuery(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("tmdb returned %s", resp.Status)
+	}
+
+	var result T
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func searchTV(apiKey, query, year string) ([]tmdbShow, error) {
+	endpoint := fmt.Sprintf("%s/search/tv?api_key=%s&query=%s", tmdbBaseURL, url.QueryEscape(apiKey), url.QueryEscape(query))
 	if year != "" {
 		endpoint += fmt.Sprintf("&first_air_date_year=%s", year)
 	}
 
-	resp, err := http.Get(endpoint)
+	result, err := tmdbFetch[tmdbSearchResponse](endpoint)
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result tmdbSearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
 	return result.Results, nil
 }
 
-func getTVDetails(id int) (*tmdbShowDetails, error) {
-	endpoint := fmt.Sprintf("%s/tv/%d?api_key=%s", tmdbBaseURL, id, TmdbAPIKey)
-	resp, err := http.Get(endpoint)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var details tmdbShowDetails
-	if err := json.NewDecoder(resp.Body).Decode(&details); err != nil {
-		return nil, err
-	}
-	return &details, nil
+func getTVDetails(apiKey string, id int) (*tmdbShowDetails, error) {
+	return tmdbFetch[tmdbShowDetails](fmt.Sprintf("%s/tv/%d?api_key=%s", tmdbBaseURL, id, url.QueryEscape(apiKey)))
 }
 
-func searchMovie(query string, year string) ([]tmdbMovie, error) {
-	endpoint := fmt.Sprintf("%s/search/movie?api_key=%s&query=%s", tmdbBaseURL, TmdbAPIKey, url.QueryEscape(query))
+func searchMovie(apiKey, query, year string) ([]tmdbMovie, error) {
+	endpoint := fmt.Sprintf("%s/search/movie?api_key=%s&query=%s", tmdbBaseURL, url.QueryEscape(apiKey), url.QueryEscape(query))
 	if year != "" {
 		endpoint += fmt.Sprintf("&year=%s", year)
 	}
 
-	resp, err := http.Get(endpoint)
+	result, err := tmdbFetch[tmdbMovieSearchResponse](endpoint)
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result tmdbMovieSearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
 	return result.Results, nil
 }
 
-func getMovieDetails(id int) (*tmdbMovieDetails, error) {
-	endpoint := fmt.Sprintf("%s/movie/%d?api_key=%s", tmdbBaseURL, id, TmdbAPIKey)
-	resp, err := http.Get(endpoint)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var details tmdbMovieDetails
-	if err := json.NewDecoder(resp.Body).Decode(&details); err != nil {
-		return nil, err
-	}
-	return &details, nil
+func getMovieDetails(apiKey string, id int) (*tmdbMovieDetails, error) {
+	return tmdbFetch[tmdbMovieDetails](fmt.Sprintf("%s/movie/%d?api_key=%s", tmdbBaseURL, id, url.QueryEscape(apiKey)))
 }

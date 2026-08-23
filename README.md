@@ -4,7 +4,7 @@
 
   <a href="https://github.com/tanq16/raikiri/actions/workflows/release.yaml"><img alt="Build Workflow" src="https://github.com/tanq16/raikiri/actions/workflows/release.yaml/badge.svg"></a>&nbsp;<a href="https://github.com/Tanq16/raikiri/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/tanq16/raikiri"></a>&nbsp;<a href="https://hub.docker.com/r/tanq16/raikiri"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/tanq16/raikiri"></a><br><br>
 
-  <a href="#features">Features</a> &bull; <a href="#screenshots">Screenshots</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#playback">Playback</a> &bull; <a href="#tools">Tools</a> &bull; <a href="#android-app">Android</a>
+  <a href="#features">Features</a> &bull; <a href="#screenshots">Screenshots</a> &bull; <a href="#install">Install</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#android-app">Android</a>
 </div>
 
 A fast, simple, self-hosted, no-nonsense media server. Lightweight alternative to Jellyfin/Plex without complex metadata tagging.
@@ -23,13 +23,14 @@ The aim is to provide an elegant directory listing for images, videos, and audio
 - Image slideshow mode with automatic advancement every 5 seconds
 - Shuffle mode for recursive directory playback (media files only)
 - Queue dialog showing current playlist with ability to reorder items and jump to any item
-- Video history tracking - stores last 50 video paths in browser local storage
+- Server-side play history of the last 100 audio and video items, kept separately for Media and Music, replayable in one click
 - Fullscreen player support for videos and images (toggle with the `F` key in expanded view)
 - Subtitle support for videos with automatic detection of SRT/ASS/SSA/VTT files and embedded tracks
 - Player with support to switch between multiple available subtitle tracks
 - Player with support to switch between multiple available audio tracks (e.g. original vs. dubbed)
 - Hierarchical search that recursively filters the current directory and all subfolders, with results playable directly
 - Ability to upload files to the server at specific paths
+- Multi-select mode to delete files and folders, confirmed against a tree of everything that will be removed
 - Thumbnail generation mode in CLI for movies, shows, and videos (using `ffmpeg` and TMDB API)
 - Automatic cache cleanup that removes old HLS session files older than 3 days
 - Fully self-hosted with local assets and self-contained binary and container
@@ -37,6 +38,9 @@ The aim is to provide an elegant directory listing for images, videos, and audio
 - Companion Android app for music with background playback and media notification support
 
 ## Screenshots
+
+<details>
+<summary>Click to expand</summary>
 
 <div align="center">
 
@@ -48,17 +52,21 @@ The aim is to provide an elegant directory listing for images, videos, and audio
 
 </div>
 
-## Usage
+</details>
 
-Switch between Media and Music modes via interface tabs. Think of it as your own minimal Netflix on the Media tab and your own minimal Spotify on the Music tab.
+## Install
 
-### Docker (for Homelab)
+Raikiri needs `ffmpeg` (which brings `ffprobe`) on PATH for video playback and for the `prepare` subcommand. The container image already carries it. Without it the server still starts, logs a warning, and returns a clear error on video playback; image and audio browsing keep working.
+
+### Docker
+
+The container runs as UID/GID `10001`, so every mounted host directory has to be writable by it.
 
 ```bash
-mkdir $HOME/raikiri # you don't need to create this if you already have media in a specific directory
+mkdir -p $HOME/raikiri $HOME/raikiri-cache && chown -R 10001:10001 $HOME/raikiri $HOME/raikiri-cache
 ```
 ```bash
-docker run --rm -d --name raikiri \
+docker run -d --name raikiri \
   -p 8080:8080 \
   -v $HOME/raikiri:/app/media \
   -v $HOME/music:/app/music \
@@ -66,45 +74,33 @@ docker run --rm -d --name raikiri \
   tanq16/raikiri:latest
 ```
 
-Available at `http://localhost:8080`. Docker Compose example:
+Available at `http://localhost:8080`. The same setup as a compose file:
 
 ```yaml
 services:
   raikiri:
     image: tanq16/raikiri:latest
     container_name: raikiri
+    restart: unless-stopped
+    ports:
+      - 8080:8080
     volumes:
       - /home/tanq/raikiri:/app/media # Change as needed
       - /home/tanq/music:/app/music # Change as needed
       - /home/tanq/raikiri-cache:/app/cache # HLS segment cache
-    ports:
-      - 8080:8080
 ```
 
 ### Binary
 
-Download the latest version from the project releases and run as follows:
+Download the latest release for your platform. Binaries are published for Linux and macOS on both `amd64` and `arm64`.
 
 ```bash
 raikiri serve --media $YOUR_MEDIA_FOLDER --music $YOUR_MUSIC_FOLDER --cache $YOUR_HLS_CACHE_FOLDER
 ```
 
-Flags:
-- `--media`: media directory path (default: `.`)
-- `--music`: music directory path (default: `./music`)
-- `--cache`: HLS cache directory (default: `/tmp`)
-- `--port`: port to listen on (default: `8080`)
-- `--version`: print version information
+### Build from Source
 
-### Local Development
-
-Install with Go 1.25+:
-
-```bash
-go install github.com/tanq16/raikiri@latest
-```
-
-Or build from source:
+Needs Go 1.26+.
 
 ```bash
 git clone https://github.com/tanq16/raikiri.git && \
@@ -112,15 +108,20 @@ cd raikiri && \
 make build
 ```
 
-### Requirements
+## Usage
 
-Requires `ffmpeg` (includes `ffprobe`) in PATH for video playback (HLS transmuxing; transcodes if audio is a mismatch) and thumbnail generation (`prepare` subcommand). The provided Docker image already includes `ffmpeg`.
+Switch between Media and Music modes via interface tabs. Think of it as your own minimal Netflix on the Media tab and your own minimal Spotify on the Music tab.
 
-If `ffmpeg`/`ffprobe` are missing, the server still starts and logs a startup warning; video playback then returns a clear error instead of failing silently (image and audio browsing continue to work).
+Flags for `serve`:
+- `--media`: media directory path (default: `.`)
+- `--music`: music directory path (default: `./music`)
+- `--cache`: HLS cache directory (default: `/tmp`)
+- `--port`: port to listen on (default: `8080`)
+- `--version`: print version information
 
 ### Cache
 
-The cache directory stores temporary HLS segments generated during video playback. Auto-cleanup runs daily at 3 AM, removing sessions older than 3 days.
+The cache directory stores temporary HLS segments generated during video playback, plus the play history in `history.json`. Auto-cleanup runs daily at 3 AM, removing HLS sessions older than 3 days; it never touches `history.json`.
 
 Storing cache on an SSD yields faster performance (or instant seeks anywhere in the video). However, an HDD is recommended for longevity (lots of segment writes), even though it's not instant when seeking far ahead right after launching the video.
 
@@ -138,8 +139,10 @@ The queue dialog highlights the active item; click any item to jump, or use the 
 
 ### History
 
-- Click the Raikiri logo to open a history modal with the last 50 videos (not audio/images) played
-- History is stored in browser localStorage and shows the full file path, most recent first
+- The History button in the header opens the last 100 items played in the current tab; Media and Music keep separate lists
+- Audio and video are recorded, newest first, deduplicated by path (images are not recorded)
+- Clicking a row plays that file immediately
+- History lives server-side at `<cache>/history.json`, so every browser hitting the server sees the same list. With the default `-c /tmp` it is wiped on reboot; point `-c` at a durable directory to keep it
 
 ### Video Playback
 
