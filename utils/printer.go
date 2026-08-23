@@ -179,4 +179,3 @@ func PrintProgress(label string, percent int) {
 	bar := strings.Repeat("⣿", filled) + strings.Repeat("⣀", empty)
 	fmt.Println(infoStyle.Render(fmt.Sprintf("  ↻ %s: %s %d%%", label, bar, percent)))
 }
-

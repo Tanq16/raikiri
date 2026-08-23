@@ -52,7 +52,6 @@ assets: ## Download static assets
 	@curl -sfL "https://cdn.jsdelivr.net/npm/hls.js@$(HLS_VERSION)/dist/hls.min.js" -o "$(JS_DIR)/hls.min.js"
 	@$(MAKE) --no-print-directory font FAMILY="Inter" SLUG=inter WEIGHTS="400;500;600;700"
 	@$(MAKE) --no-print-directory font FAMILY="Google+Sans" SLUG=google-sans WEIGHTS="400;500;700"
-	@$(MAKE) --no-print-directory font FAMILY="JetBrains+Mono" SLUG=jetbrains-mono WEIGHTS="400;700"
 	@echo "$(GREEN)Assets downloaded$(NC)"
 
 # One Google Fonts family: fetch the stylesheet, pull every woff2 it names, and
@@ -73,7 +72,6 @@ verify-assets: ## Verify required assets exist
 	@test -f $(JS_DIR)/hls.min.js || (echo "$(YELLOW)hls.min.js missing. Run 'make assets'$(NC)" && exit 1)
 	@test -f $(CSS_DIR)/inter.css || (echo "$(YELLOW)inter.css missing. Run 'make assets'$(NC)" && exit 1)
 	@test -f $(CSS_DIR)/google-sans.css || (echo "$(YELLOW)google-sans.css missing. Run 'make assets'$(NC)" && exit 1)
-	@test -f $(CSS_DIR)/jetbrains-mono.css || (echo "$(YELLOW)jetbrains-mono.css missing. Run 'make assets'$(NC)" && exit 1)
 	@echo "$(GREEN)Assets verified$(NC)"
 
 clean: ## Remove built artifacts and downloaded assets

@@ -27,11 +27,11 @@ type Config struct {
 }
 
 type Server struct {
-	config       Config
-	mux          *http.ServeMux
-	activeStreams map[string]*exec.Cmd
-	streamMutex  sync.Mutex
-	historyMutex sync.Mutex
+	config          Config
+	mux             *http.ServeMux
+	activeStreams   map[string]*exec.Cmd
+	streamMutex     sync.Mutex
+	historyMutex    sync.Mutex
 	ffmpegAvailable bool
 }
 
@@ -39,9 +39,9 @@ func New(cfg Config) *Server {
 	_, ffmpegErr := exec.LookPath("ffmpeg")
 	_, ffprobeErr := exec.LookPath("ffprobe")
 	return &Server{
-		config:       cfg,
-		mux:          http.NewServeMux(),
-		activeStreams: make(map[string]*exec.Cmd),
+		config:          cfg,
+		mux:             http.NewServeMux(),
+		activeStreams:   make(map[string]*exec.Cmd),
 		ffmpegAvailable: ffmpegErr == nil && ffprobeErr == nil,
 	}
 }
