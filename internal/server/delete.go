@@ -42,8 +42,7 @@ func (s *Server) resolveDeleteTarget(mode, rel string) (string, error) {
 	return full, nil
 }
 
-// A bare .thumbnail.jpg is folder-wide art shared by every track in it, so it
-// only goes when the folder itself does.
+// A bare .thumbnail.jpg is folder-wide art, so it only goes when the folder does.
 func (s *Server) sidecarThumbnail(mode, rel string) string {
 	name := path.Base(rel)
 	thumbRel := media.GetThumbnailPath(path.Dir(rel), name, media.GetFileType(name, false), mode)

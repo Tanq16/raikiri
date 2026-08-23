@@ -1,25 +1,20 @@
-# Build stage
 FROM golang:1.26.7-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies
 RUN apk add --no-cache git curl make
 
-# Copy go mod files
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
 COPY . .
 
 ARG VERSION=dev-build
 
-# Download assets and build
+# make assets populates the tree that //go:embed static needs at compile time.
 RUN make assets && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X 'github.com/tanq16/raikiri/cmd.AppVersion=${VERSION}'" -o raikiri .
 
-# Runtime stage
 FROM alpine:3.24.1
 
 RUN apk add --no-cache ca-certificates tzdata ffmpeg && \

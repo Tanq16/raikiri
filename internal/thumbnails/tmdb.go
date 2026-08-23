@@ -21,8 +21,7 @@ const imageBaseURL = "https://image.tmdb.org/t/p/w500"
 var tmdbClient = &http.Client{
 	Timeout: 30 * time.Second,
 	Transport: &http.Transport{
-		// A custom Transport replaces DefaultTransport wholesale, so proxy
-		// support has to be restored rather than inherited.
+		// A custom Transport replaces DefaultTransport, so proxy support is not inherited.
 		Proxy:               http.ProxyFromEnvironment,
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 10,
@@ -112,8 +111,7 @@ func downloadFile(url string, destPath string) error {
 	return err
 }
 
-// The api_key travels as a query parameter, so an error carrying the request URL
-// would print it wherever it is rendered, including the --debug log.
+// The api_key rides in the query string, so an error carrying the URL leaks it.
 func redactQuery(err error) error {
 	urlErr, ok := errors.AsType[*url.Error](err)
 	if !ok {

@@ -1,3 +1,2 @@
-// Exists only to make the app installable; Chrome grants installed PWAs the
-// elevated audio privileges this player needs. It caches nothing.
+// Chrome grants installed PWAs the elevated audio privileges this player needs.
 self.addEventListener('fetch', () => {});

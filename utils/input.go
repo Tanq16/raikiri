@@ -248,8 +248,7 @@ func (m selectModel) View() tea.View {
 	return tea.NewView(b.String())
 }
 
-// An empty line is a cancel; anything else that does not name an option is a
-// mistake the caller has to see, since silently cancelling looks identical.
+// An empty line is a cancel; a malformed one is a mistake the caller has to see.
 func parseSelectIndex(line string, n int) (int, error) {
 	line = strings.TrimSpace(line)
 	if line == "" {

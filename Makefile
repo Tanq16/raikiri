@@ -22,8 +22,7 @@ JS_DIR := $(STATIC_DIR)/js
 CSS_DIR := $(STATIC_DIR)/css
 FONTS_DIR := $(STATIC_DIR)/fonts
 
-# Google Fonts serves woff2 only to a browser-shaped User-Agent; an unrecognized
-# one gets ttf, which is roughly twice the bytes.
+# Google Fonts serves woff2 to a browser-shaped User-Agent and ttf, twice the bytes, to anything else.
 UA := Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
 
 # Console colors
@@ -54,8 +53,7 @@ assets: ## Download static assets
 	@$(MAKE) --no-print-directory font FAMILY="Google+Sans" SLUG=google-sans WEIGHTS="400;500;700"
 	@echo "$(GREEN)Assets downloaded$(NC)"
 
-# One Google Fonts family: fetch the stylesheet, pull every woff2 it names, and
-# repoint the URLs at the local copies so nothing is fetched at run time.
+# URLs are repointed at the local copies so nothing is fetched at run time.
 font:
 	@curl -sfL -H "User-Agent: $(UA)" \
 	  "https://fonts.googleapis.com/css2?family=$(FAMILY):wght@$(WEIGHTS)&display=swap" \

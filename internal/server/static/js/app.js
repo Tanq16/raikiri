@@ -34,8 +34,7 @@ const App = {
         const mode = parts[0];
         const path = '/' + parts.slice(1).join('/');
 
-        // Selected paths are relative to a mode's root. Compared against the last
-        // render because state.mode is already updated when a tab click lands here.
+        // state.mode already holds the new value here, so the switch only shows up against the last render.
         if (mode !== this._renderedMode) this.clearSelection();
         this._renderedMode = mode;
 
@@ -122,7 +121,6 @@ const App = {
         state.setMode(mode);
     },
     
-    // Keeps the active search results visible instead of falling back to the directory listing
     rerender() {
         if (this._searchResults !== null) {
             UI.render(this._searchResults, { showPath: true });

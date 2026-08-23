@@ -94,8 +94,7 @@ func (s *Server) HandleHistory(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
-		// Browse listings send "/a/b" and search results send "a/b" for the same
-		// file, so dedup only holds once the two agree.
+		// Browse listings send "/a/b" and search sends "a/b", so dedup needs one form.
 		req.Path = strings.TrimPrefix(req.Path, "/")
 		if req.Name == "" || req.Path == "" {
 			http.Error(w, "Missing name or path", http.StatusBadRequest)
