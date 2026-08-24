@@ -17,18 +17,14 @@ RUN make assets && \
 
 FROM alpine:3.24.1
 
-RUN apk add --no-cache ca-certificates tzdata ffmpeg && \
-    addgroup -g 10001 -S app && \
-    adduser -u 10001 -S -G app app
+RUN apk add --no-cache ca-certificates tzdata ffmpeg
 
 WORKDIR /app
 
-COPY --from=builder --chown=10001:10001 /app/raikiri .
+COPY --from=builder /app/raikiri .
 
-RUN mkdir -p /app/media /app/music /app/cache && chown 10001:10001 /app/media /app/music /app/cache
-VOLUME ["/app/media", "/app/music", "/app/cache"]
+RUN mkdir -p /app/media /app/music /app/cache
 
-USER 10001:10001
 EXPOSE 8080
 ENTRYPOINT ["./raikiri"]
 CMD ["serve", "--media", "/app/media", "--music", "/app/music", "--cache", "/app/cache"]

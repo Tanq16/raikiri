@@ -88,6 +88,9 @@ func (s *Server) Run(ctx context.Context) error {
 	if err := os.MkdirAll(s.config.CachePath, 0755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
+	if err := ensureWritable(s.config.CachePath); err != nil {
+		return fmt.Errorf("cache directory %s is not writable: %w", s.config.CachePath, err)
+	}
 
 	go s.cleanupOldCacheSessions(ctx)
 
@@ -108,6 +111,16 @@ func (s *Server) Run(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// MkdirAll returns nil for an existing directory whatever its mode, so only a real write proves this.
+func ensureWritable(dir string) error {
+	f, err := os.CreateTemp(dir, ".raikiri-write-check-*")
+	if err != nil {
+		return err
+	}
+	f.Close()
+	return os.Remove(f.Name())
 }
 
 func (s *Server) getRoot(mode string) string {
