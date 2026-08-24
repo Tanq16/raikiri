@@ -60,10 +60,8 @@ Raikiri needs `ffmpeg` (which brings `ffprobe`) on PATH for video playback and f
 
 ### Docker
 
-The container runs as UID/GID `10001`, so every mounted host directory has to be writable by it.
-
 ```bash
-mkdir -p $HOME/raikiri $HOME/raikiri-cache && chown -R 10001:10001 $HOME/raikiri $HOME/raikiri-cache
+mkdir -p $HOME/raikiri $HOME/raikiri-cache
 ```
 ```bash
 docker run -d --name raikiri \
@@ -89,6 +87,8 @@ services:
       - /home/tanq/music:/app/music # Change as needed
       - /home/tanq/raikiri-cache:/app/cache # HLS segment cache
 ```
+
+The container runs as root by default. To run it as someone else, add `--user "$(id -u):$(id -g)"` to the run command or `user: "1000:1000"` to the compose service, and make sure that UID can write the cache directory. The server refuses to start when it cannot.
 
 ### Binary
 
